@@ -1,0 +1,310 @@
+"""
+[physics.py]
+Controls the physics of the game, such as gravity and collisions.
+Basic systems, not too complex for performance and ease-of-use reasons.
+
+______________________
+Importing other files;
+-render.py
+-physics.py
+-texture_load.py
+-load_scene.py
+-log.py
+-utils.py
+"""
+import sys, copy
+import math as maths
+from exct import log, utils, render
+from scenes import scene
+from exct.utils import *
+
+
+sys.path.append("modules.zip")
+import pygame as PG
+from pygame.locals import *
+from pygame import *
+import numpy as NP
+
+print("Imported Sub-file // physics.py")
+
+FIND_VECTOR = utils.FIND_VECTOR
+PREFERENCES, CONSTANTS = utils.GET_CONFIGS()
+CONTROL_SPEED = CONSTANTS["PLAYER_SPEED_MOVE"]
+e = maths.e
+π = maths.pi
+πDIV2 = π / 2
+
+
+#@profile #For the memory-profiler I used in testing.
+def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
+	#Updates the physics of the system once per frame.
+	KINETICs_LIST, STATICs_LIST = PHYS_DATA
+
+	for PHYS_OBJECT_ID in KINETICs_LIST:
+		DISPLACEMENT_VECTOR = VECTOR_3D(0, 0, 0)
+		COLLIDING, TOUCHING = False, False
+		PHYS_OBJECT = KINETICs_LIST[PHYS_OBJECT_ID]
+		OBJECT_BOUNDING_BOX = PHYS_OBJECT.BOUNDING_BOX
+		OBJECT_TYPE = type(PHYS_OBJECT)
+		VELOCITY_u = PHYS_OBJECT.LATERAL_VELOCITY
+			
+		if OBJECT_TYPE == PLAYER:
+			PHYS_OBJECT.POSITION = PLAYER_MOVEMENT(KEY_STATES, PHYS_OBJECT)
+
+			PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(CONSTANTS["PLAYER_COLLISION_CUBOID"], PHYS_OBJECT.POSITION)
+			
+			HEIGHT_CHANGE = VECTOR_3D(0.0, 0.75, 0.0)
+			BLANK_VECTOR = VECTOR_3D(0.0, 0.0, 0.0)
+
+			if KEY_STATES[PG.K_LCTRL]:
+				KEY_STATES["CROUCH"] = True
+				PHYS_OBJECT.POINTS += [
+						PHYS_OBJECT.POINTS[0],
+						PHYS_OBJECT.POINTS[1],
+						PHYS_OBJECT.POINTS[2],
+						PHYS_OBJECT.POINTS[3],
+						PHYS_OBJECT.POINTS[4] - HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[5] - HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[6] - HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[7] - HEIGHT_CHANGE
+					]
+
+			elif not KEY_STATES[PG.K_LCTRL] and KEY_STATES["CROUCH"]:
+				KEY_STATES["CROUCH"] = False
+				PHYS_OBJECT.POINTS = [
+						PHYS_OBJECT.POINTS[0],
+						PHYS_OBJECT.POINTS[1],
+						PHYS_OBJECT.POINTS[2],
+						PHYS_OBJECT.POINTS[3],
+						PHYS_OBJECT.POINTS[4] + HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[5] + HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[6] + HEIGHT_CHANGE,
+						PHYS_OBJECT.POINTS[7] + HEIGHT_CHANGE
+					]
+
+
+		#Collisions between phys-body and environment
+		for STATIC_ID, STATIC in STATICs_LIST[0].items(): #Check the statics (environmental objects) with collision only.
+			if BOUNDING_BOX_COLLISION(OBJECT_BOUNDING_BOX, STATIC.BOUNDING_BOX):
+				COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, STATIC)
+				if COLLISION_DATA[2]:
+					TOUCHING = True
+
+				if COLLISION_DATA[0]:
+					COLLIDING = True
+					DISPLACEMENT_VECTOR += COLLISION_DATA[1] * 0.975
+
+		"""
+		#Collisions between physics-bodies (not itself, hence the comparing of IDs)
+		for BODY_ID, BODY in KINETICs_LIST.items():
+			if BODY_ID != PHYS_OBJECT_ID:
+				if COLLISION_2D(BOUNDS_POINTS, BODY[0]):
+					COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT_INFORMATION, STATIC[1])
+					if COLLISION_DATA[2]:
+						TOUCHING = True
+
+					if COLLISION_DATA[0]:
+						COLLIDING = True
+
+					DISPLACEMENT_VECTOR += COLLISION_DATA[1]
+		"""
+
+		if TOUCHING:
+			VELOCITY_u *= CONSTANTS["MULT_FRICTION"]
+
+
+		if PHYS_OBJECT.POSITION.Y <= -256:
+			PHYS_OBJECT.POSITION = VECTOR_3D(0, 0, 0)
+			PHYS_OBJECT.LATERAL_VELOCITY = VECTOR_3D(0, 0, 0)
+
+		elif COLLIDING:
+			if OBJECT_TYPE == PLAYER:
+				KEY_STATES["JUMP_GRACE"] = 0
+			PHYS_OBJECT.POSITION += DISPLACEMENT_VECTOR
+			PHYS_OBJECT.LATERAL_VELOCITY = VECTOR_3D(0, 0, 0)
+
+		else:
+			if KEY_STATES["JUMP_GRACE"] <= 10:
+				KEY_STATES["JUMP_GRACE"] += 1
+			try:
+				GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/FPS, CONSTANTS["PLAYER_MASS"])
+			except ZeroDivisionError:
+				GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/PREFERENCES["FPS_LIMIT"], 10)
+
+			OBJECT_ACCELERATION = VECTOR_3D(0, GRAVITY_ACCEL, 0)
+			PHYS_OBJECT.LATERAL_VELOCITY = (VELOCITY_u + OBJECT_ACCELERATION)
+			PHYS_OBJECT.POSITION += PHYS_OBJECT.LATERAL_VELOCITY
+
+		if (KEY_STATES[PG.K_SPACE]) and (OBJECT_TYPE == PLAYER) and (KEY_STATES["JUMP_GRACE"] <= 10):
+			KEY_STATES[PG.K_SPACE] = False
+			PHYS_OBJECT.LATERAL_VELOCITY.Y = CONSTANTS["JUMP_VELOCITY"]
+			PHYS_OBJECT.POSITION += (PHYS_OBJECT.LATERAL_VELOCITY * CONSTANTS["MULT_AIR_RES"])
+
+		
+		PHYS_OBJECT.BOUNDING_BOX = BOUNDING_BOX(PHYS_OBJECT.POSITION, PHYS_OBJECT.POINTS)
+
+		
+		KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
+
+
+	PHYS_DATA = (KINETICs_LIST, STATICs_LIST)
+	return PHYS_DATA
+	
+	#except Exception as E:
+		#log.ERROR("physics.UPDATE_PHYSICS", E)
+
+
+def AIR_RES_CALC(VELOCITY_VECTOR): #Causes extreme slowdowns? also causes issues when velocity is near 0. Temporarily replaced by a flat x0.975 multiplier, via Prefs.
+	PROCESSED_VELOCITY = []
+	for COMPONENT in VELOCITY_VECTOR:
+		if COMPONENT >= 0:
+			PROCESSED_VELOCITY.append((COMPONENT / 0.0000154) ** (0.3333333))
+		
+		else:
+			PROCESSED_VELOCITY.append(-1*(abs(COMPONENT) / 0.0000154) ** (0.3333333))
+	
+	return PROCESSED_VELOCITY
+
+
+def BOUNDING_BOX_COLLISION(BOX_A, BOX_B):
+	if ((BOX_A.MIN_X > BOX_B.MAX_X) or (BOX_A.MAX_X < BOX_B.MIN_X)
+	  or (BOX_A.MIN_Y > BOX_B.MAX_Y) or (BOX_A.MAX_Y < BOX_B.MIN_Y)
+	   or (BOX_A.MIN_Z > BOX_B.MAX_Z) or (BOX_A.MAX_Z < BOX_B.MIN_Z)):
+		return False
+	return True
+
+
+
+def ACCELERATION_CALC(FORCE, MASS):
+	"""
+	F = ma
+	Therefore a = F/m
+	If Mass == 0 or Force == 0, then it will raise a zero-div-error.
+	I account for this via presuming a "safe" return value is 0us^-2.
+	"""
+	if MASS <= 0:
+				raise ValueError(f"Mass cannot be <= 0; {MASS}")
+	try:
+		return FORCE/MASS
+
+	except ZeroDivisionError:
+		return 0
+
+
+
+def COLLISION_CHECK(PHYS_BODY, OBJECT):
+	COLLIDING, TOUCHING = False, False
+	APPLIED_VECTOR, PEN_DEPTH = VECTOR_3D(0, 0, 0), float("inf")
+	OBJECT_TYPE = type(OBJECT)
+	
+	if OBJECT_TYPE in (CUBE_STATIC, CUBE_PHYSICS):
+		CLOSEST_TRIs = utils.FIND_CLOSEST_CUBE_TRIS(OBJECT.POINTS, PHYS_BODY.POINTS, OBJECT.NORMALS)
+
+		for INDEX, FACE in enumerate(CLOSEST_TRIs):
+			NORMAL = FACE[1]
+			for ID, HALF_FACE in enumerate(FACE[0]):
+				FACE_COLLISION = CUBOID_TRI_COLLISION_DTEC(PHYS_BODY.POINTS, HALF_FACE, NORMAL)
+				PEN_DEPTH = min(FACE_COLLISION[1], PEN_DEPTH)
+				
+				if FACE_COLLISION[0]:
+					#print(f"colliding with face of index {(2*INDEX)+ID} and normal {NORMAL}")
+					COLLIDING = True
+					APPLIED_VECTOR += PEN_DEPTH * NORMAL
+
+				if FACE_COLLISION[2]:
+					TOUCHING = True
+
+		return (COLLIDING, APPLIED_VECTOR, TOUCHING)
+
+
+	elif OBJECT_TYPE == QUAD:
+		QUAD_POINTS = OBJECT.POINTS
+		TRI_LIST = (
+				[QUAD_POINTS[0], QUAD_POINTS[1], QUAD_POINTS[2]],
+				[QUAD_POINTS[0], QUAD_POINTS[3], QUAD_POINTS[2]]
+			)
+
+		for INDEX, TRIANGLE in enumerate(TRI_LIST):
+			QUAD_COLLISION = CUBOID_TRI_COLLISION_DTEC(PHYS_BODY.POINTS, TRIANGLE, OBJECT.NORMALS[INDEX])
+			PEN_DEPTH = min(QUAD_COLLISION[1], PEN_DEPTH)
+			
+			if QUAD_COLLISION[0]:
+				APPLIED_VECTOR += PEN_DEPTH * (OBJECT.NORMALS[INDEX]) 
+			
+
+		return (QUAD_COLLISION[0], APPLIED_VECTOR, QUAD_COLLISION[2])
+	
+
+	elif OBJECT_TYPE == TRI:
+		TRI_COLLISION = CUBOID_TRI_COLLISION_DTEC(PHYS_BODY.POINTS, OBJECT.POINTS, OBJECT.NORMALS[0])
+		
+		if TRI_COLLISION[0]:
+			APPLIED_VECTOR = TRI_COLLISION[1] * (OBJECT.NORMALS[0]) #Only 1 normal is present, but I still use NORMAL(s) naming to be consistent.
+			return (TRI_COLLISION[0], APPLIED_VECTOR, TRI_COLLISION[2])
+
+	return (False, APPLIED_VECTOR, False)
+
+
+
+def CUBOID_TRI_COLLISION_DTEC(CUBOID, TRI, TRI_NORMAL):
+	SEPARATING_AXIS = [
+		(CUBOID[1] - CUBOID[0]).NORMALISE(),
+		(CUBOID[2] - CUBOID[0]).NORMALISE(),
+		(CUBOID[4] - CUBOID[0]).NORMALISE(),
+	
+		(TRI[0] - TRI[1]).NORMALISE(),
+		(TRI[0] - TRI[2]).NORMALISE(),
+		TRI_NORMAL
+	]
+
+	MIN_PEN_DEPTH = float('inf')
+	COLLISION = False
+
+	for CURRENT_AXIS in SEPARATING_AXIS:
+		CUBOID_MIN_MAX = CURRENT_AXIS.PROJECT(CUBOID)
+		TRI_MIN_MAX = CURRENT_AXIS.PROJECT(TRI)
+
+		if CUBOID_MIN_MAX[1] < TRI_MIN_MAX[0] or CUBOID_MIN_MAX[0] > TRI_MIN_MAX[1]:
+			return [False, 0, False]
+		
+		# Calculate penetration depth for the current axis
+		PEN_DEPTH = min(abs(CUBOID_MIN_MAX[1] - TRI_MIN_MAX[0]), abs(TRI_MIN_MAX[1] - CUBOID_MIN_MAX[0]))
+		MIN_PEN_DEPTH = min(MIN_PEN_DEPTH, PEN_DEPTH)
+		COLLISION = True
+
+	PEN_DEPTH = round(MIN_PEN_DEPTH - 0.01, 8)
+	TOUCHING = abs(PEN_DEPTH) <= 0.001
+
+	return [COLLISION, PEN_DEPTH, TOUCHING]
+
+def PLAYER_MOVEMENT(KEY_STATES, PLAYER):
+	FINAL_MOVE_SPEED = CONSTANTS["PLAYER_SPEED_MOVE"]
+	if KEY_STATES[PG.K_LCTRL]:
+		FINAL_MOVE_SPEED *= CONSTANTS["MULT_CROUCH"]
+	if KEY_STATES[PG.K_LSHIFT]:
+		FINAL_MOVE_SPEED *= CONSTANTS["MULT_RUN"]
+
+	X_RADIANS = maths.radians(PLAYER.ROTATION.X)
+
+	FORWARD = VECTOR_3D(
+		-maths.cos(X_RADIANS),
+		0,
+		-maths.sin(X_RADIANS)
+	)
+	
+	LEFT = VECTOR_3D(
+		maths.sin(X_RADIANS),
+		0,
+		-maths.cos(X_RADIANS)
+	)
+
+	if KEY_STATES[PG.K_w]:
+		PLAYER.POSITION += FORWARD * FINAL_MOVE_SPEED
+	if KEY_STATES[PG.K_s]:
+		PLAYER.POSITION -= FORWARD * FINAL_MOVE_SPEED
+	if KEY_STATES[PG.K_a]:
+		PLAYER.POSITION += LEFT * (-1 * FINAL_MOVE_SPEED)
+	if KEY_STATES[PG.K_d]:
+		PLAYER.POSITION -= LEFT * (-1 * FINAL_MOVE_SPEED)
+
+	return PLAYER.POSITION

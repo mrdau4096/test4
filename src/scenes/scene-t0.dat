@@ -1,0 +1,67 @@
+/Hello, brave file explorer!
+/I have added this mini-tutorial of each object's formatting and required data to this file below.
+/Usually these files follow the format "scene-__.dat", such as here where ___ has been filled with "t0"
+/Feel free to manually edit the files following the format, but I have a specific scene-editing tool you can request to make it easier.
+/Happy creating!
+
+
+/Scene data example (/ in character 0 marks a comment, Blank lines ignored.)
+/The formats for each datatype;
+/' | ' seperates sections of the data, such as object type (first hex digit) and coordinates etc.
+/Vectors, dimentions and coordinates must be in the format 'X, Y, Z'
+/All textures are hex-IDs, seperated by a single forward-slash '/'
+/Boolean Values are represented by T(rue) & F(alse), seperated by '.'
+/Lists are seperated by ':', and every item is taken as a string.
+/Integers, floats, strings and hex values are simply as they appear.
+
+/Types of object (Usable in file);
+/0, SCENE, scene-wide data, Sounds & skybox // Void-colour, sound file to play ambiently.
+/1, PLAYER, player data & items // Start position, direction, list of item names.
+/2, CUBE_STATIC // Centre location, Dimensions, bottom/side/top textures.
+/3, QUAD // TL coordinate, BL coordinate, BR coordinate, TR coordinate, texture.
+/4, TRI // TL coordinate, BL coordinate, BR coordinate, Collide-able, texture.
+/5, SPRITE_STATIC, decoration // Centre location, texture.
+/6, ITEM, gives something and disappears // Centre location, "what to give" (health, ammo), "how much" (amount), texture.
+/7, TRIGGER, Do "thing" when player touches (01 is prev. scene, 02 is next scene, etc.) // Centre location, Dimensions, Trigger-flag, bottom/side/top textures.
+/8, INTERACTABLE, Like a button for player to use // TL coordinate, BL coordinate, BR coordinate, TR coordinate, Trigger-flag, texture.
+/9, CUBE_PATH, Moving boxes for doors or similar // Position, Dimentions, Movement vector, bottom/side/top textures.
+/A, ENEMY, fights back // Start location, Facing direction, type.
+/B, CUBE_PHYSICS, Such as a box // Position, Dimentions, bottom/side/top textures.
+/C, LIGHT, Creates light at a point with intensity and colour. Can be toggled with the flag. // Location, Look-at position, Colour, Intensity, FOV, Max-distance, Toggle-flag.
+/D, NPC_PATH_NODE, Used for Enemy pathfinding with Dijkstra. // Location, Hex-ID, Connections (To other Hex-IDs).
+
+/Types of object (Unusable in file);
+/{16}, PROJECTILE, Not supported in file, only used by player/hostiles // NO_FILE_DATA.
+/{17}, EXPLOSION, Has a bounding box, and anything within is pushed away and "hurt" if possible // NO_FILE_DATA.
+/.. more.
+
+
+
+/You must declare the texture sheet the level is to use in the file currently.
+/This will change in future, to instead have 3+ digit textures corresponding to sheet, and then X/Y position.
+/Texture sheet to use;
+> 2
+
+/Every scene MUST have the PLAYER object, as seen below.
+/SCENE object is optional, but controls any scene-wide changes you'd like, such as;
+/- Void colour
+/- Ambient sound to play
+/Setting up scene data;
+/0 | 2560, 2560, 2560 | 0, 0, 0 | 06/05/04
+1 | 0, 0, 0 | 0, 0, 0 | weapon_1:weapon_2:weapon_3
+
+
+/The real "meat and potatoes" of the file.
+/Holds all of the quads, tris, interactables, enemies, etc for the scene to place about as specified.
+/This section may get rather long; Feel free to split it up into smaller sections as I have here.
+/I do not reccomend trying to edit large scenes by hand this way, I expect it would get rather tedious after some time.
+/Actual scene contents;
+3 | 10, -1, -10 | -10, -1, -10 | -10, -1, 10 | 10, -1, 10 | T | 02
+2 | 2, 1, 1 | 1, 1, 1 | T | 01/01/01
+3 | 1, -1, 0 | -3.2, 1, 0 | -3.2, 1, 3.2 | 1, -1, 3.2 | T | 03
+3 | -5, 3, -5 | -5, 2, -2.5 | -2.5, 2, -2.5 | -2.5, 3, -5 | T | 01
+3 | -5, 0, -5 | -5, 0, -2.5 | -2.5, 0, -2.5 | -2.5, 0, -5 | T | 02
+/4 | 6, 0, -4 | 5, 0, -5 | 5.5, 1, -4.5 | F | 07
+3 | 10, -1, 10 | 9, -1, 10 | 9, 100, 10000 | 10, 100, 10000 | T | 07
+C | 10, 10, 0 | 0, 0, 0 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 90.0 | 25.0 | testung
+5 | 4, 5, 2 | 1, 1, 1 | F | 02

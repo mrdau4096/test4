@@ -1,0 +1,38 @@
+/Constants are stored here - intended NOT to be modified by the player.
+/Formatting must be preserved.
+/All values here apply program-wide.
+
+
+
+/Display;
+DISPLAY_RESOLUTION = v2: 640, 360
+RENDER_SCALING_FACTOR = 1.5
+/RENDER_SCALING_FACTOR = 1
+
+/Rendering;
+MIN_VIEW_DIST = 0.01
+MAX_VIEW_DIST = 256
+FACE_CULLING = False
+VOID_COLOUR = rgba: 0.0, 0.0, 0.0, 1.0
+SHADOW_MAP_RESOLUTION = v2: 3840, 2160
+/SHADOW_MAP_RESOLUTION = v2: 32768, 32768
+/^^^ Theoretical maximum size for a shadow map, ~2^15px
+
+
+/Physics;
+PLAYER_SPEED_MOVE = 0.05
+JUMP_VELOCITY = 0.2
+MULT_RUN = 2.5
+MULT_CROUCH = 0.5
+PLAYER_MASS = 10
+ACCEL_GRAV = -5.605
+/ACCEL_GRAV = 0
+MULT_FRICTION = 0.75
+MULT_AIR_RES = 0.975
+PLAYER_COLLISION_CUBOID = v3: 0.35, 1.25, 0.35
+SPRITE_DIMENTIONS = v2: 2.0, 2.0
+SPRITE_COLLISION_CUBOID = v3: 2.0, 2.0, 2.0
+
+
+/GameLogic;
+PLAYER_MAX_HEALTH = 100
