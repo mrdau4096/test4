@@ -194,71 +194,71 @@ def CALC_VIEW_MATRIX(CAMERA_POSITION, CAMERA_ROTATION):
 
 
 def FBO_QUAD_INIT(RENDER_RES):
-    QUAD_VERTICES = NP.array([
-        -1.0,  1.0,  0.0,    0.01, 0.99,
-        -1.0, -1.0,  0.0,    0.01, 0.01,
-         1.0, -1.0,  0.0,    0.99, 0.01,
-         1.0,  1.0,  0.0,    0.99, 0.99
-    ], dtype=NP.float32)
-    
-    UI_VERTICES = NP.array([
-        -1.0,  1.0,  -0.0001,    0, 1,
-        -1.0, -1.0,  -0.0001,    0, 0,
-         1.0, -1.0,  -0.0001,    1, 0,
-         1.0,  1.0,  -0.0001,    1, 1
-    ], dtype=NP.float32)
+	QUAD_VERTICES = NP.array([
+		-1.0,  1.0,  0.0,	0.01, 0.99,
+		-1.0, -1.0,  0.0,	0.01, 0.01,
+		 1.0, -1.0,  0.0,	0.99, 0.01,
+		 1.0,  1.0,  0.0,	0.99, 0.99
+	], dtype=NP.float32)
+	
+	UI_VERTICES = NP.array([
+		-1.0,  1.0,  -0.0001,	0, 1,
+		-1.0, -1.0,  -0.0001,	0, 0,
+		 1.0, -1.0,  -0.0001,	1, 0,
+		 1.0,  1.0,  -0.0001,	1, 1
+	], dtype=NP.float32)
 
-    INDICES = NP.array([
-        0, 1, 2,
-        2, 3, 0
-    ], dtype=NP.uint32)
+	INDICES = NP.array([
+		0, 1, 2,
+		2, 3, 0
+	], dtype=NP.uint32)
 
-    #Set up the scene quad VAO, VBO, and EBO
-    VAO_QUAD = glGenVertexArrays(1)
-    VBO_QUAD = glGenBuffers(1)
-    EBO_QUAD = glGenBuffers(1)
+	#Set up the scene quad VAO, VBO, and EBO
+	VAO_QUAD = glGenVertexArrays(1)
+	VBO_QUAD = glGenBuffers(1)
+	EBO_QUAD = glGenBuffers(1)
 
-    glBindVertexArray(VAO_QUAD)
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_QUAD)
-    glBufferData(GL_ARRAY_BUFFER, QUAD_VERTICES.nbytes, QUAD_VERTICES, GL_STATIC_DRAW)
+	glBindVertexArray(VAO_QUAD)
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_QUAD)
+	glBufferData(GL_ARRAY_BUFFER, QUAD_VERTICES.nbytes, QUAD_VERTICES, GL_STATIC_DRAW)
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_QUAD)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_STATIC_DRAW)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_QUAD)
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_STATIC_DRAW)
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
-    glEnableVertexAttribArray(0)
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
-    glEnableVertexAttribArray(1)
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
+	glEnableVertexAttribArray(0)
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
+	glEnableVertexAttribArray(1)
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0)
-    glBindVertexArray(0)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+	glBindBuffer(GL_ARRAY_BUFFER, 0)
+	glBindVertexArray(0)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
-    #Set up the UI quad VAO, VBO, and EBO
-    VAO_UI = glGenVertexArrays(1)
-    VBO_UI = glGenBuffers(1)
-    EBO_UI = glGenBuffers(1)
+	#Set up the UI quad VAO, VBO, and EBO
+	VAO_UI = glGenVertexArrays(1)
+	VBO_UI = glGenBuffers(1)
+	EBO_UI = glGenBuffers(1)
 
-    glBindVertexArray(VAO_UI)
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_UI)
-    glBufferData(GL_ARRAY_BUFFER, UI_VERTICES.nbytes, UI_VERTICES, GL_STATIC_DRAW)
+	glBindVertexArray(VAO_UI)
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_UI)
+	glBufferData(GL_ARRAY_BUFFER, UI_VERTICES.nbytes, UI_VERTICES, GL_STATIC_DRAW)
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_UI)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_STATIC_DRAW)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_UI)
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_STATIC_DRAW)
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
-    glEnableVertexAttribArray(0)
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
-    glEnableVertexAttribArray(1)
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
+	glEnableVertexAttribArray(0)
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
+	glEnableVertexAttribArray(1)
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0)
-    glBindVertexArray(0)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+	glBindBuffer(GL_ARRAY_BUFFER, 0)
+	glBindVertexArray(0)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
-    #Create framebuffer
-    FBO, TCB, DTB = CREATE_FBO(RENDER_RES)
+	#Create framebuffer
+	FBO, TCB, DTB = CREATE_FBO(RENDER_RES)
 
-    return VAO_QUAD, VAO_UI, FBO, TCB
+	return VAO_QUAD, VAO_UI, FBO, TCB
 
 
 
@@ -335,11 +335,20 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	#Creating the FrameBuffer for rendering the shadow depthmap to.
 	SHADOW_FBO = glGenFramebuffers(1)
 	glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
+	
+	TCB = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D, TCB)
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+	glBindTexture(GL_TEXTURE_2D, 0)
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TCB, 0)
 
 	#Creating the shadow depthmap itself.
 	SHADOW_DTB = glGenTextures(1)
 	glBindTexture(GL_TEXTURE_2D, SHADOW_DTB)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), 0, GL_DEPTH_COMPONENT, GL_FLOAT, None)
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
@@ -356,30 +365,49 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
 	
-	return SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB
+	return SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB, TCB
 
 
 
-def RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
-    glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
-    glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
+def RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID, TCB):
+	glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
+	glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
 
-    glUseProgram(SHADOW_SHADER)
+	glUseProgram(SHADOW_SHADER)
 
-    DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
-    TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
-    glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
-    glUniform1i(TEXTURE_LOC, 0)
 
-    glActiveTexture(GL_TEXTURE0)
-    glBindVertexArray(SHADOW_VAO)
-    glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+	#Debug manual image loading with PIL. Please remove.
+	image = Image.open("C:\\Users\\User\\Documents\\GitHub\\test-4.2.3b\\src\\imgs\\sheet-2.png").convert("RGBA")
+	image_data = NP.flipud(NP.array(list(image.getdata()), NP.uint8))
 
-    glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
-    glBindTexture(GL_TEXTURE_2D, 0)
-    glBindVertexArray(0)
-    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+	SHEET_ID = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data)
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+
+
+	DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
+	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
+	glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
+	glUniform1i(TEXTURE_LOC, 0)
+
+	glActiveTexture(GL_TEXTURE0)
+	glBindVertexArray(SHADOW_VAO)
+	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+
+	glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
+	glBindTexture(GL_TEXTURE_2D, 0)
+	glBindVertexArray(0)
+	glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
+	SAVE_COLOURMAP(SHADOWMAP_RESOLUTION, TCB, "TCB.png")
+	SAVE_COLOURMAP(VECTOR_2D(2048, 2048), SHEET_ID, "texture.png")
 
 
 
@@ -445,7 +473,7 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	glPolygonOffset(10, 1)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-	SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB = CREATE_SHADOW_BUFFERS(VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID)
+	SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB, TCB = CREATE_SHADOW_BUFFERS(VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID)
 
 	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, 0.1, LIGHT.MAX_DISTANCE).tolist())
 	LIGHT_VIEW_MATRIX = glm.lookAt(LIGHT.POSITION.CONVERT_TO_GLM_VEC3(), LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3(), glm.vec3(0.0, 1.0, 0.0))
@@ -453,7 +481,7 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	DEPTH_SPACE_MATRIX = LIGHT_PROJECTION_MATRIX * LIGHT_VIEW_MATRIX 
 	DEPTH_MVP_MATRIX = DEPTH_SPACE_MATRIX * glm.mat4(1.0) #Projection Matrix * View Matrix * Model Matrix -> M-V-P Matrix for shader.
 
-	RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID)
+	RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID, TCB)
 
 	LIGHT.SPACE_MATRIX = DEPTH_SPACE_MATRIX
 
