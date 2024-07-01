@@ -40,7 +40,7 @@
 /You must declare the texture sheet the level is to use in the file currently.
 /This will change in future, to instead have 3+ digit textures corresponding to sheet, and then X/Y position.
 /Texture sheet to use;
-> 2
+> transparent
 
 /Every scene MUST have the PLAYER object, as seen below.
 /SCENE object is optional, but controls any scene-wide changes you'd like, such as;

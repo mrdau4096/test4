@@ -361,28 +361,26 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 
 
 def RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
-	glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
-	glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
+    glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
+    glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
 
-	glUseProgram(SHADOW_SHADER)
+    glUseProgram(SHADOW_SHADER)
 
-	DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
-	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
-	glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
-	glUniform1i(TEXTURE_LOC, 0)
+    DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
+    TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
+    glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
+    glUniform1i(TEXTURE_LOC, 0)
 
-	glActiveTexture(GL_TEXTURE0)
-	glBindVertexArray(SHADOW_VAO)
-	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+    glActiveTexture(GL_TEXTURE0)
+    glBindVertexArray(SHADOW_VAO)
+    glBindTexture(GL_TEXTURE_2D, SHEET_ID)
 
-	#SAVE_COLOURMAP(VECTOR_2D(2048, 2048), SHEET_ID, "colourmap.png")
+    glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glBindVertexArray(0)
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-	glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
-	glBindTexture(GL_TEXTURE_2D, 0)
-	glBindVertexArray(0)
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
 
 

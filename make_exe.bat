@@ -1,9 +1,9 @@
-cd C:\Users\User\Documents\code\.py\pygame\test4.2.3b
+cd C:\Users\User\Documents\GitHub\test-4.2.3b
 
 REM Run PyInstaller with the specified options
 pyinstaller --onefile ^
-    --add-data "C:\Users\User\Documents\code\.py\pygame\test4.2.3b\src;src" ^
-    --add-data "C:\Users\User\Documents\code\.py\pygame\test4.2.3b\src\modules.zip;modules.zip" ^
+    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src;src" ^
+    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src\modules.zip;modules.zip" ^
     main.py
 
 REM Check if the build was successful
