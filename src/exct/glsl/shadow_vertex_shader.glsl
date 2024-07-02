@@ -12,6 +12,6 @@ void main()
 {
     fragTexCoords = texCoords;
     vec4 position3D = depthMVP * vec4(position, 1.0);
-    fragPosition =  position3D;
+    fragPosition = position3D;
     gl_Position = position3D;
 }

@@ -307,10 +307,63 @@ def CREATE_FBO(SIZE, include_depth=False):
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 	return FBO, TCB, DTB
 
+def save_texture_subregion(texture_id, x, y, width, height, image_path):
+	# Bind the texture
+	glBindTexture(GL_TEXTURE_2D, texture_id)
+
+	# Read the texture data
+	texture_data = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE)
+
+	# Unbind the texture
+	glBindTexture(GL_TEXTURE_2D, 0)
+
+	# Convert the texture data to a NumPy array
+	texture_data = NP.frombuffer(texture_data, dtype=NP.uint8)
+	texture_data = texture_data.reshape((2048, 2048, 4))  # Assuming texture_height and texture_width are known
+
+	# Extract the subregion
+	subregion = texture_data[y:y+height, x:x+width, :]
+
+	# Create an image from the subregion
+	image = Image.fromarray(subregion)
+
+	# Save the image
+	image.save(image_path)
 
 
 def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
+
+	for I in range(len(ENV_VAO_VERTICES) // 4):  # Iterate over each quad
+		start_idx = I * 4
+		end_idx = (I + 1) * 4
+		data = ENV_VAO_VERTICES[start_idx:end_idx].reshape((4, 5))
+
+		# Extract texture coordinates
+		u_min = min(data[:, 3])
+		v_min = min(data[:, 4])
+		u_max = max(data[:, 3])
+		v_max = max(data[:, 4])
+
+		# Convert normalized texture coordinates to pixel coordinates
+		texture_width = 2048  # Replace with your actual texture width
+		texture_height = 2048  # Replace with your actual texture height
+
+		x = int(u_min * texture_width)
+		y = int(v_min * texture_height)
+		width = int((u_max - u_min) * texture_width)
+		height = int((v_max - v_min) * texture_height)
+
+		print(x, y)
+		print(x+width, y+height)
+		print()
+		print(u_min, v_min)
+		print(u_max, v_max)
+		print()
+		print()
+
+		# Save the subregion
+		save_texture_subregion(SHEET_ID, x, y, width, height, f"screenshots\\sect\\sect{I}.png")
 
 	#Creating the Vertex-Array-Object
 	SHADOW_VAO = glGenVertexArrays(1)
@@ -335,14 +388,6 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	#Creating the FrameBuffer for rendering the shadow depthmap to.
 	SHADOW_FBO = glGenFramebuffers(1)
 	glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
-	
-	TCB = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, TCB)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-	glBindTexture(GL_TEXTURE_2D, 0)
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TCB, 0)
 
 	#Creating the shadow depthmap itself.
 	SHADOW_DTB = glGenTextures(1)
@@ -360,54 +405,50 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	glReadBuffer(GL_NONE)
 
 	if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
-		raise Exception("Framebuffer is not complete!")
+		raise Exception(f"Framebuffer is not complete!\nError; {glCheckFramebufferStatus(GL_FRAMEBUFFER)}")
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
 	
-	return SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB, TCB
+	return SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB
 
 
 
-def RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID, TCB):
+def RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
+	#Bind the framebuffer for rendering
 	glBindFramebuffer(GL_FRAMEBUFFER, SHADOW_FBO)
 	glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
 
+	#Use the shadow shader program
 	glUseProgram(SHADOW_SHADER)
 
+	SAVE_COLOURMAP(VECTOR_2D(2048, 2048), SHEET_ID, "colourmap.png")
 
-	#Debug manual image loading with PIL. Please remove.
-	image = Image.open("C:\\Users\\User\\Documents\\GitHub\\test-4.2.3b\\src\\imgs\\sheet-2.png").convert("RGBA")
-	image_data = NP.flipud(NP.array(list(image.getdata()), NP.uint8))
-
-	SHEET_ID = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data)
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-
-
-
+	#Set the shader uniform for the depth MVP matrix
 	DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
-	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
 	glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
+
+	#Set the shader uniform for the texture
+	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
 	glUniform1i(TEXTURE_LOC, 0)
 
+	#Activate and bind the texture
 	glActiveTexture(GL_TEXTURE0)
-	glBindVertexArray(SHADOW_VAO)
 	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
 
+	#Bind the VAO and draw the elements
+	glBindVertexArray(SHADOW_VAO)
 	glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
-	glBindTexture(GL_TEXTURE_2D, 0)
 	glBindVertexArray(0)
+
+	#Unbind the texture and framebuffer
+	glBindTexture(GL_TEXTURE_2D, 0)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-	SAVE_COLOURMAP(SHADOWMAP_RESOLUTION, TCB, "TCB.png")
-	SAVE_COLOURMAP(VECTOR_2D(2048, 2048), SHEET_ID, "texture.png")
+	ERROR = glGetError()
+	if ERROR != GL_NO_ERROR:
+		raise Exception(f"OpenGL Error: {ERROR}")
 
 
 
@@ -447,7 +488,7 @@ def SAVE_COLOURMAP(RESOLUTION, COLOUR_MAP, FILE_NAME, DEBUG=False):
 		
 	glBindTexture(GL_TEXTURE_2D, 0)
 
-	# Flip the image data vertically
+	#Flip the image data vertically
 	COLOUR_DATA = NP.flipud(COLOUR_DATA)
 	
 	IMAGE_COLOUR_MAP = Image.fromarray(COLOUR_DATA, mode='RGB')
@@ -456,7 +497,6 @@ def SAVE_COLOURMAP(RESOLUTION, COLOUR_MAP, FILE_NAME, DEBUG=False):
 		raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
 	
 	IMAGE_COLOUR_MAP.save(FILE_NAME)
-
 
 
 def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, SHEET_ID):
@@ -473,7 +513,7 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	glPolygonOffset(10, 1)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-	SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB, TCB = CREATE_SHADOW_BUFFERS(VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID)
+	SHADOW_VAO, SHADOW_VBO, SHADOW_EBO, SHADOW_FBO, SHADOW_DTB = CREATE_SHADOW_BUFFERS(VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID)
 
 	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, 0.1, LIGHT.MAX_DISTANCE).tolist())
 	LIGHT_VIEW_MATRIX = glm.lookAt(LIGHT.POSITION.CONVERT_TO_GLM_VEC3(), LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3(), glm.vec3(0.0, 1.0, 0.0))
@@ -481,7 +521,7 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	DEPTH_SPACE_MATRIX = LIGHT_PROJECTION_MATRIX * LIGHT_VIEW_MATRIX 
 	DEPTH_MVP_MATRIX = DEPTH_SPACE_MATRIX * glm.mat4(1.0) #Projection Matrix * View Matrix * Model Matrix -> M-V-P Matrix for shader.
 
-	RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID, TCB)
+	RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID)
 
 	LIGHT.SPACE_MATRIX = DEPTH_SPACE_MATRIX
 
@@ -520,12 +560,12 @@ def OBJECT_VAO_MANAGER(CLASS_TYPE, POINTS, TEXTURE_DATA, VAO_DATA):
 
 	if CLASS_TYPE == CUBE_STATIC:#Cube
 		FACE_ORDER = [
-			(0, 1, 3, 2),  # Bottom face
-			(4, 6, 2, 0),  # Left face
-			(5, 7, 3, 1),  # Right face
-			(5, 4, 0, 1),  # Front face
-			(7, 6, 2, 3),  # Back face
-			(4, 5, 7, 6)   # Top face
+			(0, 1, 3, 2),	# Bottom face
+			(4, 6, 2, 0),	# Left face
+			(5, 7, 3, 1),	# Right face
+			(5, 4, 0, 1),	# Front face
+			(7, 6, 2, 3),	# Back face
+			(4, 5, 7, 6)	# Top face
 		]
 
 		CUBE_TEXTURE_DATA = [TEXTURE_DATA[0], TEXTURE_DATA[1], TEXTURE_DATA[1], TEXTURE_DATA[1], TEXTURE_DATA[1], TEXTURE_DATA[2]]
