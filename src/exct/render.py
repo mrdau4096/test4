@@ -307,7 +307,7 @@ def CREATE_FBO(SIZE, include_depth=False):
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
 	return FBO, TCB, DTB
 
-def save_texture_subregion(texture_id, x, y, width, height, image_path):
+def save_texture_subregion(texture_id, x, y, width, height, texture_width, texture_height, image_path):
 	# Bind the texture
 	glBindTexture(GL_TEXTURE_2D, texture_id)
 
@@ -319,7 +319,7 @@ def save_texture_subregion(texture_id, x, y, width, height, image_path):
 
 	# Convert the texture data to a NumPy array
 	texture_data = NP.frombuffer(texture_data, dtype=NP.uint8)
-	texture_data = texture_data.reshape((2048, 2048, 4))  # Assuming texture_height and texture_width are known
+	texture_data = texture_data.reshape((texture_width, texture_height, 4))  # Assuming texture_height and texture_width are known
 
 	# Extract the subregion
 	subregion = texture_data[y:y+height, x:x+width, :]
@@ -334,7 +334,9 @@ def save_texture_subregion(texture_id, x, y, width, height, image_path):
 def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 	ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
 
+	print(ENV_VAO_VERTICES)
 	for I in range(len(ENV_VAO_VERTICES) // 4):  # Iterate over each quad
+		#continue
 		start_idx = I * 4
 		end_idx = (I + 1) * 4
 		data = ENV_VAO_VERTICES[start_idx:end_idx].reshape((4, 5))
@@ -363,7 +365,7 @@ def CREATE_SHADOW_BUFFERS(ENV_VAO_DATA, SHADOWMAP_RESOLUTION, SHEET_ID):
 		print()
 
 		# Save the subregion
-		save_texture_subregion(SHEET_ID, x, y, width, height, f"screenshots\\sect\\sect{I}.png")
+		save_texture_subregion(SHEET_ID, x, y, width, height, texture_width, texture_height, f"screenshots\\sect\\sect{I}.png")
 
 	#Creating the Vertex-Array-Object
 	SHADOW_VAO = glGenVertexArrays(1)
@@ -518,7 +520,7 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, 0.1, LIGHT.MAX_DISTANCE).tolist())
 	LIGHT_VIEW_MATRIX = glm.lookAt(LIGHT.POSITION.CONVERT_TO_GLM_VEC3(), LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3(), glm.vec3(0.0, 1.0, 0.0))
 	
-	DEPTH_SPACE_MATRIX = LIGHT_PROJECTION_MATRIX * LIGHT_VIEW_MATRIX 
+	DEPTH_SPACE_MATRIX = LIGHT_PROJECTION_MATRIX * LIGHT_VIEW_MATRIX
 	DEPTH_MVP_MATRIX = DEPTH_SPACE_MATRIX * glm.mat4(1.0) #Projection Matrix * View Matrix * Model Matrix -> M-V-P Matrix for shader.
 
 	RENDER_DEPTH_MAP(SHADOW_VAO, SHADOW_SHADER, DEPTH_MVP_MATRIX, SHADOW_FBO, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID)
