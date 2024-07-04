@@ -102,6 +102,6 @@ void main() {
             }
         }
     }
-	fragColour = vec4(finalColour, texColour.a);
+	fragColour = vec4(fragNormal.xyz, 1.0); //vec4(finalColour, texColour.a);
 
 }
