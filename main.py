@@ -130,9 +130,10 @@ if __name__ == "__main__":
 		for I, LIGHT in enumerate(LIGHTS):
 			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_DEPTHMAP(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
 			LIGHT.SHADOW_MAP = SHADOW_MAP
-			render.SAVE_DEPTHMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)
-			#render.SAVE_COLOURMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], TCB, f"screenshots\\light_maps\\colour_map_{I}.png")
-			#render.SAVE_NORMALMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], NORMAL_MAP, f"screenshots\\light_maps\\normal_map_{I}.png")
+			
+			if PREFERENCES["RETURN_MAPS"]:
+				render.SAVE_DEPTHMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)
+				#render.SAVE_NORMALMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], NORMAL_MAP, f"screenshots\\light_maps\\normal_map_{I}.png")
 
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()

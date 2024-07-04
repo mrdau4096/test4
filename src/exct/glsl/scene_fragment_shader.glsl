@@ -70,9 +70,9 @@ void main() {
     vec3 finalColour = vec3(0.05); // Initialize final color
     vec3 norm = normalize(fragNormal);
     
-    if (texColour.a < 0.5) {
-        discard;
-    }
+    //if (texColour.a < 0.5) {
+    //    discard;
+    //}
 
     // Iterate through each light and check if the fragment is within the light's FOV
     for (int i = 0; i < numLights; i++) {
@@ -102,6 +102,8 @@ void main() {
             }
         }
     }
-	fragColour = vec4(fragNormal.xyz, 1.0); //vec4(finalColour, texColour.a);
+
+    fragColour = vec4(finalColour, texColour.a);
+	//fragColour = vec4(fragTexCoords.x*5,(1-fragTexCoords.y)*5, 0.0, 1.0);
 
 }
