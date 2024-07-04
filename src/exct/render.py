@@ -99,7 +99,7 @@ def SHADER_INIT():
 
 
 
-def BUFFERS_INIT(VERTICES=None, INDICES=None):
+def BUFFERS_INIT(VERTICES=None, INDICES=None, NORMALS=False):
 	VERTEX_BUFFER_SIZE_INITIAL = 1024 * 1024  # 1MB for vertex buffer (adjust as needed)
 	INDEX_BUFFER_SIZE_INITIAL = 256 * 1024  # 256KB for index buffer (adjust as needed)
 
@@ -121,10 +121,25 @@ def BUFFERS_INIT(VERTICES=None, INDICES=None):
 	else:
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
+
+	# Position attribute (location = 0)
+	stride = (3 + 2) * 4  # Assuming positions (3 floats), texture coordinates (2 floats), normals (3 floats), each float is 4 bytes
+	offset = 0  # Start at the beginning of the vertex data array
+
+	# Position attribute (location = 0)
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
 	glEnableVertexAttribArray(0)
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
+	offset += 3 * 4  # Move offset to account for positions (3 floats * 4 bytes)
+
+	# Texture coordinate attribute (location = 1)
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
 	glEnableVertexAttribArray(1)
+	offset += 2 * 4  # Move offset to account for texture coordinates (2 floats * 4 bytes)
+
+	if NORMALS:
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+		glEnableVertexAttribArray(2)
+
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0)
 	glBindVertexArray(0)
@@ -195,17 +210,17 @@ def CALC_VIEW_MATRIX(CAMERA_POSITION, CAMERA_ROTATION):
 
 def FBO_QUAD_INIT(RENDER_RES):
 	QUAD_VERTICES = NP.array([
-		-1.0,  1.0,  0.0,	0.01, 0.99,
-		-1.0, -1.0,  0.0,	0.01, 0.01,
-		 1.0, -1.0,  0.0,	0.99, 0.01,
-		 1.0,  1.0,  0.0,	0.99, 0.99
+		-1.0,  1.0,  0.0,  0.01, 0.99,
+		-1.0, -1.0,  0.0,  0.01, 0.01,
+		 1.0, -1.0,  0.0,  0.99, 0.01,
+		 1.0,  1.0,  0.0,  0.99, 0.99
 	], dtype=NP.float32)
 	
 	UI_VERTICES = NP.array([
-		-1.0,  1.0,  -0.0001,	0, 1,
-		-1.0, -1.0,  -0.0001,	0, 0,
-		 1.0, -1.0,  -0.0001,	1, 0,
-		 1.0,  1.0,  -0.0001,	1, 1
+		-1.0,  1.0,  -1e-7,  0, 1,
+		-1.0, -1.0,  -1e-7,  0, 0,
+		 1.0, -1.0,  -1e-7,  1, 0,
+		 1.0,  1.0,  -1e-7,  1, 1
 	], dtype=NP.float32)
 
 	INDICES = NP.array([
@@ -256,26 +271,17 @@ def FBO_QUAD_INIT(RENDER_RES):
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
 	#Create framebuffer
-	FBO, TCB, DTB = CREATE_FBO(RENDER_RES)
+	FBO, TCB, DTB, _, _ = CREATE_FBO(RENDER_RES)
 
 	return VAO_QUAD, VAO_UI, FBO, TCB
 
 
 
-def CREATE_FBO(SIZE, DEPTH=False):
+def CREATE_FBO(SIZE, DEPTH=False, NORMALS=False):
 	FBO = glGenFramebuffers(1)
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO)
 
-	#Texture Colour Buffer
-	TCB = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, TCB)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int(SIZE.X), int(SIZE.Y), 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-	glBindTexture(GL_TEXTURE_2D, 0)
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TCB, 0)
-
-	DTB = None
+	DTB, TCB, RBO, GBO = None, None, None, None
 	if DEPTH:
 		DTB = glGenTextures(1)
 		glBindTexture(GL_TEXTURE_2D, DTB)
@@ -291,20 +297,36 @@ def CREATE_FBO(SIZE, DEPTH=False):
 		glDrawBuffer(GL_NONE)
 		glReadBuffer(GL_NONE)
 
-		
 	else:
+		TCB = glGenTextures(1)
+		glBindTexture(GL_TEXTURE_2D, TCB)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int(SIZE.X), int(SIZE.Y), 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+		glBindTexture(GL_TEXTURE_2D, 0)
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TCB, 0)
+
 		RBO = glGenRenderbuffers(1)#Render Buffer Object
 		glBindRenderbuffer(GL_RENDERBUFFER, RBO)
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, int(SIZE.X), int(SIZE.Y))
 		glBindRenderbuffer(GL_RENDERBUFFER, 0)
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, RBO)
 
+	if NORMALS:
+		GBO = glGenTextures(1)
+		glBindTexture(GL_TEXTURE_2D, GBO)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, int(SIZE.X), int(SIZE.Y), 0, GL_RGB, GL_FLOAT, None)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, GBO, 0)
+		glDrawBuffers(1, GL_COLOR_ATTACHMENT0)
+
 
 	if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
 		raise Exception("Framebuffer is not complete.")
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
-	return FBO, TCB, DTB
+	return FBO, TCB, DTB, RBO, GBO
 
 
 def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, DEPTH_MVP_MATRIX, FBO_SHADOW, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
@@ -320,7 +342,9 @@ def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, DEPTH_MVP_MATRIX, FBO_SHADOW, SH
 
 	#Set the shader uniform for the depth MVP matrix
 	DEPTH_MVP_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "depthMVP")
+	MODEL_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "model")
 	glUniformMatrix4fv(DEPTH_MVP_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(DEPTH_MVP_MATRIX))
+	glUniformMatrix4fv(MODEL_MATRIX_LOC, 1, GL_FALSE, Matrix44.identity())
 
 	#Set the shader uniform for the texture
 	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
@@ -406,8 +430,8 @@ def CREATE_LIGHT_DEPTHMAP(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, 
 	glPolygonOffset(10, 1)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-	VAO_SHADOW, VBO_SHADOW, EBO_SHADOW = BUFFERS_INIT(VERTICES=VAO_DATA[0], INDICES=VAO_DATA[1])
-	FBO_SHADOW, _, DTB_SHADOW = CREATE_FBO(SHADOWMAP_RESOLUTION, DEPTH=True)
+	VAO_SHADOW, VBO_SHADOW, EBO_SHADOW = BUFFERS_INIT(VERTICES=VAO_DATA[0], INDICES=VAO_DATA[1], NORMALS=True)
+	FBO_SHADOW, _, DTB_SHADOW, _, _ = CREATE_FBO(SHADOWMAP_RESOLUTION, DEPTH=True)
 
 	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, 0.1, LIGHT.MAX_DISTANCE).tolist())
 	LIGHT_VIEW_MATRIX = glm.lookAt(LIGHT.POSITION.CONVERT_TO_GLM_VEC3(), LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3(), glm.vec3(0.0, 1.0, 0.0))

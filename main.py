@@ -212,7 +212,7 @@ if __name__ == "__main__":
 						DISPLAY_RESOLUTION = VECTOR_2D(EVENT.w, EVENT.h)
 						RENDER_RESOLUTION = DISPLAY_RESOLUTION / CONSTANTS["RENDER_SCALING_FACTOR"]  #Set render resolution to be half of the screen resolution
 						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
-						SCENE_FBO, SCENE_TCB, _ = render.CREATE_FBO(RENDER_RESOLUTION)
+						SCENE_FBO, SCENE_TCB, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
 						glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
@@ -294,19 +294,21 @@ if __name__ == "__main__":
 			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, 'view')
 			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, 'projection')
 			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'texture1')
+			NORMALS_LOC = glGetUniformLocation(SCENE_SHADER, 'gNormals')
 			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'maxViewDistance')
 			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'cameraPos')
 			VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'voidColour')
+			num_lights_loc = glGetUniformLocation(SCENE_SHADER, "numLights")
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
 			glUniformMatrix4fv(PROJECTION_LOC, 1, GL_FALSE, PROJECTION_MATRIX)
 			glUniformMatrix4fv(VOID_COLOUR_LOC, 1, GL_FALSE, glm.value_ptr(VOID_COLOUR.CONVERT_TO_GLM_VEC4()))
+			glUniform1i(num_lights_loc, len(LIGHTS))
 			glUniform1f(VIEW_DIST_LOC, CONSTANTS["MAX_VIEW_DIST"])
 			glUniform3fv(CAMERA_POS_LOC, 1, glm.value_ptr(CAMERA_POSITION.CONVERT_TO_GLM_VEC3()))
 			glUniform1i(TEXTURE_LOC, 0)
+			glUniform1i(NORMALS_LOC, 1)
 
-			num_lights_loc = glGetUniformLocation(SCENE_SHADER, "numLights")
-			glUniform1i(num_lights_loc, len(LIGHTS))
 
 			for I, LIGHT in enumerate(LIGHTS):
 				#if not FLAG_STATES[LIGHT.FLAG]:
