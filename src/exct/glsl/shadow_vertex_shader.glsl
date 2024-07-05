@@ -1,21 +1,22 @@
 #version 330 core
 
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec2 texCoords;
-layout(location = 2) in vec3 normal;
+layout(location = 0) in vec3 Position;
+layout(location = 1) in vec2 TexCoords;
+layout(location = 2) in vec3 Normal;
 
 out vec2 fragTexCoords;
-out vec4 fragPosition;
 out vec3 fragNormal;
+out vec3 fragPos;
 
-uniform mat4 depthMVP;
 uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main()
 {
-    fragTexCoords = texCoords;
-    vec4 position3D = depthMVP * vec4(position, 1.0);
-    fragPosition = position3D;
-    fragNormal = mat3(transpose(inverse(model))) * normal;
-    gl_Position = position3D;
+    fragTexCoords = TexCoords;
+    fragNormal = mat3(transpose(inverse(model))) * Normal;
+    fragPos = vec3(model * vec4(Position, 1.0)); // Transform position to world space
+
+    gl_Position = projection * view * vec4(fragPos, 1.0);
 }

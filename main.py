@@ -128,12 +128,13 @@ if __name__ == "__main__":
 		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
 
 		for I, LIGHT in enumerate(LIGHTS):
-			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_DEPTHMAP(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
+			SHADOW_MAP, NORMAL_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
 			LIGHT.SHADOW_MAP = SHADOW_MAP
+			LIGHT.NORMAL_MAP = NORMAL_MAP
 			
 			if PREFERENCES["RETURN_MAPS"]:
-				render.SAVE_DEPTHMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)
-				#render.SAVE_NORMALMAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], NORMAL_MAP, f"screenshots\\light_maps\\normal_map_{I}.png")
+				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", "DEPTH", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)
+				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], NORMAL_MAP, f"screenshots\\light_maps\\normal_map_{I}.png", "NORMAL")#, DEBUG=True)
 
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()
@@ -190,7 +191,7 @@ if __name__ == "__main__":
 								if PREVIOUS_FRAME != None:
 									RAW_TIME = log.GET_TIME()
 									CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
-									render.SAVE_COLOURMAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.jpeg")
+									render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.jpeg", "COLOUR")
 
 							case PG.K_ESCAPE:
 								RUN = False
@@ -315,8 +316,9 @@ if __name__ == "__main__":
 				#	continue
 
 				if PREFERENCES["DYNAMIC_SHADOWS"]: #If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
-					SHADOW_MAP, LIGHT = render.CREATE_LIGHT_DEPTHMAP(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"])
+					SHADOW_MAP, NORMAL_MAP, LIGHT = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"])
 					LIGHT.SHADOW_MAP = SHADOW_MAP
+					LIGHT.NORMAL_MAP = NORMAL_MAP
 					SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 
 				LIGHT_POSITION_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].position")
@@ -327,6 +329,7 @@ if __name__ == "__main__":
 				LIGHT_MAX_DIST_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].maxDistance")
 				LIGHT_SPACE_MATRIX_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].lightSpaceMatrix")
 				SHADOW_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f'LIGHTS[{I}].shadowMap')
+				#NORMAL_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f'LIGHTS[{I}].normalMap')
 
 				glUniform3fv(LIGHT_POSITION_LOC, 1, glm.value_ptr(LIGHT.POSITION.CONVERT_TO_GLM_VEC3()))
 				glUniform3fv(LIGHT_LOOK_AT_LOC, 1, glm.value_ptr(LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3()))
@@ -338,6 +341,7 @@ if __name__ == "__main__":
 				glActiveTexture(GL_TEXTURE1 + I)
 				glBindTexture(GL_TEXTURE_2D, LIGHT.SHADOW_MAP)
 				glUniform1i(SHADOW_MAP_LOC, I + 1)
+				#glUniform1i(NORMAL_MAP_LOC, (I * 2) + 1)
 
 
 			glActiveTexture(GL_TEXTURE0)

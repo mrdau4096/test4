@@ -7,7 +7,6 @@ in vec3 fragPos;
 out vec4 fragColour;
 
 uniform sampler2D texture1;
-uniform sampler2D gNormals;
 uniform vec3 cameraPos;
 uniform vec4 voidColour;
 uniform float maxViewDistance;
@@ -68,7 +67,6 @@ void main() {
 
     // Get the texture color
     vec4 texColour = texture(texture1, fragTexCoords);
-    vec3 surfaceNormal = normalize(texture(gNormals, fragTexCoords).rgb);
     vec3 finalColour = vec3(0.05); // Initialize final color
     vec3 norm = normalize(fragNormal);
     
@@ -87,29 +85,30 @@ void main() {
         float lightAngle = degrees(acos(lightCosTheta)); // Angle in degrees
 
         //Calculate the angle between the light's surface normal and the view's surface normal
-        float normalCosTheta = dot(fragNormal, surfaceNormal);
-        float normalAngle = degrees(acos(normalCosTheta));
+        float angleLight = dot(norm, lightDir);
 
+        if (angleLight <= 0.0) {
+            continue;
+        }
+        
         vec4 fragPosLightSpace = LIGHTS[i].lightSpaceMatrix * vec4(fragPos, 1.0);
-
         float attenuation = max(0.0, 1.0 - (distance / LIGHTS[i].maxDistance));
         float diff = max(1.0 - abs(dot(norm, lightDir) / 90), 0.0);
         float shadow = calculateShadow(LIGHTS[i], norm, lightDir, fragPosLightSpace);
-        float normalDiff = ((normalCosTheta / 180) + 1) / 2;
+        float normalDiff = angleLight;
         float brightness = attenuation * LIGHTS[i].intensity * diff * (1.0 - shadow) * normalDiff;
 
         // Check if the angle is within the light's field of view
         if (lightAngle <= LIGHTS[i].fov * 0.5) {
             // If within the FOV, add the texture color to the final color
             if (brightness <= 0.05){
-            finalColour += texColour.rgb * 0.05 * LIGHTS[i].colour;	
-            }
-            else {
+                texColour.rgb * 0.05 * LIGHTS[i].colour;
+            } else {
 	            finalColour += texColour.rgb * brightness * LIGHTS[i].colour;
             }
         }
     }
 
     //fragColour = vec4(finalColour, texColour.a);
-	fragColour = vec4(normalize(fragNormal).x * 0.5 + 0.5, normalize(fragNormal).y * 0.5 + 0.5, normalize(fragNormal).z * 0.5 + 0.5, 1.0);
+    fragColour = vec4((norm.xyz * 0.5) + vec3(0.5), 1.0);
 }

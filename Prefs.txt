@@ -10,7 +10,7 @@ PLAYER_SPEED_TURN_PAD = 2.5
 
 
 /Render Options
-RETURN_MAPS = False
+RETURN_MAPS = True
 DYNAMIC_SHADOWS = False
 /^^ Warning; likely causes you a LOT of lag. Use at own risk.
 
