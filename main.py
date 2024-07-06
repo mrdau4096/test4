@@ -279,9 +279,9 @@ if __name__ == "__main__":
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
 
-			MODEL_LOC = glGetUniformLocation(SCENE_SHADER, 'model')
-			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, 'view')
-			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, 'projection')
+			MODEL_LOC = glGetUniformLocation(SCENE_SHADER, 'MODEL_MATRIX')
+			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MATRIX')
+			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, 'PROJ_MATRIX')
 			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'TRI_TEXTURE')
 			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MAX_DIST')
 			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'CAMERA_POSITION')
