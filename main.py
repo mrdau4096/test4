@@ -106,8 +106,6 @@ if __name__ == "__main__":
 		SCENE_SHADER, QUAD_SHADER, SHADOW_SHADER = render.SHADER_INIT()
 		VAO_QUAD, VAO_UI, SCENE_FBO, SCENE_TCB = render.FBO_QUAD_INIT(RENDER_RESOLUTION)
 
-
-		CAMERA_OFFSET = VECTOR_3D(0.0, -0.5, 0.0)
 		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
 		KEY_STATES = {PG.K_w: False, PG.K_s: False, PG.K_a: False, PG.K_d: False, PG.K_SPACE: False, PG.K_LCTRL: False, PG.K_LSHIFT: False, "CROUCH": False, "JUMP_GRACE": 0}
@@ -128,13 +126,11 @@ if __name__ == "__main__":
 		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
 
 		for I, LIGHT in enumerate(LIGHTS):
-			SHADOW_MAP, NORMAL_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
+			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
 			LIGHT.SHADOW_MAP = SHADOW_MAP
-			LIGHT.NORMAL_MAP = NORMAL_MAP
 			
-			if PREFERENCES["RETURN_MAPS"]:
-				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", "DEPTH", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)
-				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], NORMAL_MAP, f"screenshots\\light_maps\\normal_map_{I}.png", "NORMAL")#, DEBUG=True)
+			if PREFERENCES["DEBUG_MAPS"]:
+				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", "DEPTH", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)			
 
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()
@@ -198,7 +194,7 @@ if __name__ == "__main__":
 							
 							case PG.K_LCTRL:
 								if not PREFERENCES["DEV_TEST"]:
-									CAMERA_OFFSET = VECTOR_3D(0.0, 0.0, 0.0)
+									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.0, 0.0)
 
 					case PG.KEYUP:
 						if EVENT.key in KEY_STATES:
@@ -207,7 +203,7 @@ if __name__ == "__main__":
 						match EVENT.key:
 							case PG.K_LCTRL:
 								if not PREFERENCES["DEV_TEST"]:
-									CAMERA_OFFSET = VECTOR_3D(0.0, -0.5, 0.0)
+									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.5, 0.0)
 					
 					case PG.VIDEORESIZE:
 						DISPLAY_RESOLUTION = VECTOR_2D(EVENT.w, EVENT.h)
@@ -262,53 +258,45 @@ if __name__ == "__main__":
 			render.SCENE() visually displays the scene, from the data provided when the scene was loaded.
 			ui.HUD() simply draws any HUD-elements, such as information or text, to the screen as a flat overlay image.
 			"""
-
-			CONSTANTS["PLAYER_COLLISION_CUBOID"] = PLAYER_COLLISION_CUBOID
-
-
 			CLOCK.tick_busy_loop(FPS_CAP)
 
 			PHYS_DATA[0][PLAYER_ID].POSITION = PLAYER.POSITION
-			
+			CONSTANTS["PLAYER_COLLISION_CUBOID"] = PLAYER_COLLISION_CUBOID
 			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES)
-
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
+			CAMERA_POSITION = PLAYER.POSITION + CONSTANTS["CAMERA_OFFSET"]
 
-			CAMERA_POSITION = PLAYER.POSITION - CAMERA_OFFSET
 			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, TEXTURE_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
 			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
-
-
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
+			
 			glBindFramebuffer(GL_FRAMEBUFFER, SCENE_FBO)
 			glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 			glClearColor(VOID_COLOUR.R, VOID_COLOUR.G, VOID_COLOUR.B, VOID_COLOUR.A)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 			glClearDepth(1.0)
-
 			glUseProgram(SCENE_SHADER)
-			
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
 
 			MODEL_LOC = glGetUniformLocation(SCENE_SHADER, 'model')
 			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, 'view')
 			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, 'projection')
-			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'texture1')
-			NORMALS_LOC = glGetUniformLocation(SCENE_SHADER, 'gNormals')
-			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'maxViewDistance')
-			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'cameraPos')
-			VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'voidColour')
-			num_lights_loc = glGetUniformLocation(SCENE_SHADER, "numLights")
+			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'TRI_TEXTURE')
+			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MAX_DIST')
+			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'CAMERA_POSITION')
+			VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'VOID_COLOUR')
+			LIGHT_COUNT_LOC = glGetUniformLocation(SCENE_SHADER, "LIGHT_COUNT")
+			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
 			glUniformMatrix4fv(PROJECTION_LOC, 1, GL_FALSE, PROJECTION_MATRIX)
-			glUniformMatrix4fv(VOID_COLOUR_LOC, 1, GL_FALSE, glm.value_ptr(VOID_COLOUR.CONVERT_TO_GLM_VEC4()))
-			glUniform1i(num_lights_loc, len(LIGHTS))
+			#glUniformMatrix4fv(VOID_COLOUR_LOC, 1, GL_FALSE, glm.value_ptr(VOID_COLOUR.CONVERT_TO_GLM_VEC4()))
+			glUniform1i(LIGHT_COUNT_LOC, len(LIGHTS))
+			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["NORMALS_DEBUG"])
 			glUniform1f(VIEW_DIST_LOC, CONSTANTS["MAX_VIEW_DIST"])
 			glUniform3fv(CAMERA_POS_LOC, 1, glm.value_ptr(CAMERA_POSITION.CONVERT_TO_GLM_VEC3()))
 			glUniform1i(TEXTURE_LOC, 0)
-			glUniform1i(NORMALS_LOC, 1)
 
 
 			for I, LIGHT in enumerate(LIGHTS):
@@ -321,15 +309,14 @@ if __name__ == "__main__":
 					LIGHT.NORMAL_MAP = NORMAL_MAP
 					SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 
-				LIGHT_POSITION_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].position")
-				LIGHT_LOOK_AT_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].lookat")
-				LIGHT_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].colour")
-				LIGHT_INTENSITY_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].intensity")
-				LIGHT_FOV_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].fov")
-				LIGHT_MAX_DIST_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].maxDistance")
-				LIGHT_SPACE_MATRIX_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].lightSpaceMatrix")
-				SHADOW_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f'LIGHTS[{I}].shadowMap')
-				#NORMAL_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f'LIGHTS[{I}].normalMap')
+				LIGHT_POSITION_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].POSITION")
+				LIGHT_LOOK_AT_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].LOOK_AT")
+				LIGHT_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].COLOUR")
+				LIGHT_INTENSITY_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].INTENSITY")
+				LIGHT_FOV_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].FOV")
+				LIGHT_MAX_DIST_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].MAX_DIST")
+				LIGHT_SPACE_MATRIX_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].LIGHT_SPACE_MATRIX")
+				SHADOW_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f'LIGHTS[{I}].SHADOW_MAP')
 
 				glUniform3fv(LIGHT_POSITION_LOC, 1, glm.value_ptr(LIGHT.POSITION.CONVERT_TO_GLM_VEC3()))
 				glUniform3fv(LIGHT_LOOK_AT_LOC, 1, glm.value_ptr(LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3()))

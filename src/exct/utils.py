@@ -57,15 +57,15 @@ def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-ali
 
 
 def FIND_CUBOID_NORMALS(POINTS): #Find the normals of a cuboid, via its 8 points. This allows the cuboid to be rotated along any axis, and still give the normals.
-	VECTOR_R = FIND_VECTOR(POINTS[0], POINTS[1]) #Maximum X
-	VECTOR_G = FIND_VECTOR(POINTS[0], POINTS[4]) #Maximum Y
-	VECTOR_B = FIND_VECTOR(POINTS[0], POINTS[2]) #Maximum Z
+	VECTOR_R = FIND_VECTOR(POINTS[0], POINTS[1]).NORMALISE() #Maximum X
+	VECTOR_G = FIND_VECTOR(POINTS[0], POINTS[4]).NORMALISE() #Maximum Y
+	VECTOR_B = FIND_VECTOR(POINTS[0], POINTS[2]).NORMALISE() #Maximum Z
 
-	NORMAL_BOTTOM = -1 * VECTOR_G
-	NORMAL_SIDE_A = -1 * VECTOR_B
-	NORMAL_SIDE_B = VECTOR_B
-	NORMAL_SIDE_C = -1 * VECTOR_R
-	NORMAL_SIDE_D = VECTOR_R
+	NORMAL_BOTTOM = VECTOR_G * -1
+	NORMAL_SIDE_A = VECTOR_R * -1
+	NORMAL_SIDE_B = VECTOR_R
+	NORMAL_SIDE_C = VECTOR_B * -1
+	NORMAL_SIDE_D = VECTOR_B
 	NORMAL_TOP = VECTOR_G
 
 	return [NORMAL_BOTTOM, NORMAL_SIDE_A, NORMAL_SIDE_B, NORMAL_SIDE_C, NORMAL_SIDE_D, NORMAL_TOP]
@@ -365,6 +365,8 @@ class WORLD_OBJECT:
 
 		if COLLISION:
 			self.BOUNDING_BOX = BOUNDING_BOX
+
+		if NORMALS is not None:
 			FINAL_NORMALS_LIST = []
 			for NORMAL in NORMALS:
 				FINAL_NORMALS_LIST.append(NORMAL.NORMALISE())
@@ -429,10 +431,9 @@ class SCENE():
 class TRI(WORLD_OBJECT):
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES):
 		CENTROID = FIND_CENTROID(VERTICES)
-		NORMAL = (VERTICES[0].CROSS(VERTICES[1]),) #Should be edges not vertices?
+		NORMAL = (VERTICES[0] - VERTICES[2].CROSS(VERTICES[1] - VERTICES[2]),)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
 		super().__init__(ID, CENTROID, COLLISION, TEXTURE_INFO=TEXTURE_COORDINATES, NORMALS=NORMAL, BOUNDING_BOX=BOUNDING_BOX_OBJ)
-
 		self.POINTS = VERTICES
 
 	def __repr__(self):
@@ -906,11 +907,17 @@ class VECTOR_2D:
 	def __repr__(self):
 		return f"<VECTOR_2D: [{self.X}, {self.Y}]>"
 
+	def SIGN(self):
+		return VECTOR_2D(
+			1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0,
+			1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0,
+		)
+
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
 		MAGNITUDE = self.__abs__()
 		if MAGNITUDE != 0:
 			return self.__truediv__(MAGNITUDE)
-		return VECTOR_2D(0.0, 0.0, 0.0)
+		return VECTOR_2D(0.0, 0.0)
 
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
 		return self.X * OTHER.X + self.Y + OTHER.Y
@@ -934,6 +941,9 @@ class VECTOR_2D:
 
 	def RADIANS(self):
 		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y))
+
+	def DEGREES(self):
+		return VECTOR_3D(maths.degrees(self.X), maths.degrees(self.Y))
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None):
 		if X_BOUNDS is not None:
@@ -1002,6 +1012,13 @@ class VECTOR_3D:
 
 	def __repr__(self):
 		return f"<VECTOR_3D: [{self.X}, {self.Y}, {self.Z}]>"
+	
+	def SIGN(self):
+		return VECTOR_3D(
+			1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0,
+			1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0,
+			1.0 if self.Z > 0 else -1.0 if self.Z < 0 else 0.0
+		)
 
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
 		MAGNITUDE = self.__abs__()
@@ -1019,7 +1036,7 @@ class VECTOR_3D:
 				self.X * OTHER.Y - self.Y * OTHER.X
 			)
 
-	def PROJECT(self, OTHER): #Project point (OTHER) onto axis (self) // {AXIS}.PROJECT({POINT})
+	def PROJECT(self, OTHER): #Project points (OTHER) onto axis (self) // {AXIS}.PROJECT({POINTS})
 		DOT_PRODUCTS = []
 		for POINT in OTHER:
 			DOT_PRODUCTS.append(self.DOT(POINT))
@@ -1039,6 +1056,9 @@ class VECTOR_3D:
 
 	def RADIANS(self):
 		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y), maths.radians(self.Z))
+
+	def DEGREES(self):
+		return VECTOR_3D(maths.degrees(self.X), maths.degrees(self.Y), maths.degrees(self.Z))
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None, Z_BOUNDS=None):
 		if X_BOUNDS is not None:

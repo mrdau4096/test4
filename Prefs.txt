@@ -7,15 +7,18 @@ FPS_LIMIT = 60
 FPS_LOW = 15
 PLAYER_SPEED_TURN_MOUSE = 0.1
 PLAYER_SPEED_TURN_PAD = 2.5
+SCENE = t0
+/^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
 /Render Options
-RETURN_MAPS = True
-DYNAMIC_SHADOWS = False
-/^^ Warning; likely causes you a LOT of lag. Use at own risk.
+DEBUG_MAPS = False
+DEBUG_UI = True
+NORMALS_DEBUG = False
 
-/Misc.
+
+/Broke.
 DEV_TEST = False
 /^^ Doesn't acctually do anything anymore, feel free to try I suppose.
-SCENE = t0
-/^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
+DYNAMIC_SHADOWS = False
+/^^ Warning; likely causes you a LOT of lag. Use at own risk.
