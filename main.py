@@ -65,7 +65,6 @@ print("Imported Module(s) // NumPy\n--\n")
 
 
 
-
 if __name__ == "__main__":
 	#try:
 		"""
@@ -79,7 +78,7 @@ if __name__ == "__main__":
 		"""
 
 		# General preference-gathering.
-		PREFERENCES, CONSTANTS = utils.GET_CONFIGS()
+		PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 		DISPLAY_RESOLUTION = CONSTANTS["DISPLAY_RESOLUTION"]
 		SCALING_FACTOR = CONSTANTS["RENDER_SCALING_FACTOR"]
 		RENDER_RESOLUTION = DISPLAY_RESOLUTION / SCALING_FACTOR
@@ -108,7 +107,7 @@ if __name__ == "__main__":
 
 		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
-		KEY_STATES = {PG.K_w: False, PG.K_s: False, PG.K_a: False, PG.K_d: False, PG.K_SPACE: False, PG.K_LCTRL: False, PG.K_LSHIFT: False, "CROUCH": False, "JUMP_GRACE": 0}
+		KEY_STATES = {PG.K_w: False, PG.K_s: False, PG.K_a: False, PG.K_d: False, PG.K_SPACE: False, PG.K_LCTRL: False, PG.K_LSHIFT: False, PG.K_c: False, PG.K_x: False, "CROUCH": False, "JUMP_GRACE": 0}
 		TEXTURE_DATA, CURRENT_TEXTURE_DATA, PAD_CONTROLS = [], [], {0: 0, 1: 0, 2: 0, 3: 0}
 
 		"""
@@ -130,7 +129,7 @@ if __name__ == "__main__":
 			LIGHT.SHADOW_MAP = SHADOW_MAP
 			
 			if PREFERENCES["DEBUG_MAPS"]:
-				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\light_maps\\depth_map_{I}.png", "DEPTH", LIGHT.MIN_DISTANCE, LIGHT.MAX_DISTANCE)			
+				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)			
 
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()
@@ -196,6 +195,14 @@ if __name__ == "__main__":
 								if not PREFERENCES["DEV_TEST"]:
 									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.0, 0.0)
 
+							case PG.K_c:
+								PROJECTION_MATRIX = Matrix44.perspective_projection(
+									PREFERENCES["FOV"] // 3,
+									(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
+									CONSTANTS["MIN_VIEW_DIST"],
+									CONSTANTS["MAX_VIEW_DIST"]
+								)
+
 					case PG.KEYUP:
 						if EVENT.key in KEY_STATES:
 							KEY_STATES[EVENT.key] = False
@@ -204,10 +211,19 @@ if __name__ == "__main__":
 							case PG.K_LCTRL:
 								if not PREFERENCES["DEV_TEST"]:
 									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.5, 0.0)
+
+							case PG.K_c:
+								PROJECTION_MATRIX = Matrix44.perspective_projection(
+									PREFERENCES["FOV"],
+									(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
+									CONSTANTS["MIN_VIEW_DIST"],
+									CONSTANTS["MAX_VIEW_DIST"]
+								)
 					
 					case PG.VIDEORESIZE:
 						DISPLAY_RESOLUTION = VECTOR_2D(EVENT.w, EVENT.h)
 						RENDER_RESOLUTION = DISPLAY_RESOLUTION / CONSTANTS["RENDER_SCALING_FACTOR"]  #Set render resolution to be half of the screen resolution
+						utils.CONSTANTS["DISPLAY_RESOLUTION"] = DISPLAY_RESOLUTION
 						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 						SCENE_FBO, SCENE_TCB, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
 						glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
@@ -219,8 +235,9 @@ if __name__ == "__main__":
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			if (EVENT.type == PG.MOUSEMOTION) and (WINDOW_FOCUS == 1): #Mouse inputs
 				MOUSE_MOVE = [EVENT.pos[0] - (DISPLAY_RESOLUTION.X // 2), EVENT.pos[1] - (DISPLAY_RESOLUTION.Y // 2)]
-				PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"])
-				PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"])
+				ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0
+				PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+				PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
 				PLAYER.ROTATION = PLAYER.ROTATION.CLAMP(Y_BOUNDS=(-89.9, 89.9))
 				PG.mouse.set_pos(DISPLAY_CENTRE.TO_LIST())
 				PG.mouse.set_visible(False)
@@ -243,14 +260,14 @@ if __name__ == "__main__":
 			if PAD_COUNT > 0:
 				PLAYER.ROTATION.Y += PAD_CONTROLS[3] * PREFERENCES["PLAYER_SPEED_TURN_PAD"]
 			else:
-				PLAYER.ROTATION.Y += MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
+				pass#PLAYER.ROTATION.Y += MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
 			
 			PLAYER.ROTATION.Y = utils.CLAMP(PLAYER.ROTATION.Y, -90, 90)
 			
 			if PAD_COUNT > 0:
 				PLAYER.ROTATION.X += PAD_CONTROLS[2] * PREFERENCES["PLAYER_SPEED_TURN_PAD"]
 			else:
-				PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
+				pass#PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
 
 			"""
 			FPS is the current frames per second - usually around the max FPS set just beforehand, and is used for a basic Δt-type force application system.
@@ -267,9 +284,21 @@ if __name__ == "__main__":
 			CAMERA_POSITION = PLAYER.POSITION + CONSTANTS["CAMERA_OFFSET"]
 
 			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, TEXTURE_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
-			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
+			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE) #problem is probably here, with updating dynamic objects visually.
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
+
+
+			if PREFERENCES["DYNAMIC_SHADOWS"]:
+				#If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
+				for LIGHT in LIGHTS:
+					SHADOW_MAP, LIGHT = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
+					LIGHT.SHADOW_MAP = SHADOW_MAP
+					if PREFERENCES["DEBUG_MAPS"]:
+						render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)			
+
+				SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 			
+
 			glBindFramebuffer(GL_FRAMEBUFFER, SCENE_FBO)
 			glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 			glClearColor(VOID_COLOUR.R, VOID_COLOUR.G, VOID_COLOUR.B, VOID_COLOUR.A)
@@ -302,13 +331,6 @@ if __name__ == "__main__":
 			for I, LIGHT in enumerate(LIGHTS):
 				#if not FLAG_STATES[LIGHT.FLAG]:
 				#	continue
-
-				if PREFERENCES["DYNAMIC_SHADOWS"]: #If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
-					SHADOW_MAP, NORMAL_MAP, LIGHT = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"])
-					LIGHT.SHADOW_MAP = SHADOW_MAP
-					LIGHT.NORMAL_MAP = NORMAL_MAP
-					SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
-
 				LIGHT_POSITION_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].POSITION")
 				LIGHT_LOOK_AT_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].LOOK_AT")
 				LIGHT_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].COLOUR")
@@ -328,13 +350,12 @@ if __name__ == "__main__":
 				glActiveTexture(GL_TEXTURE1 + I)
 				glBindTexture(GL_TEXTURE_2D, LIGHT.SHADOW_MAP)
 				glUniform1i(SHADOW_MAP_LOC, I + 1)
-				#glUniform1i(NORMAL_MAP_LOC, (I * 2) + 1)
 
 
 			glActiveTexture(GL_TEXTURE0)
 			glBindVertexArray(VAO_SCENE)
 			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
-			glDrawElements(GL_TRIANGLES, len(ENV_VAO_INDICES), GL_UNSIGNED_INT, None)
+			glDrawElements(GL_TRIANGLES, len(COPIED_VAO_INDICES), GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
 
@@ -367,6 +388,8 @@ if __name__ == "__main__":
 			glActiveTexture(GL_TEXTURE0)
 
 			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
+			if PREFERENCES["DEBUG_UI"]:
+				render.SAVE_MAP(CONSTANTS["DISPLAY_RESOLUTION"], UI_TEXTURE_ID, f"screenshots\\debug_maps\\colour_map_UI.png", "COLOUR")
 
 			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)

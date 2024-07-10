@@ -11,14 +11,14 @@ SCENE = t0
 /^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
-/Render Options
+/Debug Rendering
 DEBUG_MAPS = False
-DEBUG_UI = True
+DEBUG_UI = False
 NORMALS_DEBUG = False
 
 
-/Broke.
+/Broken
 DEV_TEST = False
 /^^ Doesn't acctually do anything anymore, feel free to try I suppose.
 DYNAMIC_SHADOWS = False
-/^^ Warning; likely causes you a LOT of lag. Use at own risk.
+/^^ Warning; likely broken, and if not causes you a LOT of lag. Use at own risk.

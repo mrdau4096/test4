@@ -27,7 +27,7 @@ print("Imported Sub-file // scene.py")
 FIND_VECTOR = utils.FIND_VECTOR
 
 global OVERHANG
-PREFERENCES, CONSTANTS = utils.GET_CONFIGS()
+PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 OVERHANG = 1
 
 FORMATTING = {
@@ -36,12 +36,12 @@ FORMATTING = {
 	2:  (CUBE_STATIC, ("vect", "vect", "bool", "texture")), 							#Static cube
 	3:  (QUAD, ("vect", "vect", "vect", "vect", "bool", "texture")), 					#Quad
 	4:  (TRI, ("vect", "vect", "vect", "bool", "texture")), 							#Triangle
-	5:  (SPRITE_STATIC, ("vect", "vect", "bool", "texture")), 							#Static Sprite
+	5:  (SPRITE_STATIC, ("vect", "vect", "texture")), 									#Static Sprite
 	6:  (ITEM, ("vect", "hex", "str", "texture")), 										#Item
 	7:  (TRIGGER, ("vect", "vect", "str")), 											#Trigger
 	8:  (INTERACTABLE, ("vect", "vect", "vect", "vect", "str", "bool", "texture")), 	#Interactable
 	9:  (CUBE_PATH, ("vect", "vect", "vect", "int", "str", "texture")),	 				#Moving surface (i.e. door)
-	10: (ENEMY, ("vect", "vect", "str")), 												#Hostile
+	10: (ENEMY, ("vect", "vect", "str", "texture")),									#Hostile
 	11: (CUBE_PHYSICS, ("vect", "vect", "float", "texture")), 							#Phys-cube
 	12: (LIGHT, ("vect", "vect", "rgba", "float", "float", "float", "str")),			#Light
 	13: (NPC_PATH_NODE, ("vect", "hex", "list")),  										#NPC Path node
@@ -88,6 +88,8 @@ def LOAD_FILE(FILE_NAME):
 	
 	for LINE_RAW in FILE_CONTENTS_RAW:
 		FILE_CONTENTS.append(LINE_RAW.strip('\n'))#Remove uneccessary auto-formatting from the file
+
+	HOSTILES, SUPPLIES, PROJECTILES = utils.GET_GAME_DATA()
 
 	ENV_VAO_DATA = [NP.array([]), NP.array([])]
 	KINETICS, STATICS, LIGHTS = {}, [{}, {}], []
@@ -249,7 +251,11 @@ def LOAD_FILE(FILE_NAME):
 						ROTATION = OBJECT_DATA[1]
 						ENEMY_TYPE = OBJECT_DATA[2]
 
-						FINALISED_OBJECT = ENEMY(CURRENT_ID, CENTRE, ENEMY_TYPE, ROTATION)
+						TEXTURES = []
+						for TEXTURE in OBJECT_DATA[3]:
+							TEXTURES.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
+
+						FINALISED_OBJECT = ENEMY(CURRENT_ID, CENTRE, ENEMY_TYPE, TEXTURES, ROTATION)
 
 					elif CLASS_TYPE == CUBE_PHYSICS:
 						DIMENTIONS = OBJECT_DATA[0]

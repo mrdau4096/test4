@@ -72,6 +72,10 @@ void main() {
     vec3 FINAL_COLOUR = vec3(0.05); //Initialize final color
     vec3 NORMAL = (gl_FrontFacing) ? normalize(fragNormal) : normalize(fragNormal) * -1; //Initialise the fragment's normal.
 
+    if (TEXTURE_COLOUR.a <= 0.25) {
+        discard;
+    }
+
     // Iterate through each light and check if the fragment is within the light's FOV
     for (int i = 0; i < LIGHT_COUNT; i++) {
     	float FRAG_LIGHT_DISTANCE = length(LIGHTS[i].POSITION - fragPos);

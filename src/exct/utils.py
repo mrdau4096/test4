@@ -17,6 +17,7 @@ import os, sys
 
 sys.path.append("modules")
 from pyrr import Matrix44, Vector3, Vector4
+import numpy as NP
 import glm
 
 def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almost exclusively for camera angle.
@@ -76,6 +77,16 @@ def FIND_CENTROID(POINTS):
 	for PT in POINTS:
 		SUM += PT
 	return SUM / len(POINTS)
+
+def CALC_2D_VECTOR_ANGLE(V1, V2):
+	V1_2D = VECTOR_2D(V1.X, V1.Z).NORMALISE()
+	V2_2D = VECTOR_2D(V2.X, V2.Z).NORMALISE()
+
+	DOT = V1_2D.DOT(V2_2D)
+	DET = NP.sign(V1_2D.DET(V2_2D))
+
+	return maths.degrees(DOT * DET)
+
 
 
 def FIND_CLOSEST_CUBE_TRIS(VERTICES, PLAYER_VERTS, NORMALS):
@@ -254,7 +265,7 @@ def GET_GAME_DATA():
 	SUPPLIES_DATA = SUPPLIES_FILE.readlines()
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
 
-	H_FORMATTING = ("float", "float", "hex", "list")#Max-Health, Speed, Weapon, Items-to-drop
+	H_FORMATTING = ("float", "float", "hex", "list", "list")#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
 	S_FORMATTING = ("hex", "int")#What-to-give, Quantity,
 	P_FORMATTING = ("bool", "float")#Create-explosion, Strength
 
@@ -644,15 +655,16 @@ class ITEM(PHYSICS_OBJECT):
 
 
 class ENEMY(PHYSICS_OBJECT):
-	def __init__(self, ID, POSITION, TYPE, ROTATION):
+	def __init__(self, ID, POSITION, TYPE, TEXTURES, ROTATION):
 		HOSTILES, _, _ = GET_GAME_DATA()
 		TYPE_DATA = HOSTILES[TYPE]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA[0], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		MASS = TYPE_DATA[1]
-
-		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, None)
+		#Textures would be loaded here, but that would mean circular imports to \imgs\texture_load.py\, so have been avoided.
+		#Textures are instead loaded outside of this class, and passed in. (Always defined outside of \utils.py\)
+		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURES)
 
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.POINTS = POINTS
@@ -922,9 +934,8 @@ class VECTOR_2D:
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
 		return self.X * OTHER.X + self.Y + OTHER.Y
 
-	def CROSS(self, OTHER): #Cross product of self and OTHER // {self}.CROSS({OTHER})
-		CROSS_MAGNITUDE = maths.abs(self.X * OTHER.Y - self.Y * OTHER.X)
-		return maths.degrees(maths.asin(CROSS_MAGNITUDE / (abs(self) * abs(OTHER)))) #Needs some fixes
+	def DET(self, OTHER): #Determinant of self and OTHER // {self}.DET({OTHER})
+		return self.X * OTHER.Y - self.Y * OTHER.X
 
 	def PROJECT(self, OTHER): #Project point (OTHER) onto axis (self) // {AXIS}.PROJECT({POINT})
 		DOT_PRODUCTS = DOT(OTHER, self)
@@ -938,6 +949,9 @@ class VECTOR_2D:
 
 	def TO_LIST(self):
 		return [self.X, self.Y]
+
+	def TO_INT(self):
+		return VECTOR_2D(int(self.X), int(self.Y))
 
 	def RADIANS(self):
 		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y))
@@ -1054,6 +1068,9 @@ class VECTOR_3D:
 	def TO_LIST(self):
 		return [self.X, self.Y, self.Z]
 
+	def TO_INT(self):
+		return VECTOR_2D(int(self.X), int(self.Y), int(self.Z))
+
 	def RADIANS(self):
 		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y), maths.radians(self.Z))
 
@@ -1077,3 +1094,7 @@ class VECTOR_3D:
 
 	def CONVERT_TO_GLM_VEC3(self):
 		return glm.vec3(self.X, self.Y, self.Z)
+
+#Program-wide values, that must be sync-ed between all files.
+global PREFERENCES, CONSTANTS
+PREFERENCES, CONSTANTS = GET_CONFIGS()

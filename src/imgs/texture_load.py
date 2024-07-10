@@ -43,6 +43,7 @@ DIMENTIONS is a 2 item list for the lengths of each side (Left, Top), mostly for
 global TEXTURE_CACHE, SHEET_CACHE
 TEXTURE_CACHE = {}
 SHEET_CACHE = {}
+PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
 
 def TEXTURE_CACHE_MANAGER(HEX_ID):
