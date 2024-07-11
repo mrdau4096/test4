@@ -48,9 +48,9 @@ def ERROR(LOCATION, ISSUE):
 		LOG_FILE.write(f"{OPTIONAL_EXTRA_MESSAGE}\n{MESSAGE}")
 		LOG_FILE.close()
 
-		input(f"{MESSAGE}\nPress ENTER or close terminal to exit.\n> ")
+		input(f"\a{MESSAGE}\nPress ENTER or close terminal to exit.\n> ")
 
 	except Exception as e:
-		print(f"{FORMATTED_TIME} / ERROR @ log.py / {e} WHILE REPORTING / {LOCATION}, {ISSUE}")
+		print(f"\a{FORMATTED_TIME} / ERROR @ log.py / {e} WHILE REPORTING / {LOCATION}, {ISSUE}")
 
 	sys.exit()
