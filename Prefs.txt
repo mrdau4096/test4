@@ -7,6 +7,11 @@ FPS_LIMIT = 60
 FPS_LOW = 15
 PLAYER_SPEED_TURN_MOUSE = 0.1
 PLAYER_SPEED_TURN_PAD = 2.5
+/Gamepad "trim"
+AXIS_0_OFFSET = 0.0
+AXIS_1_OFFSET = 0.0
+AXIS_2_OFFSET = 0.0
+AXIS_3_OFFSET = 0.0
 SCENE = t0
 /^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 

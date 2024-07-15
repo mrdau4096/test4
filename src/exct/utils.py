@@ -87,7 +87,13 @@ def CALC_2D_VECTOR_ANGLE(V1, V2):
 
 	return maths.degrees(DOT * DET)
 
-def FIND_CUBOID_FACES():
+def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
+	FINAL = []
+	for POINT in POINTS:
+		FINAL.append((POINT - CENTRE).ROTATE_BY(ANGLE, CENTRE))
+	return FINAL
+
+def GET_CUBOID_FACE_INDICES():
 	return (
 		(0, 1, 3, 2),
 		(4, 6, 2, 0),
@@ -98,50 +104,41 @@ def FIND_CUBOID_FACES():
 	)
 
 
-def FIND_CLOSEST_CUBE_TRIS(VERTICES, PHYS_BODY, OBJECT):
+def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
+	VERTICES = CUBE.POINTS
 	CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
 	TRIs = (
 		(VERTICES[0], VERTICES[1], VERTICES[2]),  #Bottom Face; Triangle A (-Y)
 		(VERTICES[1], VERTICES[3], VERTICES[2]),  #Bottom Face; Triangle B (-Y)
-		(VERTICES[0], VERTICES[1], VERTICES[4]),  #Front Face; Triangle A (+Z)
-		(VERTICES[1], VERTICES[5], VERTICES[4]),  #Front Face; Triangle B (+Z)
-		(VERTICES[2], VERTICES[3], VERTICES[6]),  #Back Face; Triangle A (-Z)
-		(VERTICES[3], VERTICES[7], VERTICES[6]),  #Back Face; Triangle B (-Z)
 		(VERTICES[0], VERTICES[2], VERTICES[4]),  #Left Face; Triangle A (-X)
 		(VERTICES[2], VERTICES[6], VERTICES[4]),  #Left Face; Triangle B (-X)
 		(VERTICES[1], VERTICES[3], VERTICES[5]),  #Right Face; Triangle A (+X)
 		(VERTICES[3], VERTICES[7], VERTICES[5]),  #Right Face; Triangle B (+X)
+		(VERTICES[0], VERTICES[1], VERTICES[4]),  #Front Face; Triangle A (+Z)
+		(VERTICES[1], VERTICES[5], VERTICES[4]),  #Front Face; Triangle B (+Z)
+		(VERTICES[2], VERTICES[3], VERTICES[6]),  #Back Face; Triangle A (-Z)
+		(VERTICES[3], VERTICES[7], VERTICES[6]),  #Back Face; Triangle B (-Z)
 		(VERTICES[4], VERTICES[5], VERTICES[6]),  #Top Face; Triangle A (+Y)
 		(VERTICES[5], VERTICES[7], VERTICES[6])  #Top Face; Triangle B (+Y)
 	)
 
-	FACEs = {
-		"-Y": (TRIs[0], TRIs[1]),
-		"+Z": (TRIs[2], TRIs[3]),
-		"-Z": (TRIs[4], TRIs[5]),
-		"-X": (TRIs[6], TRIs[7]),
-		"+X": (TRIs[8], TRIs[9]),
-		"+Y": (TRIs[10], TRIs[11])
-	}
-
-	RELATIVE_POSITION = {
-		'-Y': PHYS_BODY.POSITION.Y < OBJECT.POSITION.Y,
-		'-X': PHYS_BODY.POSITION.Z < OBJECT.POSITION.Z,
-		'+X': PHYS_BODY.POSITION.Z > OBJECT.POSITION.Z,
-		'-Z': PHYS_BODY.POSITION.X < OBJECT.POSITION.X,
-		'+Z': PHYS_BODY.POSITION.X > OBJECT.POSITION.X,
-		'+Y': PHYS_BODY.POSITION.Y > OBJECT.POSITION.Y,
-	}
-
-	CLOSEST_FACES = []
-	for DIRECTION, IS_CLOSEST in RELATIVE_POSITION.items():
-		if IS_CLOSEST:
-			INDEX = list(RELATIVE_POSITION.keys()).index(DIRECTION)
-			NORMAL = OBJECT.NORMALS[INDEX] #The normals for X and Z are incorrect; please fix.
-			#print(DIRECTION)
-			CLOSEST_FACES.append([FACEs[DIRECTION], NORMAL])
+	CLOSEST_FACE, CLOSEST_NORMAL, MIN_DISTANCE = None, None, float("inf")
 	
-	return CLOSEST_FACES
+	for I in range(6):
+		TRIANGLE_A, TRIANGLE_B = TRIs[I * 2], TRIs[(I * 2) + 1]
+		NORMAL = CUBE.NORMALS[I]
+
+		FACE_CENTER = FIND_CENTROID((TRIANGLE_A[0], TRIANGLE_A[1], TRIANGLE_A[2], TRIANGLE_B[1]))
+		DISTANCE = (FACE_CENTER - PHYS_BODY.POSITION).__len__()
+		
+		if abs(DISTANCE) < MIN_DISTANCE:
+			MIN_DISTANCE = min(abs(DISTANCE), MIN_DISTANCE)
+			CLOSEST_FACE = (TRIANGLE_A, TRIANGLE_B)
+			CLOSEST_NORMAL = NORMAL
+
+	
+
+	return CLOSEST_FACE, CLOSEST_NORMAL
 
 
 def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
@@ -354,12 +351,6 @@ def PRINT_GRID(GRID): #Prints the contents of any array, list, grid, dictionary 
 	for ENTRY in GRID:
 		print(ENTRY)
 
-def TO_VECTOR_2D(LIST):
-	return VECTOR_2D(LIST[0], LIST[1])
-
-def TO_VECTOR_3D(LIST):
-	return VECTOR_3D(LIST[0], LIST[1], LIST[2])
-
 
 
 
@@ -376,9 +367,6 @@ class WORLD_OBJECT:
 		self.POSITION = POSITION
 		self.COLLISION = bool(COLLISION)
 
-		if COLLISION:
-			self.BOUNDING_BOX = BOUNDING_BOX
-
 		if NORMALS is not None:
 			FINAL_NORMALS_LIST = []
 			for NORMAL in NORMALS:
@@ -386,45 +374,41 @@ class WORLD_OBJECT:
 			self.NORMALS = tuple(FINAL_NORMALS_LIST)
 
 		if OBJECT_ID is not None: self.ID = int(OBJECT_ID)
-
-		if TEXTURE_INFO is not None:
-			self.TEXTURE_INFO = TEXTURE_INFO
+		if TEXTURE_INFO is not None: self.TEXTURE_INFO = TEXTURE_INFO
+		if COLLISION: self.BOUNDING_BOX = BOUNDING_BOX
 
 class PHYSICS_OBJECT:
 	def __init__(self, OBJECT_ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX, MASS, TEXTURE_INFO, LATERAL_VELOCITY=None):
 		self.POSITION = POSITION
-		if ROTATION is None: self.ROTATION = VECTOR_3D(0.0, 0.0, 0.0)
-		else: self.ROTATION = ROTATION.RADIANS()
 		self.MASS = float(MASS)
 		self.COLLISION = True
 		self.BOUNDING_BOX = BOUNDING_BOX
 		self.NORMALS = tuple(NORMALS)
 		self.ID = int(OBJECT_ID)
-		self.TEXTURE_INFO = tuple(TEXTURE_INFO) if TEXTURE_INFO is not None else None
-
-		if LATERAL_VELOCITY is not None:
-			self.LATERAL_VELOCITY = VECTOR_3D(*LATERAL_VELOCITY)
-		else:
-			self.LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
-
 		self.ROTATIONAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
 		self.PREVIOUS_COLLISION = False
+		if LATERAL_VELOCITY is not None: self.LATERAL_VELOCITY = VECTOR_3D(*LATERAL_VELOCITY)
+		else: self.LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
+		self.TEXTURE_INFO = tuple(TEXTURE_INFO) if TEXTURE_INFO is not None else None
+		if ROTATION is None: self.ROTATION = VECTOR_3D(0.0, 0.0, 0.0)
+		else: self.ROTATION = ROTATION.RADIANS()
+
 
 class BOUNDING_BOX:
 	def __init__(self, POSITION, OBJECT_POINTS):
 		OFFSET = 1.0
+		
 		self.MIN_X = min(POINT.X for POINT in OBJECT_POINTS) - OFFSET
 		self.MAX_X = max(POINT.X for POINT in OBJECT_POINTS) + OFFSET
 		self.MIN_Y = min(POINT.Y for POINT in OBJECT_POINTS) - OFFSET
 		self.MAX_Y = max(POINT.Y for POINT in OBJECT_POINTS) + OFFSET
 		self.MIN_Z = min(POINT.Z for POINT in OBJECT_POINTS) - OFFSET
-		self.MAX_Z = max(POINT.Z for POINT in OBJECT_POINTS) + OFFSET
 		
+		self.MAX_Z = max(POINT.Z for POINT in OBJECT_POINTS) + OFFSET
 		BOX_POINTS = FIND_CUBOID_POINTS(VECTOR_3D(self.MAX_X-self.MIN_X, self.MAX_Y-self.MIN_Y, self.MAX_Z-self.MIN_Z), POSITION)
 
-		NORMALS = FIND_CUBOID_NORMALS(BOX_POINTS)
 		self.POSITION = VECTOR_3D(*POSITION.TO_LIST())
-		self.NORMALS = tuple(NORMALS)
+		self.NORMALS = NORMALS = FIND_CUBOID_NORMALS(BOX_POINTS)
 		self.POINTS = BOX_POINTS
 
 
@@ -476,7 +460,7 @@ class CUBE_STATIC(WORLD_OBJECT):
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		super().__init__(ID, POSITION, COLLISION, TEXTURE_INFO=TEXTURE_INFO, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 
-		FACES = FIND_CUBOID_FACES()
+		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
 
 		self.DIMENTIONS = DIMENTIONS
@@ -607,11 +591,14 @@ class CUBE_PHYSICS(PHYSICS_OBJECT):
 
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO)
 
+		FACES = GET_CUBOID_FACE_INDICES()
+		self.FACES = FACES
+
 		self.DIMENTIONS = DIMENTIONS
 		self.POINTS = POINTS
 
 	def __repr__(self):
-		return f"<CUBE_PHYSICS: [POSITION: {self.POSITION} // ROTATION: {self.ROTATION} // DIMENTIONS: {self.DIMENTIONS} // MASS: {self.MASS} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ROTATIONAL_VELOCITY: {ROTATIONAL_VELOCITY}]>"
+		return f"<CUBE_PHYSICS: [POSITION: {self.POSITION} // ROTATION: {self.ROTATION} // DIMENTIONS: {self.DIMENTIONS} // MASS: {self.MASS} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ROTATIONAL_VELOCITY: {self.ROTATIONAL_VELOCITY}]>"
 
 
 class ITEM(PHYSICS_OBJECT):
@@ -644,6 +631,7 @@ class ITEM(PHYSICS_OBJECT):
 		self.TYPE = TYPE
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.DIMENTIONS_3D = TYPE_DATA[0]
+
 		self.POINTS = POINTS
 		self.LATERAL_VELOCITY = LATERAL_VELOCITY
 		self.QUANTITY = TYPE_DATA[3]
@@ -672,6 +660,8 @@ class ENEMY(PHYSICS_OBJECT):
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURES)
 
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
+		self.DIMENTIONS_3D = TYPE_DATA[0]
+
 		self.POINTS = POINTS
 		self.TYPE = TYPE
 		self.MAX_HEALTH = TYPE_DATA[3]
@@ -701,6 +691,7 @@ class PROJECTILE(PHYSICS_OBJECT):
 
 		AVG_X = (TYPE_DATA["Dimentions"][0] + TYPE_DATA["Dimentions"][2]) / 2
 		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, TYPE_DATA["Dimentions"][1])
+
 		self.POINTS = POINTS
 		self.TYPE = hex(TYPE)
 		self.DAMAGE_TYPE = TYPE_DATA["Damage Type"]
@@ -720,6 +711,7 @@ class PLAYER(PHYSICS_OBJECT):
 
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, CONSTANTS["PLAYER_MASS"], None)
 
+		self.POINTS = POINTS
 		self.MAX_HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.ITEMS = ITEMS
@@ -835,6 +827,9 @@ class RGBA:
 	def __repr__(self):
 		return f"<RGBA: [{self.R}, {self.G}, {self.B}, {self.A}]>"
 
+	def __iter__(self):
+		return iter([self.R, self.G, self.B, self.A])
+
 	def TO_DECIMAL(self, CURRENT_RANGE=(0, 255)):
 		return RGBA(
 			(self.R - CURRENT_RANGE[0]) / CURRENT_RANGE[1],
@@ -843,14 +838,6 @@ class RGBA:
 			(self.A - CURRENT_RANGE[0]) / CURRENT_RANGE[1],
 			RANGE = (0.0, 1.0)
 		)
-
-	def TO_LIST(self, CURRENT_RANGE=(0, 255)):
-		return [
-			(self.R - CURRENT_RANGE[0]) / CURRENT_RANGE[1],
-			(self.G - CURRENT_RANGE[0]) / CURRENT_RANGE[1],
-			(self.B - CURRENT_RANGE[0]) / CURRENT_RANGE[1],
-			(self.A - CURRENT_RANGE[0]) / CURRENT_RANGE[1]
-		]
 
 	def CONVERT_TO_PYRR_VECTOR4(self):
 		return Vector4(self.TO_LIST())
@@ -899,21 +886,24 @@ class VECTOR_2D:
 
 	def __str__(self): #String representation // str({self})
 		return f"<VECTOR_2D: ({self.X}, {self.Y})>"
-
+	
 	def __abs__(self): #Magnitude of self // abs({self})
+		return VECTOR_2D(abs(self.X), abs(self.Y))
+
+	def __len__(self): #Magnitude of self // abs({self})
 		return (self.X ** 2 + self.Y ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return self.__abs__() < OTHER.__abs__()
+		return abs(self) < abs(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return self.__abs__() <= OTHER.__abs__()
+		return abs(self) <= abs(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return self.__abs() > OTHER.__abs__()
+		return self.__abs() > abs(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return self.__abs__ >= OTHER.__abs__()
+		return self.__abs__ >= abs(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y
@@ -924,6 +914,9 @@ class VECTOR_2D:
 	def __repr__(self):
 		return f"<VECTOR_2D: [{self.X}, {self.Y}]>"
 
+	def __iter__(self):
+		return iter([self.X, self.Y])
+
 	def SIGN(self):
 		return VECTOR_2D(
 			1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0,
@@ -931,7 +924,7 @@ class VECTOR_2D:
 		)
 
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
-		MAGNITUDE = self.__abs__()
+		MAGNITUDE = self.__len__()
 		if MAGNITUDE != 0:
 			return self.__truediv__(MAGNITUDE)
 		return VECTOR_2D(0.0, 0.0)
@@ -969,10 +962,10 @@ class VECTOR_2D:
 			self.X = CLAMP(self.X, X_BOUNDS[0], X_BOUNDS[1])
 		if Y_BOUNDS is not None:
 			self.Y = CLAMP(self.Y, Y_BOUNDS[0], Y_BOUNDS[1])
-		return self
 
-	def PRINT(self):
-		print(f"<{self.X}, {self.Y}>")
+	def ROTATE_BY(self, ANGLE):
+		self.X = (self.X * maths.cos(ANGLE)) - (self.Y * maths.sin(ANGLE))
+		self.Y = (self.X * maths.sin(ANGLE)) + (self.Y * maths.cos(ANGLE))
 
 
 
@@ -1007,21 +1000,24 @@ class VECTOR_3D:
 
 	def __str__(self): #String representation // str({self})
 		return f"<VECTOR_3D: ({self.X}, {self.Y}, {self.Z})>"
-
+	
 	def __abs__(self): #Magnitude of self // abs({self})
+		return VECTOR_3D(abs(self.X), abs(self.Y), abs(self.Z))
+
+	def __len__(self): #Magnitude of self // abs({self})
 		return (self.X ** 2 + self.Y ** 2 + self.Z ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return self.__abs__() < OTHER.__abs__()
+		return abs(self) < abs(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return self.__abs__() <= OTHER.__abs__()
+		return abs(self) <= abs(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return self.__abs() > OTHER.__abs__()
+		return abs(self) > abs(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return self.__abs__ >= OTHER.__abs__()
+		return self.__abs__ >= abs(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y and self.Z == OTHER.Z
@@ -1031,6 +1027,9 @@ class VECTOR_3D:
 
 	def __repr__(self):
 		return f"<VECTOR_3D: [{self.X}, {self.Y}, {self.Z}]>"
+
+	def __iter__(self):
+		return iter([self.X, self.Y, self.Z])
 	
 	def SIGN(self):
 		return VECTOR_3D(
@@ -1040,9 +1039,9 @@ class VECTOR_3D:
 		)
 
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
-		MAGNITUDE = self.__abs__()
+		MAGNITUDE = self.__len__()
 		if MAGNITUDE != 0:
-			return self.__truediv__(MAGNITUDE)
+			return self / MAGNITUDE
 		return VECTOR_3D(0.0, 0.0, 0.0)
 
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
@@ -1089,10 +1088,22 @@ class VECTOR_3D:
 			self.Y = CLAMP(self.Y, Y_BOUNDS[0], Y_BOUNDS[1])
 		if Z_BOUNDS is not None:
 			self.Z = CLAMP(self.Z, Z_BOUNDS[0], Z_BOUNDS[1])
+
 		return self
-	
-	def PRINT(self):
-		print(f"<{self.X}, {self.Y}, {self.Z}>")
+
+	def ROTATE_BY(self, ANGLE, CENTRE):
+		#3D Rotation matrix.
+		MATRIX = NP.array([
+			[maths.cos(ANGLE.Y) * maths.cos(ANGLE.Z),	(maths.sin(ANGLE.X) * maths.sin(ANGLE.Y) * maths.cos(ANGLE.Z)) - (maths.cos(ANGLE.X) * maths.sin(ANGLE.Z)),	(maths.cos(ANGLE.X) * maths.sin(ANGLE.Y) * maths.cos(ANGLE.Z)) + (maths.sin(ANGLE.X) * maths.sin(ANGLE.Z))],
+			[maths.cos(ANGLE.Y) * maths.sin(ANGLE.Z),	(maths.sin(ANGLE.X) * maths.sin(ANGLE.Y) * maths.sin(ANGLE.Z)) + (maths.cos(ANGLE.X) * maths.cos(ANGLE.Z)),	(maths.cos(ANGLE.X) * maths.sin(ANGLE.Y) * maths.sin(ANGLE.Z)) - (maths.sin(ANGLE.X) * maths.cos(ANGLE.Z))],
+			[-maths.sin(ANGLE.Y),					 	 maths.sin(ANGLE.X) * maths.cos(ANGLE.Y),																	 maths.cos(ANGLE.X) * maths.cos(ANGLE.Y)]
+		])
+
+		X, Y, Z = NP.dot(MATRIX, self.CONVERT_TO_NP_ARRAY())
+		return VECTOR_3D(X + CENTRE.X, Y + CENTRE.Y, Z + CENTRE.Z)
+
+	def CONVERT_TO_NP_ARRAY(self):
+		return NP.array([self.X, self.Y, self.Z])
 
 	def CONVERT_TO_PYRR_VECTOR3(self):
 		return Vector3(self.TO_LIST())

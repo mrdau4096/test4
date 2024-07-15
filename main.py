@@ -230,44 +230,30 @@ if __name__ == "__main__":
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
 					case PG.JOYAXISMOTION:
-						PAD_CONTROLS[EVENT.axis] = round(EVENT.value, 1)
+						PAD_CONTROLS[EVENT.axis] = round(EVENT.value, 2) + PREFERENCES[f"AXIS_{EVENT.axis}_OFFSET"]
 
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
-			if (EVENT.type == PG.MOUSEMOTION) and (WINDOW_FOCUS == 1): #Mouse inputs
+			if (EVENT.type == PG.MOUSEMOTION) and (WINDOW_FOCUS == 1): #Mouse inputs for player view rotation.
 				MOUSE_MOVE = [EVENT.pos[0] - (DISPLAY_RESOLUTION.X // 2), EVENT.pos[1] - (DISPLAY_RESOLUTION.Y // 2)]
 				ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0
-				PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
-				PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+				if PAD_COUNT > 0:
+					PLAYER.ROTATION.X += PAD_CONTROLS[2] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+					PLAYER.ROTATION.Y -= PAD_CONTROLS[3] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+				else:
+					PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+					PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
 				PLAYER.ROTATION = PLAYER.ROTATION.CLAMP(Y_BOUNDS=(-89.9, 89.9))
-				PG.mouse.set_pos(DISPLAY_CENTRE.TO_LIST())
-				PG.mouse.set_visible(False)
 			
 			if WINDOW_FOCUS == 0:
 				PG.mouse.set_visible(True)
 				FPS_CAP = PREFERENCES["FPS_LOW"]
-			elif FPS_CAP == PREFERENCES["FPS_LOW"]:
+			else:
+				PG.mouse.set_pos(DISPLAY_CENTRE.TO_LIST())
+				PG.mouse.set_visible(False)	
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
 			
 			# Initialize Model view matrix for OpenGL
 			glLoadIdentity()
-
-
-			"""
-			Apply all camera movements based off of the keyboard inputs or GamePad axis (WASD / AXIS)
-			Apply all camera rotations from mouse movements or GamePad axis.
-			"""
-			# Rotations of the camera
-			if PAD_COUNT > 0:
-				PLAYER.ROTATION.Y += PAD_CONTROLS[3] * PREFERENCES["PLAYER_SPEED_TURN_PAD"]
-			else:
-				pass#PLAYER.ROTATION.Y += MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
-			
-			PLAYER.ROTATION.Y = utils.CLAMP(PLAYER.ROTATION.Y, -90, 90)
-			
-			if PAD_COUNT > 0:
-				PLAYER.ROTATION.X += PAD_CONTROLS[2] * PREFERENCES["PLAYER_SPEED_TURN_PAD"]
-			else:
-				pass#PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"]
 
 			"""
 			FPS is the current frames per second - usually around the max FPS set just beforehand, and is used for a basic Δt-type force application system.
@@ -277,7 +263,7 @@ if __name__ == "__main__":
 			"""
 			CLOCK.tick_busy_loop(FPS_CAP)
 
-			PHYS_DATA[0][PLAYER_ID].POSITION = PLAYER.POSITION
+			PHYS_DATA[0][PLAYER_ID] = PLAYER
 			CONSTANTS["PLAYER_COLLISION_CUBOID"] = PLAYER_COLLISION_CUBOID
 			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES)
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
@@ -290,6 +276,7 @@ if __name__ == "__main__":
 
 			if PREFERENCES["DYNAMIC_SHADOWS"]:
 				#If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
+				#!CURRENTLY BROKEN!
 				for LIGHT in LIGHTS:
 					SHADOW_MAP, LIGHT = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
 					LIGHT.SHADOW_MAP = SHADOW_MAP
