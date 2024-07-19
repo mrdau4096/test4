@@ -23,7 +23,6 @@ from pyrr import Matrix44, Vector3
 import numpy as NP
 import copy
 import glm
-import gc as GC
 from PIL import Image
 
 print("Imported Sub-file // render.py")
