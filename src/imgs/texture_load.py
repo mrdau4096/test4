@@ -34,16 +34,14 @@ Texture cache;
 > if a texture is called to be loaded, it is checked for duplicates in here first
 > if duplicate found, return duplicate
 > otherwise, load texture, add to cache and return data
-
-DIMENTIONS is a 2 item list for the lengths of each side (Left, Top), mostly for planes;
--When N/A (Like spheres) it is None
--in Cubes/Cuboids it is the side lengths
--in "sprites" (pretend sprites, real implementation non-existant in my code) it is also None, as it is always (1, 1)
 """
 global TEXTURE_CACHE, SHEET_CACHE
 TEXTURE_CACHE = {}
 SHEET_CACHE = {}
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
+
+
+#Texture loading functions
 
 
 def TEXTURE_CACHE_MANAGER(HEX_ID):
@@ -69,6 +67,8 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 
 		return TEXTURE_COORDINATES
 
+
+
 def LOAD_SHEET(FILE_NAME):
 	MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
 	TEXTURE_PATH = os.path.join(MAIN_DIR, f"sheet-{FILE_NAME}.png")
@@ -89,44 +89,3 @@ def LOAD_SHEET(FILE_NAME):
 	SHEET_CACHE[FILE_NAME] = SHEET_ID
 
 	return SHEET_ID
-
-
-
-def FILE_FORMAT(HEX_ID):
-	TEXTURE_ID = str(HEX_ID)
-	FILE_FORMAT="png"
-	return f"{TEXTURE_ID}.{FILE_FORMAT}"
-
-
-
-def LOAD_NEW_TEXTURE(FILE_NAME):
-	MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-	TEXTURE_PATH = os.path.join(MAIN_DIR, FILE_NAME)
-
-	SURFACE = PG.image.load(TEXTURE_PATH)
-	DATA = PG.image.tostring(SURFACE, 'RGBA', 1)
-	WIDTH, HEIGHT = SURFACE.get_width(), SURFACE.get_height()
-
-	TEXTURE_ID = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, TEXTURE_ID)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA)
-
-	TEXTURE_CACHE[FILE_NAME] = TEXTURE_ID
-	
-	return TEXTURE_ID
-
-	"""
-	TEXTURE_COORDINATES = ((0, 0), (1, 0), (1, 1), (0, 1))
-
-	FILE_NAME = FILE_FORMAT(HEX_ID)
-	
-	if FILE_NAME in TEXTURE_CACHE:
-		TEXTURE_ID =  TEXTURE_CACHE[FILE_NAME]
-	
-	else:
-		TEXTURE_ID = LOAD_NEW_TEXTURE(FILE_NAME)
-		
-	return (TEXTURE_ID, TEXTURE_COORDINATES)
-	"""

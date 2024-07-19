@@ -15,6 +15,8 @@ import os, sys, datetime
 print("Imported Sub-file // log.py")
 
 
+#Logging-supporting functions
+
 
 def GET_TIME(): #Gets current date/time, gives back as a string.
 	FULL_TIME = str(datetime.datetime.now())

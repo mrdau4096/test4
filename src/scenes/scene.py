@@ -24,7 +24,7 @@ import numpy as NP
 
 print("Imported Sub-file // scene.py")
 
-FIND_VECTOR = utils.FIND_VECTOR
+
 
 global OVERHANG
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
@@ -50,13 +50,8 @@ FORMATTING = {
 }
 
 
-def READ_COORDS(LINE, NUMBER_OF_COORDS, START_CHAR, MULTIPLIER):
-	OUTPUT = []
-	for I in range(NUMBER_OF_COORDS):
-		COORDINATE = LINE[(I*4)+START_CHAR:((I+1)*4)+START_CHAR]
-		OUTPUT.append(int(COORDINATE, 16)/10)
-	
-	return OUTPUT
+
+#File loading functions
 
 
 def PREPARE_SCENE(SCENE_NAME):

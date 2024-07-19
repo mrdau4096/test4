@@ -33,10 +33,86 @@ e = maths.e
 πDIV2 = π / 2
 
 
-#@profile #For the memory-profiler I used in testing.
+
+#General Physics Functions
+
+
+
+def AIR_RES_CALC(VELOCITY_VECTOR): #Causes extreme slowdowns? also causes issues when velocity is near 0. Temporarily replaced by a flat x0.975 multiplier, via Prefs.
+	#It seems that by "temporarily", I meant closer to 3 months. Oops?
+	PROCESSED_VELOCITY = []
+	for COMPONENT in VELOCITY_VECTOR:
+		if COMPONENT >= 0:
+			PROCESSED_VELOCITY.append((COMPONENT / 0.0000154) ** (0.3333333))
+		
+		else:
+			PROCESSED_VELOCITY.append(-1*(abs(COMPONENT) / 0.0000154) ** (0.3333333))
+	
+	return PROCESSED_VELOCITY
+
+
+
+def ACCELERATION_CALC(FORCE, MASS):
+	"""
+	F = ma
+	Therefore a = F/m
+	If Mass == 0 or Force == 0, then it will raise a zero-div-error.
+	I account for this via presuming a "safe" return value is 0us^-2.
+	"""
+	if MASS <= 0:
+				raise ValueError(f"Mass cannot be <= 0; {MASS}")
+	try:
+		return FORCE/MASS
+
+	except ZeroDivisionError:
+		return 0
+
+
+
+def PLAYER_MOVEMENT(KEY_STATES, PLAYER):
+	FINAL_MOVE_SPEED = CONSTANTS["PLAYER_SPEED_MOVE"]
+	if KEY_STATES[PG.K_LCTRL]:
+		FINAL_MOVE_SPEED *= CONSTANTS["MULT_CROUCH"]
+	if KEY_STATES[PG.K_LSHIFT]:
+		FINAL_MOVE_SPEED *= CONSTANTS["MULT_RUN"]
+	elif KEY_STATES[PG.K_x]:
+		FINAL_MOVE_SPEED *= CONSTANTS["MULT_SLOWWALK"]
+
+	FINAL_MOVE_SPEED /= CONSTANTS["PHYSICS_ITERATIONS"]
+
+	X_RADIANS = maths.radians(PLAYER.ROTATION.X)
+
+	FORWARD = VECTOR_3D(
+		-maths.cos(X_RADIANS),
+		0,
+		-maths.sin(X_RADIANS)
+	)
+	
+	LEFT = VECTOR_3D(
+		maths.sin(X_RADIANS),
+		0,
+		-maths.cos(X_RADIANS)
+	)
+
+	if KEY_STATES[PG.K_w]:
+		PLAYER.POSITION += FORWARD * FINAL_MOVE_SPEED
+	if KEY_STATES[PG.K_s]:
+		PLAYER.POSITION -= FORWARD * FINAL_MOVE_SPEED
+	if KEY_STATES[PG.K_a]:
+		PLAYER.POSITION += LEFT * (-1 * FINAL_MOVE_SPEED)
+	if KEY_STATES[PG.K_d]:
+		PLAYER.POSITION -= LEFT * (-1 * FINAL_MOVE_SPEED)
+
+	return PLAYER.POSITION
+
+
+
 def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
 	#Updates the physics of the system once per frame.
 	KINETICs_LIST, STATICs_LIST = PHYS_DATA
+				
+	HEIGHT_CHANGE = VECTOR_3D(0.0, 0.75, 0.0)
+	BLANK_VECTOR = VECTOR_3D(0.0, 0.0, 0.0)
 
 	for _ in range(CONSTANTS["PHYSICS_ITERATIONS"]):
 		for PHYS_OBJECT_ID, PHYS_OBJECT in KINETICs_LIST.items():
@@ -48,9 +124,6 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
 				PHYS_OBJECT.POSITION = PLAYER_MOVEMENT(KEY_STATES, PHYS_OBJECT)
 
 				PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(CONSTANTS["PLAYER_COLLISION_CUBOID"], PHYS_OBJECT.POSITION)
-				
-				HEIGHT_CHANGE = VECTOR_3D(0.0, 0.75, 0.0)
-				BLANK_VECTOR = VECTOR_3D(0.0, 0.0, 0.0)
 
 				if KEY_STATES[PG.K_LCTRL]:
 					KEY_STATES["CROUCH"] = True
@@ -116,7 +189,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
 
 			if PHYS_OBJECT.POSITION.Y <= -256.0:
 				PHYS_OBJECT.POSITION = VECTOR_3D(0.0, 0.0, 0.0)
-				PHYS_OBJECT.LATERAL_VELOCITY.Y = VECTOR_3D(0.0, 0.0, 0.0)
+				PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
 
 			elif COLLIDING:
 				if OBJECT_TYPE == PLAYER:
@@ -150,7 +223,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
 			elif OBJECT_TYPE in (CUBE_PHYSICS,):
 				PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
 			
-			PHYS_OBJECT.BOUNDING_BOX = BOUNDING_BOX(PHYS_OBJECT.POSITION, PHYS_OBJECT.POINTS)
+			PHYS_OBJECT.BOUNDING_BOX.UPDATE(PHYS_OBJECT.POSITION, PHYS_OBJECT.POINTS)
 
 			KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
 
@@ -161,40 +234,19 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES):
 	#except Exception as E:
 		#log.ERROR("physics.UPDATE_PHYSICS", E)
 
-		
-def AIR_RES_CALC(VELOCITY_VECTOR): #Causes extreme slowdowns? also causes issues when velocity is near 0. Temporarily replaced by a flat x0.975 multiplier, via Prefs.
-	PROCESSED_VELOCITY = []
-	for COMPONENT in VELOCITY_VECTOR:
-		if COMPONENT >= 0:
-			PROCESSED_VELOCITY.append((COMPONENT / 0.0000154) ** (0.3333333))
-		
-		else:
-			PROCESSED_VELOCITY.append(-1*(abs(COMPONENT) / 0.0000154) ** (0.3333333))
-	
-	return PROCESSED_VELOCITY
 
 
-def ACCELERATION_CALC(FORCE, MASS):
-	"""
-	F = ma
-	Therefore a = F/m
-	If Mass == 0 or Force == 0, then it will raise a zero-div-error.
-	I account for this via presuming a "safe" return value is 0us^-2.
-	"""
-	if MASS <= 0:
-				raise ValueError(f"Mass cannot be <= 0; {MASS}")
-	try:
-		return FORCE/MASS
 
-	except ZeroDivisionError:
-		return 0
+#Collision-checking functions
 
 
 def BOUNDING_BOX_COLLISION(BOX_A, BOX_B):
 	if ((BOX_A.MIN_X > BOX_B.MAX_X) or (BOX_A.MAX_X < BOX_B.MIN_X)
 	  or (BOX_A.MIN_Y > BOX_B.MAX_Y) or (BOX_A.MAX_Y < BOX_B.MIN_Y)
 	   or (BOX_A.MIN_Z > BOX_B.MAX_Z) or (BOX_A.MAX_Z < BOX_B.MIN_Z)):
+		del BOX_A, BOX_B
 		return False
+	del BOX_A, BOX_B
 	return True
 
 
@@ -245,7 +297,7 @@ def COLLISION_CHECK(PHYS_BODY, OBJECT):
 
 
 def CUBOID_TRI_COLLISION_DTEC(CUBOID, TRI, TRI_NORMAL):
-	SEPARATING_AXIS = [
+	SEPARATING_AXIS = (
 		(CUBOID[1] - CUBOID[0]).NORMALISE(),
 		(CUBOID[2] - CUBOID[0]).NORMALISE(),
 		(CUBOID[4] - CUBOID[0]).NORMALISE(),
@@ -253,60 +305,24 @@ def CUBOID_TRI_COLLISION_DTEC(CUBOID, TRI, TRI_NORMAL):
 		(TRI[0] - TRI[1]).NORMALISE(),
 		(TRI[0] - TRI[2]).NORMALISE(),
 		TRI_NORMAL
-	]
+	)
 
 	MIN_PEN_DEPTH = float('inf')
-	COLLISION = False
 
 	for CURRENT_AXIS in SEPARATING_AXIS:
 		CUBOID_MIN_MAX = CURRENT_AXIS.PROJECT(CUBOID)
 		TRI_MIN_MAX = CURRENT_AXIS.PROJECT(TRI)
 
 		if CUBOID_MIN_MAX[1] < TRI_MIN_MAX[0] or CUBOID_MIN_MAX[0] > TRI_MIN_MAX[1]:
-			return [False, 0, False]
+			del SEPARATING_AXIS, CUBOID_MIN_MAX, TRI_MIN_MAX, CURRENT_AXIS
+			return (False, 0, False)
 		
 		# Calculate penetration depth for the current axis
 		PEN_DEPTH = min(abs(CUBOID_MIN_MAX[1] - TRI_MIN_MAX[0]), abs(TRI_MIN_MAX[1] - CUBOID_MIN_MAX[0]))
 		MIN_PEN_DEPTH = min(MIN_PEN_DEPTH, PEN_DEPTH)
-		COLLISION = True
 
-	PEN_DEPTH = round(MIN_PEN_DEPTH - 0.01, 8)
-	TOUCHING = abs(PEN_DEPTH) <= 0.001
+	OFFSET = -0.01 if MIN_PEN_DEPTH > 0.0 else 0.01 if MIN_PEN_DEPTH < 0.0 else 0.0
+	del SEPARATING_AXIS, CUBOID_MIN_MAX, TRI_MIN_MAX, CURRENT_AXIS
 
-	return [COLLISION, PEN_DEPTH, TOUCHING]
-
-def PLAYER_MOVEMENT(KEY_STATES, PLAYER):
-	FINAL_MOVE_SPEED = CONSTANTS["PLAYER_SPEED_MOVE"]
-	if KEY_STATES[PG.K_LCTRL]:
-		FINAL_MOVE_SPEED *= CONSTANTS["MULT_CROUCH"]
-	if KEY_STATES[PG.K_LSHIFT]:
-		FINAL_MOVE_SPEED *= CONSTANTS["MULT_RUN"]
-	elif KEY_STATES[PG.K_x]:
-		FINAL_MOVE_SPEED *= CONSTANTS["MULT_SLOWWALK"]
-
-	FINAL_MOVE_SPEED /= CONSTANTS["PHYSICS_ITERATIONS"]
-
-	X_RADIANS = maths.radians(PLAYER.ROTATION.X)
-
-	FORWARD = VECTOR_3D(
-		-maths.cos(X_RADIANS),
-		0,
-		-maths.sin(X_RADIANS)
-	)
-	
-	LEFT = VECTOR_3D(
-		maths.sin(X_RADIANS),
-		0,
-		-maths.cos(X_RADIANS)
-	)
-
-	if KEY_STATES[PG.K_w]:
-		PLAYER.POSITION += FORWARD * FINAL_MOVE_SPEED
-	if KEY_STATES[PG.K_s]:
-		PLAYER.POSITION -= FORWARD * FINAL_MOVE_SPEED
-	if KEY_STATES[PG.K_a]:
-		PLAYER.POSITION += LEFT * (-1 * FINAL_MOVE_SPEED)
-	if KEY_STATES[PG.K_d]:
-		PLAYER.POSITION -= LEFT * (-1 * FINAL_MOVE_SPEED)
-
-	return PLAYER.POSITION
+	PEN_DEPTH = round(MIN_PEN_DEPTH + OFFSET, 8)
+	return (True, PEN_DEPTH, abs(PEN_DEPTH) <= 0.001)

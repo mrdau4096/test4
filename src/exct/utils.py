@@ -20,6 +20,10 @@ from pyrr import Matrix44, Vector3, Vector4
 import numpy as NP
 import glm
 
+
+#Mathematical functions
+
+
 def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almost exclusively for camera angle.
 	match VARIABLE:
 		case N if N > UPPER:
@@ -31,10 +35,6 @@ def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almo
 		case _:
 			return VARIABLE
 
-
-
-def FIND_VECTOR(COORDINATE_A, COORDINATE_B): #Finds a vector between 2 given coordinates.
-	return VECTOR_3D(COORDINATE_B.X - COORDINATE_A.X, COORDINATE_B.Y - COORDINATE_A.Y, COORDINATE_B.Z - COORDINATE_A.Z)
 
 
 def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
@@ -58,9 +58,9 @@ def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-ali
 
 
 def FIND_CUBOID_NORMALS(POINTS): #Find the normals of a cuboid, via its 8 points. This allows the cuboid to be rotated along any axis, and still give the normals.
-	VECTOR_R = FIND_VECTOR(POINTS[0], POINTS[1]).NORMALISE() #Maximum X
-	VECTOR_G = FIND_VECTOR(POINTS[0], POINTS[4]).NORMALISE() #Maximum Y
-	VECTOR_B = FIND_VECTOR(POINTS[0], POINTS[2]).NORMALISE() #Maximum Z
+	VECTOR_R = (POINTS[1] - POINTS[0]).NORMALISE() #Maximum X
+	VECTOR_G = (POINTS[4] - POINTS[0]).NORMALISE() #Maximum Y
+	VECTOR_B = (POINTS[2] - POINTS[0]).NORMALISE() #Maximum Z
 
 	NORMAL_BOTTOM = VECTOR_G * -1
 	NORMAL_SIDE_A = VECTOR_R * -1
@@ -72,11 +72,14 @@ def FIND_CUBOID_NORMALS(POINTS): #Find the normals of a cuboid, via its 8 points
 	return [NORMAL_BOTTOM, NORMAL_SIDE_A, NORMAL_SIDE_B, NORMAL_SIDE_C, NORMAL_SIDE_D, NORMAL_TOP]
 
 
+
 def FIND_CENTROID(POINTS):
 	SUM = VECTOR_3D(0.0, 0.0, 0.0)
 	for PT in POINTS:
 		SUM += PT
 	return SUM / len(POINTS)
+
+
 
 def CALC_2D_VECTOR_ANGLE(V1, V2):
 	V1_2D = VECTOR_2D(V1.X, V1.Z).NORMALISE()
@@ -87,21 +90,13 @@ def CALC_2D_VECTOR_ANGLE(V1, V2):
 
 	return maths.degrees(DOT * DET)
 
+
+
 def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
 	FINAL = []
 	for POINT in POINTS:
 		FINAL.append((POINT - CENTRE).ROTATE_BY(ANGLE, CENTRE))
 	return FINAL
-
-def GET_CUBOID_FACE_INDICES():
-	return (
-		(0, 1, 3, 2),
-		(4, 6, 2, 0),
-		(5, 7, 3, 1),
-		(5, 4, 0, 1),
-		(7, 6, 2, 3),
-		(4, 5, 7, 6)
-	)
 
 
 def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
@@ -129,7 +124,7 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 		NORMAL = CUBE.NORMALS[I]
 
 		FACE_CENTER = FIND_CENTROID((TRIANGLE_A[0], TRIANGLE_A[1], TRIANGLE_A[2], TRIANGLE_B[1]))
-		DISTANCE = (FACE_CENTER - PHYS_BODY.POSITION).__len__()
+		DISTANCE = abs(FACE_CENTER - PHYS_BODY.POSITION)
 		
 		if abs(DISTANCE) < MIN_DISTANCE:
 			MIN_DISTANCE = min(abs(DISTANCE), MIN_DISTANCE)
@@ -141,26 +136,41 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 	return CLOSEST_FACE, CLOSEST_NORMAL
 
 
-def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
-	OPPOSITE = SPRITE_POSITION.Z - PLAYER_POSITION.Z
-	ADJACENT = SPRITE_POSITION.X - PLAYER_POSITION.X
-	
-	PLAYER_SPRITE_ANGLE = -1 * maths.atan2(OPPOSITE, ADJACENT)
-	ANGLE_A = PLAYER_SPRITE_ANGLE + (π / 2)
-	ANGLE_B = PLAYER_SPRITE_ANGLE - (π / 2)
-	
-	LEFT_SIDE_X = SPRITE_POSITION.X + ((SPRITE_DIMENTIONS.X / 2) * maths.cos(ANGLE_A))
-	LEFT_SIDE_Z = SPRITE_POSITION.Z + ((SPRITE_DIMENTIONS.X / 2) * maths.sin(ANGLE_B))
+#Other functions
 
-	RIGHT_SIDE_X = SPRITE_POSITION.X + ((SPRITE_DIMENTIONS.X / 2) * maths.cos(ANGLE_B))
-	RIGHT_SIDE_Z = SPRITE_POSITION.Z + ((SPRITE_DIMENTIONS.X / 2) * maths.sin(ANGLE_A))
 
+
+def PRINT_GRID(GRID): #Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
+	for ENTRY in GRID:
+		print(ENTRY)
+
+
+
+#Data retrieval functions
+
+
+def GET_CUBOID_FACE_INDICES():
 	return (
-			VECTOR_3D(LEFT_SIDE_X, SPRITE_POSITION.Y, LEFT_SIDE_Z),
-			VECTOR_3D(RIGHT_SIDE_X, SPRITE_POSITION.Y, RIGHT_SIDE_Z),
-			VECTOR_3D(RIGHT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, RIGHT_SIDE_Z),
-			VECTOR_3D(LEFT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, LEFT_SIDE_Z)
-		)
+		(0, 1, 3, 2),
+		(4, 6, 2, 0),
+		(5, 7, 3, 1),
+		(5, 4, 0, 1),
+		(7, 6, 2, 3),
+		(4, 5, 7, 6)
+	)
+
+
+
+def GET_DATA_PATH():
+	#Path for the ..\\test4.2.2\\exct\\data\\.. data files.
+	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+
+
+
+def GET_GLSL_PATH():
+	#Path for the ..\\test4.2.2\\exct\\glsl\\.. shader files.
+	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glsl')
+
 
 
 def GET_CONFIGS():
@@ -251,6 +261,8 @@ def GET_CONFIGS():
 
 	return PREFERENCES, CONSTANTS
 
+
+
 def GET_GAME_DATA():
 	#Gets the hostiles.dat and supplies.dat file data for use elsewhere.
 	DATA_PATH = GET_DATA_PATH()
@@ -282,6 +294,8 @@ def GET_GAME_DATA():
 	PROJECTILES_FILE.close()
 
 	return HOSTILES, SUPPLIES, PROJECTILES
+
+
 
 def PROCESS_LINE(LINE, FORMATTING):
 	if LINE != "":
@@ -339,19 +353,6 @@ def PROCESS_LINE(LINE, FORMATTING):
 
 
 
-def GET_DATA_PATH():
-	#Path for the ..\\test4.2.2\\exct\\data\\.. data files.
-	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-
-def GET_GLSL_PATH():
-	#Path for the ..\\test4.2.2\\exct\\glsl\\.. shader files.
-	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glsl')
-
-def PRINT_GRID(GRID): #Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
-	for ENTRY in GRID:
-		print(ENTRY)
-
-
 
 
 """
@@ -362,7 +363,11 @@ Custom Classes, for objects and datatypes {O.O.P.};
 - VECTOR_2D/VECTOR_3D and their related mathematical functions.
 """
 #Parent Classes
+
+
+
 class WORLD_OBJECT:
+	#@profile
 	def __init__(self, OBJECT_ID, POSITION, COLLISION, TEXTURE_INFO=None, NORMALS=None, BOUNDING_BOX=None):
 		self.POSITION = POSITION
 		self.COLLISION = bool(COLLISION)
@@ -378,6 +383,7 @@ class WORLD_OBJECT:
 		if COLLISION: self.BOUNDING_BOX = BOUNDING_BOX
 
 class PHYSICS_OBJECT:
+	#@profile
 	def __init__(self, OBJECT_ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX, MASS, TEXTURE_INFO, LATERAL_VELOCITY=None):
 		self.POSITION = POSITION
 		self.MASS = float(MASS)
@@ -395,6 +401,7 @@ class PHYSICS_OBJECT:
 
 
 class BOUNDING_BOX:
+	#@profile
 	def __init__(self, POSITION, OBJECT_POINTS):
 		OFFSET = 1.0
 		
@@ -411,10 +418,16 @@ class BOUNDING_BOX:
 		self.NORMALS = NORMALS = FIND_CUBOID_NORMALS(BOX_POINTS)
 		self.POINTS = BOX_POINTS
 
+	def UPDATE(self, NEW_POSITION, NEW_POINTS): #Updates original data using __init__() without creating a new AABB Object
+		self.__init__(NEW_POSITION, NEW_POINTS)
+		return self
 
 
 
 #Static Objects
+
+
+
 class SCENE():
 	def __init__(self, VOID_COLOUR, GRAVITY, AIR_RES_MULT):
 		self.VOID = RGBA(VOID_COLOUR)
@@ -444,7 +457,11 @@ class QUAD(WORLD_OBJECT):
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES):
 		CENTROID = FIND_CENTROID(VERTICES)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
-		NORMALS = ((VERTICES[1] - VERTICES[0]).CROSS(VERTICES[2] - VERTICES[0]), (VERTICES[1] - VERTICES[3]).CROSS(VERTICES[2] - VERTICES[3]))
+		SIDE_A = VERTICES[1] - VERTICES[0]
+		SIDE_B = VERTICES[2] - VERTICES[0]
+		SIDE_C = VERTICES[1] - VERTICES[3]
+		SIDE_D = VERTICES[2] - VERTICES[3]
+		NORMALS = (SIDE_A.CROSS(SIDE_B), SIDE_C.CROSS(SIDE_D))
 		super().__init__(ID, CENTROID, COLLISION, TEXTURE_INFO=TEXTURE_COORDINATES, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 
 		self.POINTS = VERTICES
@@ -578,11 +595,10 @@ class NPC_PATH_NODE(WORLD_OBJECT):
 
 
 
-
-
-
-
 #Physics Objects
+
+
+
 class CUBE_PHYSICS(PHYSICS_OBJECT):
 	def __init__(self, ID, POSITION, DIMENTIONS, MASS, ROTATION, TEXTURE_INFO):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
@@ -729,15 +745,10 @@ class PLAYER(PHYSICS_OBJECT):
 
 
 
+#Data-structuring classes (Vectors, Colours)
 
 
 
-"""
-Formatting;
-- RGBA
-- VECTOR_2D
-- VECTOR_3D
-"""
 class RGBA:
 	"""
 	RGB Colour type.
@@ -858,52 +869,54 @@ class VECTOR_2D:
 		self.Y = float(Y)
 
 	def __add__(self, OTHER): #Add self and OTHER // {self} + {OTHER}
-		return VECTOR_2D(self.X + OTHER.X, self.Y + OTHER.Y)
+		X = self.X + OTHER.X
+		Y = self.Y + OTHER.Y
+		return VECTOR_2D(X, Y)
 
 	def __sub__(self, OTHER): #Subtract OTHER from self // {self} - {OTHER}
-		return VECTOR_2D(self.X - OTHER.X, self.Y - OTHER.Y)
+		X = self.X - OTHER.X
+		Y = self.Y - OTHER.Y
+		return VECTOR_2D(X, Y)
 
 	def __mul__(self, SCALAR): #Multiply self by OTHER // {self} * {OTHER}
-		return VECTOR_2D(self.X * SCALAR, self.Y * SCALAR)
+		X = self.X * SCALAR
+		Y = self.Y * SCALAR
+		return VECTOR_2D(X, Y)
 
 	def __rmul__(self, SCALAR): #Multiply OTHER by self // {OTHER} * {self}
 		return self * SCALAR
 
 	def __truediv__(self, SCALAR): #Divide self by SCALAR // {self} / {SCALAR}
-		return VECTOR_2D(self.X / SCALAR, self.Y / SCALAR)
+		X = self.X / SCALAR
+		Y = self.Y / SCALAR
+		return VECTOR_2D(X, Y)
 
 	def __iadd__(self, OTHER):
-		self.X += OTHER.X
-		self.Y += OTHER.Y
-		self.Z += OTHER.Z
-		return self
+		return self + OTHER
 
 	def __isub__(self, OTHER):
-		self.X -= OTHER.X
-		self.Y -= OTHER.Y
-		self.Z -= OTHER.Z
-		return self
+		return self - OTHER
+	
+	def __imul__(self, SCALAR):
+		return self * OTHER
 
-	def __str__(self): #String representation // str({self})
-		return f"<VECTOR_2D: ({self.X}, {self.Y})>"
+	def __idiv__(self, SCALAR):
+		return self / OTHER
 	
 	def __abs__(self): #Magnitude of self // abs({self})
-		return VECTOR_2D(abs(self.X), abs(self.Y))
-
-	def __len__(self): #Magnitude of self // abs({self})
 		return (self.X ** 2 + self.Y ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return abs(self) < abs(OTHER)
+		return len(self) < len(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return abs(self) <= abs(OTHER)
+		return len(self) <= len(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return self.__abs() > abs(OTHER)
+		return self.__abs() > len(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return self.__abs__ >= abs(OTHER)
+		return self.__abs__ >= len(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y
@@ -918,15 +931,15 @@ class VECTOR_2D:
 		return iter([self.X, self.Y])
 
 	def SIGN(self):
-		return VECTOR_2D(
-			1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0,
-			1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0,
-		)
+		X = 1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0
+		Y = 1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0
+		return VECTOR_2D(X, Y)
 
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
-		MAGNITUDE = self.__len__()
+		MAGNITUDE = abs(self)
 		if MAGNITUDE != 0:
-			return self.__truediv__(MAGNITUDE)
+			return self / MAGNITUDE
+
 		return VECTOR_2D(0.0, 0.0)
 
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
@@ -949,23 +962,36 @@ class VECTOR_2D:
 		return [self.X, self.Y]
 
 	def TO_INT(self):
-		return VECTOR_2D(int(self.X), int(self.Y))
+		X = int(self.X)
+		Y = int(self.Y)
+		return VECTOR_2D(X, Y)
+
+	def TO_FLOAT(self):
+		X = float(self.X)
+		Y = float(self.Y)
+		return VECTOR_2D(X, Y)
 
 	def RADIANS(self):
-		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y))
+		X = maths.radians(self.X)
+		Y = maths.radians(self.Y)
+		return VECTOR_2D(X, Y)
 
 	def DEGREES(self):
-		return VECTOR_3D(maths.degrees(self.X), maths.degrees(self.Y))
+		X = maths.degrees(self.X)
+		Y = maths.degrees(self.Y)
+		return VECTOR_2D(X, Y)
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None):
 		if X_BOUNDS is not None:
 			self.X = CLAMP(self.X, X_BOUNDS[0], X_BOUNDS[1])
 		if Y_BOUNDS is not None:
 			self.Y = CLAMP(self.Y, Y_BOUNDS[0], Y_BOUNDS[1])
+		return self
 
 	def ROTATE_BY(self, ANGLE):
-		self.X = (self.X * maths.cos(ANGLE)) - (self.Y * maths.sin(ANGLE))
-		self.Y = (self.X * maths.sin(ANGLE)) + (self.Y * maths.cos(ANGLE))
+		X = (self.X * maths.cos(ANGLE)) - (self.Y * maths.sin(ANGLE))
+		Y = (self.X * maths.sin(ANGLE)) + (self.Y * maths.cos(ANGLE))
+		return VECTOR_2D(X, Y)
 
 
 
@@ -979,45 +1005,60 @@ class VECTOR_3D:
 		self.X = float(X)
 		self.Y = float(Y)
 		self.Z = float(Z)
-
+	
 	def __add__(self, OTHER): #Add self and OTHER // {self} + {OTHER}
-		return VECTOR_3D(self.X + OTHER.X, self.Y + OTHER.Y, self.Z + OTHER.Z)
+		X = self.X + OTHER.X
+		Y = self.Y + OTHER.Y
+		Z = self.Z + OTHER.Z
+		return VECTOR_3D(X, Y, Z)
 
 	def __sub__(self, OTHER): #Subtract OTHER from self // {self} - {OTHER}
-		return VECTOR_3D(self.X - OTHER.X, self.Y - OTHER.Y, self.Z - OTHER.Z)
+		X = self.X - OTHER.X
+		Y = self.Y - OTHER.Y
+		Z = self.Z - OTHER.Z
+		return VECTOR_3D(X, Y, Z)
 
-	def __mul__(self, OTHER): #Multiply self by OTHER // {self} * {OTHER}
-		if type(OTHER) == VECTOR_3D:
-			return VECTOR_3D(self.X * OTHER.X, self.Y * OTHER.Y, self.Z * OTHER.Z)
-		else:
-			return VECTOR_3D(self.X * OTHER, self.Y * OTHER, self.Z * OTHER)
+	def __mul__(self, SCALAR): #Multiply self by OTHER // {self} * {OTHER}
+		X = self.X * SCALAR
+		Y = self.Y * SCALAR
+		Z = self.Z * SCALAR
+		return VECTOR_3D(X, Y, Z)
 
-	def __rmul__(self, OTHER): #Multiply OTHER by self // {OTHER} * {self}
-		return self.__mul__(OTHER)
+	def __rmul__(self, SCALAR): #Multiply OTHER by self // {OTHER} * {self}
+		return self * SCALAR
 
 	def __truediv__(self, SCALAR): #Divide self by SCALAR // {self} / {SCALAR}
-		return VECTOR_3D(self.X / SCALAR, self.Y / SCALAR, self.Z / SCALAR)
+		X = self.X / SCALAR
+		Y = self.Y / SCALAR
+		Z = self.Z / SCALAR
+		return VECTOR_3D(X, Y, Z)
 
-	def __str__(self): #String representation // str({self})
-		return f"<VECTOR_3D: ({self.X}, {self.Y}, {self.Z})>"
+	def __iadd__(self, OTHER):
+		return self + OTHER
+
+	def __isub__(self, OTHER):
+		return self - OTHER
 	
-	def __abs__(self): #Magnitude of self // abs({self})
-		return VECTOR_3D(abs(self.X), abs(self.Y), abs(self.Z))
+	def __imul__(self, SCALAR):
+		return self * OTHER
 
-	def __len__(self): #Magnitude of self // abs({self})
+	def __idiv__(self, SCALAR):
+		return self / OTHER
+
+	def __abs__(self): #Magnitude of self // abs({self})
 		return (self.X ** 2 + self.Y ** 2 + self.Z ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return abs(self) < abs(OTHER)
+		return len(self) < len(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return abs(self) <= abs(OTHER)
+		return len(self) <= len(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return abs(self) > abs(OTHER)
+		return len(self) > len(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return self.__abs__ >= abs(OTHER)
+		return len(self) >= len(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y and self.Z == OTHER.Z
@@ -1032,33 +1073,40 @@ class VECTOR_3D:
 		return iter([self.X, self.Y, self.Z])
 	
 	def SIGN(self):
-		return VECTOR_3D(
-			1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0,
-			1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0,
-			1.0 if self.Z > 0 else -1.0 if self.Z < 0 else 0.0
-		)
+		X = 1.0 if self.X > 0.0 else -1.0 if self.X < 0.0 else 0.0
+		Y = 1.0 if self.Y > 0.0 else -1.0 if self.Y < 0.0 else 0.0
+		Z = 1.0 if self.Z > 0.0 else -1.0 if self.Z < 0.0 else 0.0
+		return VECTOR_3D(X, Y, Z)
 
-	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
-		MAGNITUDE = self.__len__()
+	#@profile
+	def NORMALISE(self): #Normalise self // {self}.NORMALISE()if PREFERENCES["PROFILER_DEBUG"]: ##@profile
+		MAGNITUDE = abs(self)
 		if MAGNITUDE != 0:
-			return self / MAGNITUDE
-		return VECTOR_3D(0.0, 0.0, 0.0)
+			self /= MAGNITUDE
+		else:
+			self.X, self.Y, self.Z = 0.0, 0.0, 0.0
+		return self
+
 
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
 		return (self.X * OTHER.X) + (self.Y * OTHER.Y) + (self.Z * OTHER.Z)
 
 	def CROSS(self, OTHER): #Cross product of self and OTHER // {self}.CROSS({OTHER})
-		return VECTOR_3D(
-				self.Y * OTHER.Z - self.Z * OTHER.Y,
-				self.Z * OTHER.X - self.X * OTHER.Z,
-				self.X * OTHER.Y - self.Y * OTHER.X
-			)
+		X = self.Y * OTHER.Z - self.Z * OTHER.Y
+		Y = self.Z * OTHER.X - self.X * OTHER.Z
+		Z = self.X * OTHER.Y - self.Y * OTHER.X
+		return VECTOR_3D(X, Y, Z)
 
+	#@profile
 	def PROJECT(self, OTHER): #Project points (OTHER) onto axis (self) // {AXIS}.PROJECT({POINTS})
-		DOT_PRODUCTS = []
+		MIN_PROJ, MAX_PROJ = float('inf'), float('-inf')
 		for POINT in OTHER:
-			DOT_PRODUCTS.append(self.DOT(POINT))
-		return [min(DOT_PRODUCTS), max(DOT_PRODUCTS)]
+			DOT_PROD = self.DOT(POINT)
+			if DOT_PROD < MIN_PROJ:
+				MIN_PROJ = DOT_PROD
+			if DOT_PROD > MAX_PROJ:
+				MAX_PROJ = DOT_PROD
+		return [MIN_PROJ, MAX_PROJ]
 
 	def IN_LIST(self, OTHER): #If self in OTHER (list) // {self}.IN_LIST({OTHER})
 		for ITEM in OTHER:
@@ -1073,13 +1121,28 @@ class VECTOR_3D:
 		return [self.X, self.Y, self.Z]
 
 	def TO_INT(self):
-		return VECTOR_2D(int(self.X), int(self.Y), int(self.Z))
+		X = int(self.X)
+		Y = int(self.Y)
+		Z = int(self.Z)
+		return VECTOR_3D(X, Y, Z)
+
+	def TO_FLOAT(self):
+		X = float(self.X)
+		Y = float(self.Y)
+		Z = float(self.Z)
+		return VECTOR_3D(X, Y, Z)
 
 	def RADIANS(self):
-		return VECTOR_3D(maths.radians(self.X), maths.radians(self.Y), maths.radians(self.Z))
+		X = maths.radians(self.X)
+		Y = maths.radians(self.Y)
+		Z = maths.radians(self.Z)
+		return VECTOR_3D(X, Y, Z)
 
 	def DEGREES(self):
-		return VECTOR_3D(maths.degrees(self.X), maths.degrees(self.Y), maths.degrees(self.Z))
+		X = maths.degrees(self.X)
+		Y = maths.degrees(self.Y)
+		Z = maths.degrees(self.Z)
+		return VECTOR_3D(X, Y, Z)
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None, Z_BOUNDS=None):
 		if X_BOUNDS is not None:
@@ -1088,7 +1151,6 @@ class VECTOR_3D:
 			self.Y = CLAMP(self.Y, Y_BOUNDS[0], Y_BOUNDS[1])
 		if Z_BOUNDS is not None:
 			self.Z = CLAMP(self.Z, Z_BOUNDS[0], Z_BOUNDS[1])
-
 		return self
 
 	def ROTATE_BY(self, ANGLE, CENTRE):
@@ -1111,6 +1173,13 @@ class VECTOR_3D:
 	def CONVERT_TO_GLM_VEC3(self):
 		return glm.vec3(self.X, self.Y, self.Z)
 
+
+
+
 #Program-wide values, that must be sync-ed between all files.
+#(Uses utils.py as a "hub" for this data, as all other files import these functions/data.)
+
+
+
 global PREFERENCES, CONSTANTS
 PREFERENCES, CONSTANTS = GET_CONFIGS()

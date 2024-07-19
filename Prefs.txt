@@ -16,10 +16,11 @@ SCENE = t0
 /^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
-/Debug Rendering
+/Debug
 DEBUG_MAPS = False
 DEBUG_UI = False
 NORMALS_DEBUG = False
+PROFILER_DEBUG = False
 
 
 /Broken

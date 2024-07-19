@@ -9,7 +9,7 @@ Importing other files;
 """
 #Importing Internal modules
 from imgs import texture_load
-from exct import log, utils
+from exct import log, utils, render
 from exct.utils import *
 
 #Importing External Modules
@@ -24,12 +24,31 @@ from OpenGL.GLU import *
 print("Imported Sub-file // ui.py")
 
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
+UI_SURFACE = PG.Surface(CONSTANTS["UI_RESOLUTION"].TO_LIST(), PG.SRCALPHA)
+
+
+#General UI related functions
+
+
+def DRAW_TEXT(SCREEN, TEXT, POSITION, FONT_SIZE, COLOUR=(255, 255, 255)):
+	FONT = PG.font.Font('src\\exct\\fonts\\PressStart2P-Regular.ttf', FONT_SIZE)
+	text_surface = FONT.render(str(TEXT), True, COLOUR)
+	SCREEN.blit(text_surface, POSITION)
+
+def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
+	IMAGE = PG.image.load(f"src\\imgs\\{IMG_NAME}")
+	SCALED_IMAGE = PG.transform.scale(IMAGE, SCALE)
+	SCREEN.blit(SCALED_IMAGE, POSITION)
+
+
+#Per-Frame HUD
+
 
 def HUD(PLAYER, FPS):
+	#UI Draws ~8px too low, due to the area being 640x352 rather than 640x360 (accounting for 1080p -> 1057p with windows bar at the top)
 	UI_COLOURS = {"SMOKY_BLACK": (20, 17, 15), "DAVYS_GRAY": (72, 71, 74), "SILVER": (186, 186, 186), "WHITE_SMOKE": (245, 245, 245), "MOSS_GREEN": (116, 142, 84)}
 
 	#Create the surface to render the UI to.
-	UI_SURFACE = PG.Surface(CONSTANTS["UI_RESOLUTION"].TO_LIST(), PG.SRCALPHA)
 	UI_SURFACE.fill([0, 0, 0, 0])
 
 	#Create the "Crosshair".
@@ -54,30 +73,6 @@ def HUD(PLAYER, FPS):
 	PG.draw.line(UI_SURFACE, UI_COLOURS["MOSS_GREEN"], (579, 10), (640, 10), 2)
 	DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["SMOKY_BLACK"])
 
-	UI_SURFACE_ID = SURFACE_TO_TEXTURE(UI_SURFACE)
+	UI_SURFACE_ID = render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
 
 	return UI_SURFACE_ID
-
-def DRAW_TEXT(SCREEN, TEXT, POSITION, FONT_SIZE, COLOUR=(255, 255, 255)):
-	FONT = PG.font.Font('src\\exct\\fonts\\PressStart2P-Regular.ttf', FONT_SIZE)
-	text_surface = FONT.render(str(TEXT), True, COLOUR)
-	SCREEN.blit(text_surface, POSITION)
-
-def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
-	IMAGE = PG.image.load(f"src\\imgs\\{IMG_NAME}")
-	SCALED_IMAGE = PG.transform.scale(IMAGE, SCALE)
-	SCREEN.blit(SCALED_IMAGE, POSITION)
-
-def SURFACE_TO_TEXTURE(UI_SURFACE):
-	NEW_SCALE = CONSTANTS["UI_RESOLUTION"].TO_INT()
-	UI_DATA = PG.image.tostring(UI_SURFACE, "RGBA", 1)
-	
-	FINAL_ID = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, FINAL_ID)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int(NEW_SCALE.X), int(NEW_SCALE.Y), 0, GL_RGBA, GL_UNSIGNED_BYTE, UI_DATA)
-	
-	# Use nearest-neighbor filtering
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-	
-	return FINAL_ID

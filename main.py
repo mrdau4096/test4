@@ -13,59 +13,65 @@ Importing other files;
 -log.py
 -utils.py
 """
-print("--") #Formatting
-#try:
-import sys, os
-import math as maths
-print("Imported Module(s) // sys, math, os") #Successfully imported said modules.
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1" #Hides the Pygame default welcome message in console.
-sys.path.append("src")
-from exct import log
+print("--")
 
-#All sub-files for the program - think of main.py as a hub for these other files to interface within.
-from imgs import texture_load
-from exct import render, physics, utils, ui
-from scenes import scene
-from exct.utils import *
-
-#For the memory-profiler I used in testing.
 try:
-	from memory_profiler import profile
+	import sys, os
+	import math as maths
+	print("Imported Module(s) // sys, math, os") #Successfully imported said modules.
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1" #Hides the Pygame default welcome message in console.
+	sys.path.append("src") #Access the source subfolder in the path, for the data.
+	from exct import log
 
-except ImportError:
-	pass #If it fails, then there is likely no issue - It is only used for the sake of testing anyhow, and is non-essential.
 
-
-"""
-Importing external modules from "modules"
--PyGame
--PyOpenGL
--NumPy
-"""
-sys.path.append("modules.zip")
-import pygame as PG
-from pygame.locals import *
-from pygame import *
-print("Imported Module(s) // PyGame")
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL.shaders import compileShader, compileProgram
-print("Imported Module(s) // PyOpenGL")
-import glm
-print("Imported Module(s) // PyGLM")
-from pyrr import Matrix44, Vector3
-print("Imported Module(s) // Pyrr")
-import numpy as NP
-print("Imported Module(s) // NumPy\n--\n")
-
-#except Exception as E:
-	#log.ERROR("main.py, init()", E)
-	#quit()
+	#All sub-files for the program - think of main.py as a hub for these other files to interface within.
 
 
 
+	from imgs import texture_load
+	from exct import render, physics, utils, ui
+	from scenes import scene
+	from exct.utils import *
 
-if __name__ == "__main__":
+	#Import the memory-profiler I used in testing.
+	try:
+		from memory_profiler import profile
+
+	except ImportError:
+		pass #If it fails, then this is not an issue - It is only used for the sake of testing anyhow, and is non-essential in actual operation.
+
+
+	"""
+	Importing external modules from "modules"
+	-PyGame
+	-PyOpenGL
+	-GLM
+	-Pyrr
+	-NumPy
+	"""
+	sys.path.append("modules.zip")
+	import pygame as PG
+	from pygame.locals import *
+	from pygame import *
+	print("Imported Module(s) // PyGame")
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileShader, compileProgram
+	print("Imported Module(s) // PyOpenGL")
+	import glm
+	print("Imported Module(s) // PyGLM")
+	from pyrr import Matrix44, Vector3
+	print("Imported Module(s) // Pyrr")
+	import numpy as NP
+	print("Imported Module(s) // NumPy\n--\n")
+
+except Exception as E:
+	log.ERROR("main.py, init()", E)
+	quit()
+
+
+
+def MAIN():
 	#try:
 		"""
 		[if main:]
@@ -87,7 +93,7 @@ if __name__ == "__main__":
 			print(f"{OPTION}: {PREFERENCES[OPTION]}")
 		print("\n")
 
-		# PyGame setup.
+		#PyGame setup.
 		CLOCK = PG.time.Clock()
 		PG.init()
 		PG.joystick.init()
@@ -101,7 +107,7 @@ if __name__ == "__main__":
 		DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
 
-		# PyOpenGL setup.
+		#PyOpenGL setup.
 		SCENE_SHADER, QUAD_SHADER, SHADOW_SHADER = render.SHADER_INIT()
 		VAO_QUAD, VAO_UI, SCENE_FBO, SCENE_TCB = render.FBO_QUAD_INIT(RENDER_RESOLUTION)
 
@@ -160,12 +166,11 @@ if __name__ == "__main__":
 		RUN = True
 		PREVIOUS_FRAME, WINDOW_FOCUS = None, 0
 		FPS_CAP = PREFERENCES["FPS_LIMIT"]
-			
 		while RUN:
 			FPS = utils.CLAMP(CLOCK.get_fps(), 0, FPS_CAP)
 			"""
 			Getting Mouse/Keyboard/GamePad inputs
-			Getting other general events (Like window resize)
+			Getting other general events (Like window resize or window close events)
 			"""
 			MOUSE_MOVE = [0, 0]
 			
@@ -253,8 +258,11 @@ if __name__ == "__main__":
 				PG.mouse.set_visible(False)	
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
 			
-			# Initialize Model view matrix for OpenGL
+
+
 			glLoadIdentity()
+
+
 
 			"""
 			FPS is the current frames per second - usually around the max FPS set just beforehand, and is used for a basic Δt-type force application system.
@@ -271,9 +279,12 @@ if __name__ == "__main__":
 			CAMERA_POSITION = PLAYER.POSITION + CONSTANTS["CAMERA_OFFSET"]
 
 			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, TEXTURE_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
-			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE) #problem is probably here, with updating dynamic objects visually.
+			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
 
+
+
+			#Pre-FBO render tasks (UI, dynamic shadows)
 
 			if PREFERENCES["DYNAMIC_SHADOWS"]:
 				#If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
@@ -286,6 +297,12 @@ if __name__ == "__main__":
 
 				SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 			
+			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
+
+
+
+			#Rendering the main scene.
+
 
 			glBindFramebuffer(GL_FRAMEBUFFER, SCENE_FBO)
 			glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
@@ -317,6 +334,7 @@ if __name__ == "__main__":
 
 
 			for I, LIGHT in enumerate(LIGHTS):
+				#Check if the light's flag is "enabled" in the list of FLAG_STATES
 				#if not FLAG_STATES[LIGHT.FLAG]:
 				#	continue
 				LIGHT_POSITION_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].POSITION")
@@ -362,30 +380,32 @@ if __name__ == "__main__":
 			glUniform1f(SCALING_FACTOR_LOC, SCALING_FACTOR)
 			glUniform1i(SCREEN_TEXTURE_LOC, 0)
 
-			glBindVertexArray(VAO_QUAD)
-			glActiveTexture(GL_TEXTURE0)
 
+
+			#Draw the current frame to a quad in the camera's view
+			
 			PREVIOUS_FRAME = SCENE_TCB
 
+			glBindVertexArray(VAO_QUAD)
+			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, SCENE_TCB)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
+			
 
+			#Draw UI on a quad slightly closer to the camera
+			
 			glBindVertexArray(VAO_UI)
 			glActiveTexture(GL_TEXTURE0)
-
-			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
-			if PREFERENCES["DEBUG_UI"]:
-				render.SAVE_MAP(CONSTANTS["DISPLAY_RESOLUTION"], UI_TEXTURE_ID, f"screenshots\\debug_maps\\colour_map_UI.png", "COLOUR")
-
 			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
+			glDeleteTextures([UI_TEXTURE_ID])
 			PG.display.flip()
 
-		# Killing/quitting all that needs to be done, when RUN == False
+		# Quitting all that needs to be done, when RUN == False
 		PG.mouse.set_visible(True)
 		PG.joystick.quit()
 		PG.quit()
@@ -393,6 +413,11 @@ if __name__ == "__main__":
 
 	#except Exception as E:
 	#	log.ERROR("Mainloop", E)
+
+
+
+if __name__ == "__main__":
+	MAIN()
 
 else:
 	# If this isn't being run as __main__, something has gone very wrong and needs to be logged - it is not intended to ever occur.

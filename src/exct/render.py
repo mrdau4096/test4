@@ -23,12 +23,176 @@ from pyrr import Matrix44, Vector3
 import numpy as NP
 import copy
 import glm
+import gc as GC
 from PIL import Image
 
 print("Imported Sub-file // render.py")
 
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
+
+#General render related functions
+
+def GL_ERRORCHECK():
+	#Checks for any errors with OpenGL, and reports them to the shell (debugging)
+	ERROR = glGetError()
+	if ERROR != GL_NO_ERROR:
+		print("OpenGL ERROR:", ERROR)
+	else:
+		print("OpenGL ERROR: None")
+
+
+
+def CALC_VIEW_MATRIX(CAMERA_POSITION, CAMERA_ROTATION):
+	SIN_X = maths.sin(CAMERA_ROTATION.X)
+	COS_X = maths.cos(CAMERA_ROTATION.X)
+	SIN_Y = -maths.sin(CAMERA_ROTATION.Y)
+	COS_Y = -maths.cos(CAMERA_ROTATION.Y)
+
+	FORWARD = Vector3([
+		COS_Y * COS_X,
+		SIN_Y,
+		COS_Y * SIN_X
+	])
+	
+	RIGHT = Vector3([
+		-SIN_X,
+		0,
+		COS_X
+	])
+
+	UPWARD = FORWARD.cross(RIGHT)
+	PYRR_CAMERA_POSITION = CAMERA_POSITION.CONVERT_TO_PYRR_VECTOR3()
+	LOOK_AT = PYRR_CAMERA_POSITION + FORWARD
+
+	VIEW_MATRIX = Matrix44.look_at(
+		eye=PYRR_CAMERA_POSITION,
+		target=LOOK_AT,
+		up=UPWARD
+	)
+
+	return VIEW_MATRIX, LOOK_AT
+
+
+
+def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
+	OPPOSITE = SPRITE_POSITION.Z - PLAYER_POSITION.Z
+	ADJACENT = SPRITE_POSITION.X - PLAYER_POSITION.X
+	
+	PLAYER_SPRITE_ANGLE = -1 * maths.atan2(OPPOSITE, ADJACENT)
+	ANGLE_A = PLAYER_SPRITE_ANGLE + (π / 2)
+	ANGLE_B = PLAYER_SPRITE_ANGLE - (π / 2)
+	
+	LEFT_SIDE_X = SPRITE_POSITION.X + ((SPRITE_DIMENTIONS.X / 2) * maths.cos(ANGLE_A))
+	LEFT_SIDE_Z = SPRITE_POSITION.Z + ((SPRITE_DIMENTIONS.X / 2) * maths.sin(ANGLE_B))
+
+	RIGHT_SIDE_X = SPRITE_POSITION.X + ((SPRITE_DIMENTIONS.X / 2) * maths.cos(ANGLE_B))
+	RIGHT_SIDE_Z = SPRITE_POSITION.Z + ((SPRITE_DIMENTIONS.X / 2) * maths.sin(ANGLE_A))
+
+	return (
+			VECTOR_3D(LEFT_SIDE_X, SPRITE_POSITION.Y, LEFT_SIDE_Z),
+			VECTOR_3D(RIGHT_SIDE_X, SPRITE_POSITION.Y, RIGHT_SIDE_Z),
+			VECTOR_3D(RIGHT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, RIGHT_SIDE_Z),
+			VECTOR_3D(LEFT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, LEFT_SIDE_Z)
+		)
+
+
+
+def CLIP_EDGES(TEX_COORD):
+	CLIP_VALUES = (
+			VECTOR_2D(0.002, 0.002),
+			VECTOR_2D(-0.002, 0.002),
+			VECTOR_2D(-0.002, -0.002),
+			VECTOR_2D(0.002, -0.002)
+		)
+
+	return [
+		TEX_COORD[0] + CLIP_VALUES[0],
+		TEX_COORD[1] + CLIP_VALUES[1],
+		TEX_COORD[2] + CLIP_VALUES[2],
+		TEX_COORD[3] + CLIP_VALUES[3],
+	]
+
+
+def SURFACE_TO_TEXTURE(SURFACE, RESOLUTION):
+	SURFACE_DATA = PG.image.tostring(SURFACE, "RGBA", 1)
+	
+	FINAL_ID = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D, FINAL_ID)
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, RESOLUTION.X, RESOLUTION.Y, 0, GL_RGBA, GL_UNSIGNED_BYTE, SURFACE_DATA)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+	glBindTexture(GL_TEXTURE_2D, 0)
+	del SURFACE_DATA
+	
+	return FINAL_ID
+
+
+def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0, DEBUG=False):
+    glBindTexture(GL_TEXTURE_2D, MAP)
+    
+    if MAP_TYPE == "DEPTH":
+        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT)
+        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
+        DATA = NP.flipud(DATA)
+        if DEBUG: print("Depth data before normalization:\n", DATA)
+        glBindTexture(GL_TEXTURE_2D, 0)
+
+        # Normalize depth data and ensure no NaN values
+        DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
+        DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
+        if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
+        if DEPTH_MIN == DEPTH_MAX:
+            NORMALISED_DATA = NP.zeros_like(DATA)
+        else:
+            NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
+            if DEBUG: print(NORMALISED_DATA)
+        IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
+        if NP.any(NP.isnan(NORMALISED_DATA)):
+            raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
+            NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
+    
+    elif MAP_TYPE == "NORMAL":
+        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
+        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+        if DEBUG: print("Normal data before processing:\n", DATA)
+        glBindTexture(GL_TEXTURE_2D, 0)
+
+        # Flip the image data vertically
+        DATA = NP.flipud(DATA)
+
+        # Scale normals from [-1, 1] to [0, 255] for visualization
+        NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
+
+        if NP.any(NP.isnan(DATA)):
+            raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
+
+        IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
+    
+    elif MAP_TYPE == "COLOUR":
+        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
+        DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+        if DEBUG: print("Colour data before processing:\n", DATA)
+        glBindTexture(GL_TEXTURE_2D, 0)
+
+        # Flip the image data vertically
+        DATA = NP.flipud(DATA)
+
+        if NP.any(NP.isnan(DATA)):
+            raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
+
+        IMAGE = Image.fromarray(DATA, mode='RGB')
+
+    else:
+        raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'depth', 'normal', or 'color'.")
+    
+    IMAGE.save(FILE_NAME)
+    if DEBUG:
+        IMAGE.show()
+
+
+
+#Per-frame rendering
 
 
 def SCENE(PHYS_DATA, TEXTURE_DATA, ENV_VAO_DATA, PLAYER):
@@ -48,7 +212,7 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
 	OBJECT_TYPE = type(OBJECT_DATA)
 	if OBJECT_TYPE in [SPRITE_STATIC, ITEM, ENEMY]:
 		SPRITE_POSITION = OBJECT_DATA.POSITION - VECTOR_3D(0.0, 0.5 * OBJECT_DATA.DIMENTIONS_2D.Y, 0.0) if OBJECT_TYPE in [ENEMY, ITEM] else OBJECT_DATA.POSITION
-		COORDINATES = utils.CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER.POSITION, OBJECT_DATA.DIMENTIONS_2D)
+		COORDINATES = CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER.POSITION, OBJECT_DATA.DIMENTIONS_2D)
 		OBJECT_DATA.NORMALS = ((COORDINATES[1] - COORDINATES[0]).CROSS(COORDINATES[2] - COORDINATES[0]), (COORDINATES[1] - COORDINATES[3]).CROSS(COORDINATES[2] - COORDINATES[3]))
 		if OBJECT_TYPE in [ENEMY,]:
 			ANGLE = utils.CALC_2D_VECTOR_ANGLE((PLAYER.POSITION - OBJECT_DATA.POSITION).NORMALISE(), OBJECT_DATA.ROTATION.NORMALISE())
@@ -86,14 +250,92 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
 
 
 
-def GL_ERRORCHECK():
-	#Checks for any errors with OpenGL, and reports them to the shell (debugging)
-	ERROR = glGetError()
-	if ERROR != GL_NO_ERROR:
-		print("OpenGL ERROR:", ERROR)
-	else:
-		print("OpenGL ERROR: None")
+def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURES=None, POINTS=None):
+    if POINTS is None:
+        POINTS = OBJECT.POINTS
+    if TEXTURES is None:
+        TEXTURES = OBJECT.TEXTURE_INFO
+    
+    VAO_VERTICES, VAO_INDICES = VAO_DATA[0], VAO_DATA[1]
 
+    # Ensure VAO_VERTICES is a 2D array, even if initially empty
+    if VAO_VERTICES.size == 0:
+        VAO_VERTICES = NP.empty((0, 8), dtype=NP.float32)
+    if VAO_INDICES.size == 0:
+        VAO_INDICES = NP.empty(0, dtype=NP.uint32)
+
+    CLASS_TYPE = type(OBJECT)
+    NUM_FACES = 6 if isinstance(OBJECT, (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH)) else 1
+    NUM_VERTS, NUM_INDICES = NUM_FACES * 4, NUM_FACES * 6
+    NEW_VERTICES = NP.zeros((NUM_VERTS, 8), dtype=NP.float32)
+    NEW_INDICES = NP.zeros(NUM_INDICES, dtype=NP.uint32)
+
+    INDEX_OFFSET = len(VAO_VERTICES)
+
+    if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH):  # Cubes
+        if CLASS_TYPE == CUBE_STATIC:
+            print(OBJECT)
+
+        FACE_ORDER = [
+            (0, 1, 3, 2),  # -Y | Bottom
+            (0, 2, 6, 4),  # -X | Left
+            (5, 7, 3, 1),  # +X | Right
+            (1, 0, 4, 5),  # -Z | Back
+            (7, 6, 2, 3),  # +Z | Front
+            (6, 7, 5, 4)   # +Y | Top
+        ]
+
+        CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
+
+        for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
+            NORMAL = OBJECT.NORMALS[FACE_INDEX]
+            FACE_INDICES = FACE_ORDER[FACE_INDEX]
+            INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
+
+            NEW_INDICES[FACE_INDEX * 6:FACE_INDEX * 6 + 6] = [
+                INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
+                INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
+            ]
+
+            for I, INDEX in enumerate(FACE_INDICES):
+                X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
+                TEX_COORD = TEX_COORDS[I]
+                U, V = TEX_COORD.X, TEX_COORD.Y
+                NEW_VERTICES[FACE_INDEX * 4 + I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+
+            INDEX_OFFSET += 4
+
+    elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY):  # Quads
+        FACE_ORDER = (0, 1, 2, 3)
+        NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
+
+        for I, INDEX in enumerate(FACE_ORDER):
+            TEX_COORD = TEXTURES[I]
+            X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
+            U, V = TEX_COORD.X, TEX_COORD.Y
+            NORMAL = OBJECT.NORMALS[I // 2]  # Assuming the normal is consistent across the quad
+            NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+
+    elif CLASS_TYPE == TRI:  # Triangles
+        FACE_ORDER = (0, 1, 2)
+        NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
+        NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
+
+        for I, INDEX in enumerate(FACE_ORDER):
+            TEX_COORD = TEXTURES[I]
+            X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
+            U, V = TEX_COORD.X, TEX_COORD.Y
+            NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+
+    # Concatenate the new vertices and indices to the existing VAO data
+    VAO_VERTICES = NP.concatenate((VAO_VERTICES, NEW_VERTICES))
+    VAO_INDICES = NP.concatenate((VAO_INDICES, NEW_INDICES))
+
+    return (VAO_VERTICES, VAO_INDICES)
+
+
+
+#Shader loading functions
 
 
 def LOAD_SHADER_SOURCE(FILE_PATH):
@@ -131,111 +373,7 @@ def SHADER_INIT():
 
 
 
-def BUFFERS_INIT(VERTICES=None, INDICES=None, NORMALS=False):
-	VERTEX_BUFFER_SIZE_INITIAL = 1024 * 1024  # 1MB for vertex buffer (adjust as needed)
-	INDEX_BUFFER_SIZE_INITIAL = 256 * 1024  # 256KB for index buffer (adjust as needed)
-
-	VAO_SCENE = glGenVertexArrays(1)
-	VBO_SCENE = glGenBuffers(1)
-	EBO_SCENE = glGenBuffers(1)
-
-	glBindVertexArray(VAO_SCENE)
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_SCENE)
-	if VERTICES is not None:
-		glBufferData(GL_ARRAY_BUFFER, VERTICES.nbytes, VERTICES, GL_DYNAMIC_DRAW)
-	else:
-		glBufferData(GL_ARRAY_BUFFER, VERTEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_SCENE)
-	if INDICES is not None:
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_DYNAMIC_DRAW)
-	else:
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
-
-	stride = (3 + 2 + 3) * 4  # 3 position floats, 2 texture coordinate floats, 3 normal floats, each float is 4 bytes
-	offset = 0
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
-	glEnableVertexAttribArray(0)
-	offset += 3 * 4  # Move offset to account for positions (3 floats * 4 bytes)
-
-	# Texture coordinate attribute (location = 1)
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
-	glEnableVertexAttribArray(1)
-	offset += 2 * 4  # Move offset to account for texture coordinates (2 floats * 4 bytes)
-
-	# Normal attribute (location = 2)
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
-	glEnableVertexAttribArray(2)
-
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0)
-	glBindVertexArray(0)
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
-
-	return VAO_SCENE, VBO_SCENE, EBO_SCENE
-
-
-
-def UPDATE_BUFFERS(UNPROCESSED_VERTS, UNPROCESSED_INDICES, VBO, EBO):
-	VERTICES = NP.array(UNPROCESSED_VERTS, dtype=NP.float32)
-	INDICES = NP.array(UNPROCESSED_INDICES, dtype=NP.uint32)
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO)
-	VERTEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE)
-	
-	if VERTEX_BUFFER_SIZE >= VERTICES.nbytes:
-		glBufferSubData(GL_ARRAY_BUFFER, 0, VERTICES.nbytes, VERTICES)
-	
-	else: #Resize the buffer
-		glBufferData(GL_ARRAY_BUFFER, VERTICES.nbytes, VERTICES, GL_DYNAMIC_DRAW)
-	glBindBuffer(GL_ARRAY_BUFFER, 0)
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
-	INDEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE)
-	if INDEX_BUFFER_SIZE >= INDICES.nbytes:
-		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, INDICES.nbytes, INDICES)
-	else:
-		print("Error: Index buffer size is too small. Resizing buffer.")
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_DYNAMIC_DRAW)
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
-
-	return VBO, EBO
-
-
-
-def CALC_VIEW_MATRIX(CAMERA_POSITION, CAMERA_ROTATION):
-	SIN_X = maths.sin(CAMERA_ROTATION.X)
-	COS_X = maths.cos(CAMERA_ROTATION.X)
-	SIN_Y = -maths.sin(CAMERA_ROTATION.Y)
-	COS_Y = -maths.cos(CAMERA_ROTATION.Y)
-
-	FORWARD = Vector3([
-		COS_Y * COS_X,
-		SIN_Y,
-		COS_Y * SIN_X
-	])
-	
-	RIGHT = Vector3([
-		-SIN_X,
-		0,
-		COS_X
-	])
-
-	UPWARD = FORWARD.cross(RIGHT)
-	PYRR_CAMERA_POSITION = CAMERA_POSITION.CONVERT_TO_PYRR_VECTOR3()
-	LOOK_AT = PYRR_CAMERA_POSITION + FORWARD
-
-	VIEW_MATRIX = Matrix44.look_at(
-		eye=PYRR_CAMERA_POSITION,
-		target=LOOK_AT,
-		up=UPWARD
-	)
-
-	return VIEW_MATRIX, LOOK_AT
-
-
+#VAO, VBO, EBO, FBO.. creation functions
 
 def FBO_QUAD_INIT(RENDER_RES):
 	QUAD_VERTICES = NP.array([
@@ -359,6 +497,84 @@ def CREATE_FBO(SIZE, DEPTH=False, NORMALS=False):
 	return FBO, TCB, DTB, RBO, GBO
 
 
+
+def BUFFERS_INIT(VERTICES=None, INDICES=None, NORMALS=False):
+	VERTEX_BUFFER_SIZE_INITIAL = 1024 * 1024  # 1MB for vertex buffer (adjust as needed)
+	INDEX_BUFFER_SIZE_INITIAL = 256 * 1024  # 256KB for index buffer (adjust as needed)
+
+	VAO_SCENE = glGenVertexArrays(1)
+	VBO_SCENE = glGenBuffers(1)
+	EBO_SCENE = glGenBuffers(1)
+
+	glBindVertexArray(VAO_SCENE)
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_SCENE)
+	if VERTICES is not None:
+		glBufferData(GL_ARRAY_BUFFER, VERTICES.nbytes, VERTICES, GL_DYNAMIC_DRAW)
+	else:
+		glBufferData(GL_ARRAY_BUFFER, VERTEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_SCENE)
+	if INDICES is not None:
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_DYNAMIC_DRAW)
+	else:
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
+
+	stride = (3 + 2 + 3) * 4  # 3 position floats, 2 texture coordinate floats, 3 normal floats, each float is 4 bytes
+	offset = 0
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	glEnableVertexAttribArray(0)
+	offset += 3 * 4  # Move offset to account for positions (3 floats * 4 bytes)
+
+	# Texture coordinate attribute (location = 1)
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	glEnableVertexAttribArray(1)
+	offset += 2 * 4  # Move offset to account for texture coordinates (2 floats * 4 bytes)
+
+	# Normal attribute (location = 2)
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	glEnableVertexAttribArray(2)
+
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0)
+	glBindVertexArray(0)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+	return VAO_SCENE, VBO_SCENE, EBO_SCENE
+
+
+
+def UPDATE_BUFFERS(UNPROCESSED_VERTS, UNPROCESSED_INDICES, VBO, EBO):
+	VERTICES = NP.array(UNPROCESSED_VERTS, dtype=NP.float32)
+	INDICES = NP.array(UNPROCESSED_INDICES, dtype=NP.uint32)
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO)
+	VERTEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE)
+	
+	if VERTEX_BUFFER_SIZE >= VERTICES.nbytes:
+		glBufferSubData(GL_ARRAY_BUFFER, 0, VERTICES.nbytes, VERTICES)
+	
+	else: #Resize the buffer
+		glBufferData(GL_ARRAY_BUFFER, VERTICES.nbytes, VERTICES, GL_DYNAMIC_DRAW)
+	glBindBuffer(GL_ARRAY_BUFFER, 0)
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
+	INDEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE)
+	if INDEX_BUFFER_SIZE >= INDICES.nbytes:
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, INDICES.nbytes, INDICES)
+	else:
+		print("Error: Index buffer size is too small. Resizing buffer.")
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_DYNAMIC_DRAW)
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+	return VBO, EBO
+
+
+
+#Shadowmap creation
+
+
 def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
 	#Bind the framebuffer for rendering
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO_SHADOW)
@@ -399,71 +615,6 @@ def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SH
 
 
 
-
-def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0, DEBUG=False):
-    glBindTexture(GL_TEXTURE_2D, MAP)
-    
-    if MAP_TYPE == "DEPTH":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT)
-        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
-        DATA = NP.flipud(DATA)
-        if DEBUG: print("Depth data before normalization:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
-
-        # Normalize depth data and ensure no NaN values
-        DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
-        DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
-        if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
-        if DEPTH_MIN == DEPTH_MAX:
-            NORMALISED_DATA = NP.zeros_like(DATA)
-        else:
-            NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
-            if DEBUG: print(NORMALISED_DATA)
-        IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
-        if NP.any(NP.isnan(NORMALISED_DATA)):
-            raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
-            NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
-    
-    elif MAP_TYPE == "NORMAL":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
-        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-        if DEBUG: print("Normal data before processing:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
-
-        # Flip the image data vertically
-        DATA = NP.flipud(DATA)
-
-        # Scale normals from [-1, 1] to [0, 255] for visualization
-        NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
-
-        if NP.any(NP.isnan(DATA)):
-            raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
-
-        IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
-    
-    elif MAP_TYPE == "COLOUR":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
-        DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-        if DEBUG: print("Colour data before processing:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
-
-        # Flip the image data vertically
-        DATA = NP.flipud(DATA)
-
-        if NP.any(NP.isnan(DATA)):
-            raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
-
-        IMAGE = Image.fromarray(DATA, mode='RGB')
-
-    else:
-        raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'depth', 'normal', or 'color'.")
-    
-    IMAGE.save(FILE_NAME)
-    if DEBUG:
-        IMAGE.show()
-
-
-
 def CREATE_LIGHT_MAPS(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, SHEET_ID):
 	SCREEN = PG.display.set_mode(SHADOWMAP_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | HIDDEN)
 
@@ -499,95 +650,3 @@ def CREATE_LIGHT_MAPS(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, SHEE
 	glDisable(GL_POLYGON_OFFSET_FILL)
 
 	return DTB_SHADOW, LIGHT
-
-
-
-def CLIP_EDGES(TEX_COORD):
-	CLIP_VALUES = (
-			VECTOR_2D(0.002, 0.002),
-			VECTOR_2D(-0.002, 0.002),
-			VECTOR_2D(-0.002, -0.002),
-			VECTOR_2D(0.002, -0.002)
-		)
-
-	return [
-		TEX_COORD[0] + CLIP_VALUES[0],
-		TEX_COORD[1] + CLIP_VALUES[1],
-		TEX_COORD[2] + CLIP_VALUES[2],
-		TEX_COORD[3] + CLIP_VALUES[3],
-	]
-
-
-
-def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURES=None, POINTS=None):
-	if POINTS is None: POINTS = OBJECT.POINTS
-	if TEXTURES is None: TEXTURES = OBJECT.TEXTURE_INFO
-	VAO_VERTICES, VAO_INDICES = VAO_DATA[0].tolist(), VAO_DATA[1].tolist()
-	NEW_VERTICES, NEW_INDICES = [], []
-	CLASS_TYPE = type(OBJECT)
-
-	INDEX_OFFSET = len(VAO_VERTICES)
-
-	if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS,): #Cubes
-		if CLASS_TYPE == CUBE_STATIC: print(OBJECT)
-
-		FACE_ORDER = [
-			(0, 1, 3, 2),	# -Y | Bottom
-			(0, 2, 6, 4),	# -X | Left
-			(5, 7, 3, 1),	# +X | Right
-			(1, 0, 4, 5),	# -Z | Back
-			(7, 6, 2, 3),	# +Z | Front
-			(6, 7, 5, 4)	# +Y | Top
-		]
-
-		CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
-
-		for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
-			NORMAL = OBJECT.NORMALS[FACE_INDEX]
-			FACE_INDICES = FACE_ORDER[FACE_INDEX]
-			INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
-
-			NEW_INDICES.extend([
-				INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
-				INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
-			])
-
-			for I, idx in enumerate(FACE_INDICES):
-				X, Y, Z = OBJECT.POINTS[idx].X, OBJECT.POINTS[idx].Y, OBJECT.POINTS[idx].Z
-				TEX_COORD = TEX_COORDS[I]
-				U, V = TEX_COORD.X, TEX_COORD.Y
-				NEW_VERTICES.append([X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z])
-
-			INDEX_OFFSET += 4
-
-		VAO_VERTICES.extend(NEW_VERTICES)
-		VAO_INDICES.extend(NEW_INDICES)
-
-	elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY,): #Quads
-		FACE_ORDER = (0, 1, 2, 3)
-		NEW_INDICES.extend([INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET])
-
-		for I, INDEX in enumerate(FACE_ORDER):
-			TEX_COORD = TEXTURES[I]
-			X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
-			U, V = TEX_COORD.X, TEX_COORD.Y
-			NORMAL = OBJECT.NORMALS[I//2]
-			NEW_VERTICES.append([X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z])
-
-		VAO_VERTICES.extend(NP.array(NEW_VERTICES, dtype=NP.float32))
-		VAO_INDICES.extend(NP.array(NEW_INDICES, dtype=NP.uint32).flatten())
-
-	elif CLASS_TYPE == TRI: #Tri
-		FACE_ORDER = (0, 1, 2)
-		NEW_INDICES.extend([INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2])
-		NORMAL = OBJECT.NORMALS[0]
-		for I, INDEX in enumerate(FACE_ORDER):
-			TEX_COORD = TEXTURES[I]
-			X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
-			U, V = TEX_COORD.X, TEX_COORD.Y
-			NEW_VERTICES.append([X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z])
-
-		VAO_VERTICES.extend(NP.array(NEW_VERTICES, dtype=NP.float32))
-		VAO_INDICES.extend(NP.array(NEW_INDICES, dtype=NP.uint32).flatten())
-
-	return (NP.array(VAO_VERTICES), NP.array(VAO_INDICES))
