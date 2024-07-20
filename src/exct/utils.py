@@ -36,6 +36,16 @@ def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almo
 			return VARIABLE
 
 
+def JOYSTICK_DEADZONE(JOYSTICK):
+		L_X = JOYSTICK[0].get_axis(0) if abs(JOYSTICK[0].get_axis(0)) > 0.1 else 0.0
+		L_Y = JOYSTICK[0].get_axis(1) if abs(JOYSTICK[0].get_axis(1)) > 0.1 else 0.0
+		R_X = JOYSTICK[0].get_axis(2) if abs(JOYSTICK[0].get_axis(2)) > 0.1 else 0.0
+		R_Y = JOYSTICK[0].get_axis(3) if abs(JOYSTICK[0].get_axis(3)) > 0.1 else 0.0
+		L_STICK = VECTOR_2D(L_X, L_Y)
+		R_STICK = VECTOR_2D(R_X, R_Y)
+		return [JOYSTICK[0], L_STICK, R_STICK]
+
+
 
 def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
 	HALF_DIMENTIONS = DIMENTIONS / 2

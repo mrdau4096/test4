@@ -97,10 +97,8 @@ def MAIN():
 		CLOCK = PG.time.Clock()
 		PG.init()
 		PG.joystick.init()
+		JOYSTICK = None
 		PAD_COUNT = PG.joystick.get_count()
-		if PAD_COUNT > 0:
-			JOYSTICK = PG.joystick.Joystick(0)
-			JOYSTICK.init()
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE | HIDDEN)
 		PG.display.set_caption("test4.2.3b//main.py")
 		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
@@ -113,8 +111,21 @@ def MAIN():
 
 		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
-		KEY_STATES = {PG.K_w: False, PG.K_s: False, PG.K_a: False, PG.K_d: False, PG.K_SPACE: False, PG.K_LCTRL: False, PG.K_LSHIFT: False, PG.K_c: False, PG.K_x: False, "CROUCH": False, "JUMP_GRACE": 0}
-		TEXTURE_DATA, CURRENT_TEXTURE_DATA, PAD_CONTROLS = [], [], {0: 0, 1: 0, 2: 0, 3: 0}
+		KEY_STATES = {
+			PG.K_w: False,
+			PG.K_s: False,
+			PG.K_a: False,
+			PG.K_d: False,
+			PG.K_SPACE: False,
+			PG.K_LCTRL: False,
+			PG.K_LSHIFT: False,
+			PG.K_RETURN: False,
+			PG.K_c: False,
+			PG.K_x: False,
+			"CROUCH": False,
+			"JUMP_GRACE": 0,
+			"PAD_JUMP_PREV": False,
+		}
 
 		"""
 		Main Game Loop - handles rendering, inputs, physics updates and so on. Only plays while RUN is true.
@@ -138,6 +149,7 @@ def MAIN():
 				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)			
 
 
+		#Setup OpenGL scene data
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()
 		glEnable(GL_DEPTH_TEST)
@@ -151,7 +163,6 @@ def MAIN():
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
 		gluPerspective(PREFERENCES["FOV"], float(DISPLAY_RESOLUTION.X) / float(DISPLAY_RESOLUTION.Y), CONSTANTS["MIN_VIEW_DIST"], CONSTANTS["MAX_VIEW_DIST"])  # Example parameters
-		#Set up modelview matrix
 		glMatrixMode(GL_MODELVIEW)
 		MODEL_MATRIX = Matrix44.identity()
 		glLoadIdentity()
@@ -216,7 +227,7 @@ def MAIN():
 						match EVENT.key:
 							case PG.K_LCTRL:
 								if not PREFERENCES["DEV_TEST"]:
-									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.5, 0.0)
+									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.25, 0.0)
 
 							case PG.K_c:
 								PROJECTION_MATRIX = Matrix44.perspective_projection(
@@ -235,19 +246,90 @@ def MAIN():
 						glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
-					case PG.JOYAXISMOTION:
-						PAD_CONTROLS[EVENT.axis] = round(EVENT.value, 2) + PREFERENCES[f"AXIS_{EVENT.axis}_OFFSET"]
+
+					case PG.JOYDEVICEADDED:
+						NEW_PAD = [PG.joystick.Joystick(EVENT.device_index), None, None]
+						JOYSTICK = utils.JOYSTICK_DEADZONE(NEW_PAD)
+
+					case PG.JOYDEVICEREMOVED:
+						JOYSTICK = None
+
+			if JOYSTICK is not None:
+				JOYSTICK = utils.JOYSTICK_DEADZONE(JOYSTICK)
+				PAD_JUMP = JOYSTICK[0].get_button(0)
+				KEY_STATES[PG.K_x] = bool(JOYSTICK[0].get_button(2))
+				PAD_ZOOM = bool(JOYSTICK[0].get_button(3))
+				KEY_STATES[PG.K_c] = PAD_ZOOM
+				KEY_STATES[PG.K_LSHIFT] = bool(JOYSTICK[0].get_button(8))
+				PAD_CROUCH = JOYSTICK[0].get_button(9)
+
+				if PAD_JUMP and not (KEY_STATES["PAD_JUMP_PREV"] or KEY_STATES[PG.K_SPACE]):
+					KEY_STATES[PG.K_SPACE] = True
+					KEY_STATES["PAD_JUMP_PREV"] = True
+
+				elif not PAD_JUMP:
+					KEY_STATES["PAD_JUMP_PREV"] = False
+
+
+				if PAD_ZOOM:
+					PROJECTION_MATRIX = Matrix44.perspective_projection(
+						PREFERENCES["FOV"] // 3,
+						(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
+						CONSTANTS["MIN_VIEW_DIST"],
+						CONSTANTS["MAX_VIEW_DIST"]
+					)
+
+				elif not PAD_ZOOM:
+					PROJECTION_MATRIX = Matrix44.perspective_projection(
+						PREFERENCES["FOV"],
+						(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
+						CONSTANTS["MIN_VIEW_DIST"],
+						CONSTANTS["MAX_VIEW_DIST"]
+					)
+
+
+				if PAD_CROUCH and not PREFERENCES["DEV_TEST"]:
+					CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.0, 0.0)
+
+				elif not PAD_CROUCH and not PREFERENCES["DEV_TEST"]:
+					CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.25, 0.0)
+
+				if JOYSTICK[0].get_button(1):
+					RUN = False
+					continue
+
+				if JOYSTICK[0].get_axis(4) > -1 and PREFERENCES["DEV_TEST"]:
+					PREFERENCES["NORMALS_DEBUG"] = True
+				else:
+					PREFERENCES["NORMALS_DEBUG"] = False
+
+				if JOYSTICK[0].get_button(5) and PREVIOUS_FRAME is not None:
+					RAW_TIME = log.GET_TIME()
+					CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
+					render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.jpeg", "COLOUR")
+
+
+			else:
+				if KEY_STATES[K_RETURN] and PREFERENCES["DEV_TEST"]:
+					PREFERENCES["NORMALS_DEBUG"] = True
+				else:
+					PREFERENCES["NORMALS_DEBUG"] = False
+
+
+
 
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
-			if (EVENT.type == PG.MOUSEMOTION) and (WINDOW_FOCUS == 1): #Mouse inputs for player view rotation.
-				MOUSE_MOVE = [EVENT.pos[0] - (DISPLAY_RESOLUTION.X // 2), EVENT.pos[1] - (DISPLAY_RESOLUTION.Y // 2)]
+			if (WINDOW_FOCUS == 1): #Mouse/Gamepad inputs for player view rotation.
 				ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0
-				if PAD_COUNT > 0:
-					PLAYER.ROTATION.X += PAD_CONTROLS[2] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
-					PLAYER.ROTATION.Y -= PAD_CONTROLS[3] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
-				else:
+				if JOYSTICK is not None:
+					PLAYER.ROTATION.X += (JOYSTICK[2].X + PREFERENCES["AXIS_2_OFFSET"]) * PREFERENCES["PLAYER_SPEED_TURN_PAD"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+					PLAYER.ROTATION.Y -= (JOYSTICK[2].Y + PREFERENCES["AXIS_3_OFFSET"]) * PREFERENCES["PLAYER_SPEED_TURN_PAD"] * (FPS/PREFERENCES["FPS_LIMIT"]) * -ZOOM_MULT
+				
+				if EVENT.type == PG.MOUSEMOTION:
+					MOUSE_MOVE = [EVENT.pos[0] - (DISPLAY_RESOLUTION.X // 2), EVENT.pos[1] - (DISPLAY_RESOLUTION.Y // 2)]
 					PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
-					PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * -1 * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
+					PLAYER.ROTATION.Y -= MOUSE_MOVE[1] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * -ZOOM_MULT
+				
 				PLAYER.ROTATION = PLAYER.ROTATION.CLAMP(Y_BOUNDS=(-89.9, 89.9))
 			
 			if WINDOW_FOCUS == 0:
@@ -274,11 +356,11 @@ def MAIN():
 
 			PHYS_DATA[0][PLAYER_ID] = PLAYER
 			CONSTANTS["PLAYER_COLLISION_CUBOID"] = PLAYER_COLLISION_CUBOID
-			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES)
+			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, JOYSTICK)
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			CAMERA_POSITION = PLAYER.POSITION + CONSTANTS["CAMERA_OFFSET"]
 
-			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, TEXTURE_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
+			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
 			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
 

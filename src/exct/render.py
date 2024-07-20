@@ -128,73 +128,79 @@ def SURFACE_TO_TEXTURE(SURFACE, RESOLUTION):
 
 
 def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0, DEBUG=False):
-    glBindTexture(GL_TEXTURE_2D, MAP)
-    
-    if MAP_TYPE == "DEPTH":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT)
-        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
-        DATA = NP.flipud(DATA)
-        if DEBUG: print("Depth data before normalization:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
+	glBindTexture(GL_TEXTURE_2D, MAP)
+	
+	if MAP_TYPE == "DEPTH":
+		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT)
+		DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
+		DATA = NP.flipud(DATA)
+		if DEBUG: print("Depth data before normalization:\n", DATA)
+		glBindTexture(GL_TEXTURE_2D, 0)
 
-        # Normalize depth data and ensure no NaN values
-        DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
-        DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
-        if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
-        if DEPTH_MIN == DEPTH_MAX:
-            NORMALISED_DATA = NP.zeros_like(DATA)
-        else:
-            NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
-            if DEBUG: print(NORMALISED_DATA)
-        IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
-        if NP.any(NP.isnan(NORMALISED_DATA)):
-            raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
-            NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
-    
-    elif MAP_TYPE == "NORMAL":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
-        DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-        if DEBUG: print("Normal data before processing:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
+		# Normalize depth data and ensure no NaN values
+		DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
+		DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
+		if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
+		if DEPTH_MIN == DEPTH_MAX:
+			NORMALISED_DATA = NP.zeros_like(DATA)
+		else:
+			NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
+			if DEBUG: print(NORMALISED_DATA)
 
-        # Flip the image data vertically
-        DATA = NP.flipud(DATA)
+		if NP.any(NP.isnan(NORMALISED_DATA)):
+			raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
+			NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
+		
+		IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
 
-        # Scale normals from [-1, 1] to [0, 255] for visualization
-        NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
+		del NORMALISED_DATA, DEPTH_MIN, DEPTH_MAX
+		
+	elif MAP_TYPE == "NORMAL":
+		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
+		DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+		if DEBUG: print("Normal data before processing:\n", DATA)
+		glBindTexture(GL_TEXTURE_2D, 0)
 
-        if NP.any(NP.isnan(DATA)):
-            raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
+		DATA = NP.flipud(DATA)
 
-        IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
-    
-    elif MAP_TYPE == "COLOUR":
-        DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
-        DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-        if DEBUG: print("Colour data before processing:\n", DATA)
-        glBindTexture(GL_TEXTURE_2D, 0)
+		#Scale normals from [-1, 1] to [0, 255] for visualization
+		NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
 
-        # Flip the image data vertically
-        DATA = NP.flipud(DATA)
+		if NP.any(NP.isnan(DATA)):
+			raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
 
-        if NP.any(NP.isnan(DATA)):
-            raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
+		IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
+		del NORMAL_DATA_VIS
+	
+	elif MAP_TYPE == "COLOUR":
+		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
+		DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+		if DEBUG: print("Colour data before processing:\n", DATA)
+		glBindTexture(GL_TEXTURE_2D, 0)
 
-        IMAGE = Image.fromarray(DATA, mode='RGB')
+		# Flip the image data vertically
+		DATA = NP.flipud(DATA)
 
-    else:
-        raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'depth', 'normal', or 'color'.")
-    
-    IMAGE.save(FILE_NAME)
-    if DEBUG:
-        IMAGE.show()
+		if NP.any(NP.isnan(DATA)):
+			raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
+
+		IMAGE = Image.fromarray(DATA, mode='RGB')
+
+	else:
+		raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'depth', 'normal', or 'color'.")
+	
+	IMAGE.save(FILE_NAME)
+	if DEBUG:
+		IMAGE.show()
+
+	del IMAGE, DATA
 
 
 
 #Per-frame rendering
 
 
-def SCENE(PHYS_DATA, TEXTURE_DATA, ENV_VAO_DATA, PLAYER):
+def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER):
 	#Renders the entire scene, from the positional and texture datas included.
 	ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
 	#COPIED_VERTS, COPIED_INDICES = copy.copy(ENV_VAO_VERTICES), copy.copy(ENV_VAO_INDICES)
@@ -250,87 +256,84 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
 
 
 def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURES=None, POINTS=None):
-    if POINTS is None:
-        POINTS = OBJECT.POINTS
-    if TEXTURES is None:
-        TEXTURES = OBJECT.TEXTURE_INFO
-    
-    VAO_VERTICES, VAO_INDICES = VAO_DATA[0], VAO_DATA[1]
+	if POINTS is None:
+		POINTS = OBJECT.POINTS
+	if TEXTURES is None:
+		TEXTURES = OBJECT.TEXTURE_INFO
+	
+	VAO_VERTICES, VAO_INDICES = VAO_DATA[0], VAO_DATA[1]
 
-    # Ensure VAO_VERTICES is a 2D array, even if initially empty
-    if VAO_VERTICES.size == 0:
-        VAO_VERTICES = NP.empty((0, 8), dtype=NP.float32)
-    if VAO_INDICES.size == 0:
-        VAO_INDICES = NP.empty(0, dtype=NP.uint32)
+	# Ensure VAO_VERTICES is a 2D array, even if initially empty
+	if VAO_VERTICES.size == 0:
+		VAO_VERTICES = NP.empty((0, 8), dtype=NP.float32)
+	if VAO_INDICES.size == 0:
+		VAO_INDICES = NP.empty(0, dtype=NP.uint32)
 
-    CLASS_TYPE = type(OBJECT)
-    NUM_FACES = 6 if isinstance(OBJECT, (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH)) else 1
-    NUM_VERTS, NUM_INDICES = NUM_FACES * 4, NUM_FACES * 6
-    NEW_VERTICES = NP.zeros((NUM_VERTS, 8), dtype=NP.float32)
-    NEW_INDICES = NP.zeros(NUM_INDICES, dtype=NP.uint32)
+	CLASS_TYPE = type(OBJECT)
+	NUM_FACES = 6 if isinstance(OBJECT, (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH)) else 1
+	NUM_VERTS, NUM_INDICES = NUM_FACES * 4, NUM_FACES * 6
+	NEW_VERTICES = NP.zeros((NUM_VERTS, 8), dtype=NP.float32)
+	NEW_INDICES = NP.zeros(NUM_INDICES, dtype=NP.uint32)
 
-    INDEX_OFFSET = len(VAO_VERTICES)
+	INDEX_OFFSET = len(VAO_VERTICES)
 
-    if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH):  # Cubes
-        if CLASS_TYPE == CUBE_STATIC:
-            print(OBJECT)
+	if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH):  # Cubes
+		FACE_ORDER = [
+			(0, 1, 3, 2),  # -Y | Bottom
+			(0, 2, 6, 4),  # -X | Left
+			(5, 7, 3, 1),  # +X | Right
+			(1, 0, 4, 5),  # -Z | Back
+			(7, 6, 2, 3),  # +Z | Front
+			(6, 7, 5, 4)   # +Y | Top
+		]
 
-        FACE_ORDER = [
-            (0, 1, 3, 2),  # -Y | Bottom
-            (0, 2, 6, 4),  # -X | Left
-            (5, 7, 3, 1),  # +X | Right
-            (1, 0, 4, 5),  # -Z | Back
-            (7, 6, 2, 3),  # +Z | Front
-            (6, 7, 5, 4)   # +Y | Top
-        ]
+		CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
 
-        CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
+		for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
+			NORMAL = OBJECT.NORMALS[FACE_INDEX]
+			FACE_INDICES = FACE_ORDER[FACE_INDEX]
+			INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
 
-        for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
-            NORMAL = OBJECT.NORMALS[FACE_INDEX]
-            FACE_INDICES = FACE_ORDER[FACE_INDEX]
-            INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
+			NEW_INDICES[FACE_INDEX * 6:FACE_INDEX * 6 + 6] = [
+				INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
+				INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
+			]
 
-            NEW_INDICES[FACE_INDEX * 6:FACE_INDEX * 6 + 6] = [
-                INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
-                INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
-            ]
+			for I, INDEX in enumerate(FACE_INDICES):
+				X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
+				TEX_COORD = TEX_COORDS[I]
+				U, V = TEX_COORD.X, TEX_COORD.Y
+				NEW_VERTICES[FACE_INDEX * 4 + I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
 
-            for I, INDEX in enumerate(FACE_INDICES):
-                X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
-                TEX_COORD = TEX_COORDS[I]
-                U, V = TEX_COORD.X, TEX_COORD.Y
-                NEW_VERTICES[FACE_INDEX * 4 + I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+			INDEX_OFFSET += 4
 
-            INDEX_OFFSET += 4
+	elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY):  # Quads
+		FACE_ORDER = (0, 1, 2, 3)
+		NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
 
-    elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY):  # Quads
-        FACE_ORDER = (0, 1, 2, 3)
-        NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
+		for I, INDEX in enumerate(FACE_ORDER):
+			TEX_COORD = TEXTURES[I]
+			X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
+			U, V = TEX_COORD.X, TEX_COORD.Y
+			NORMAL = OBJECT.NORMALS[I // 2]  # Assuming the normal is consistent across the quad
+			NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
 
-        for I, INDEX in enumerate(FACE_ORDER):
-            TEX_COORD = TEXTURES[I]
-            X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
-            U, V = TEX_COORD.X, TEX_COORD.Y
-            NORMAL = OBJECT.NORMALS[I // 2]  # Assuming the normal is consistent across the quad
-            NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+	elif CLASS_TYPE == TRI:  # Triangles
+		FACE_ORDER = (0, 1, 2)
+		NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
+		NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
 
-    elif CLASS_TYPE == TRI:  # Triangles
-        FACE_ORDER = (0, 1, 2)
-        NEW_INDICES[:] = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
-        NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
+		for I, INDEX in enumerate(FACE_ORDER):
+			TEX_COORD = TEXTURES[I]
+			X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
+			U, V = TEX_COORD.X, TEX_COORD.Y
+			NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
 
-        for I, INDEX in enumerate(FACE_ORDER):
-            TEX_COORD = TEXTURES[I]
-            X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
-            U, V = TEX_COORD.X, TEX_COORD.Y
-            NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+	# Concatenate the new vertices and indices to the existing VAO data
+	VAO_VERTICES = NP.concatenate((VAO_VERTICES, NEW_VERTICES))
+	VAO_INDICES = NP.concatenate((VAO_INDICES, NEW_INDICES))
 
-    # Concatenate the new vertices and indices to the existing VAO data
-    VAO_VERTICES = NP.concatenate((VAO_VERTICES, NEW_VERTICES))
-    VAO_INDICES = NP.concatenate((VAO_INDICES, NEW_INDICES))
-
-    return (VAO_VERTICES, VAO_INDICES)
+	return (VAO_VERTICES, VAO_INDICES)
 
 
 
