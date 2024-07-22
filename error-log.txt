@@ -29,3 +29,8 @@
 20:59:40, 11-07-2024 / ERROR in place / error
 23:15:54, 19-07-2024 / ERROR in main.py, init() / module 'exct.utils' has no attribute 'FIND_VECTOR'
 23:16:17, 19-07-2024 / ERROR in main.py, init() / module 'exct.utils' has no attribute 'FIND_VECTOR'
+16:19:12, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
+16:19:16, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
+16:19:19, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
+16:29:53, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 231)
+17:02:03, 22-07-2024 / ERROR in main.py, init() / inconsistent use of tabs and spaces in indentation (physics.py, line 275)

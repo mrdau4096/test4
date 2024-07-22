@@ -71,6 +71,7 @@ except Exception as E:
 
 
 
+
 def MAIN():
 	#try:
 		"""
@@ -111,11 +112,14 @@ def MAIN():
 
 		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
+		CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
 		KEY_STATES = {
 			PG.K_w: False,
 			PG.K_s: False,
 			PG.K_a: False,
 			PG.K_d: False,
+			PG.K_e: False,
+			PG.K_q: False,
 			PG.K_SPACE: False,
 			PG.K_LCTRL: False,
 			PG.K_LSHIFT: False,
@@ -127,14 +131,8 @@ def MAIN():
 			"PAD_JUMP_PREV": False,
 		}
 
-		"""
-		Main Game Loop - handles rendering, inputs, physics updates and so on. Only plays while RUN is true.
-		Also any variables required are set up, such as (but not limited to):
-		- KEY_STATES {Any keys required as inputs are logged here, to aid in detection within the loop}
-		- PLAYER_COLLISION_CUBOID {The shape of the player's pre-defined "Hitbox", for the physics system}
-		- RENDER_DATA / PHYS_DATA {Data for render.py and physics.py respectively}
-		- etc.
-		"""
+
+		
 		RENDER_DATA, PHYS_DATA, CURRENT_SHEET_ID, PLAYER_ID = scene.PREPARE_SCENE(PREFERENCES["SCENE"])
 		BLANK_TEXTURE = texture_load.LOAD_SHEET("_")
 		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
@@ -184,6 +182,7 @@ def MAIN():
 			Getting other general events (Like window resize or window close events)
 			"""
 			MOUSE_MOVE = [0, 0]
+			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			
 			for EVENT in PG.event.get():
 				match EVENT.type:
@@ -203,14 +202,15 @@ def MAIN():
 								if PREVIOUS_FRAME != None:
 									RAW_TIME = log.GET_TIME()
 									CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
-									render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.jpeg", "COLOUR")
+									render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.png", "COLOUR")
 
 							case PG.K_ESCAPE:
 								RUN = False
 							
 							case PG.K_LCTRL:
-								if not PREFERENCES["DEV_TEST"]:
-									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.0, 0.0)
+								CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET_CROUCH"]
+								PLAYER.COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]
+								PLAYER.POSITION -= (CONSTANTS["PLAYER_COLLISION_CUBOID"] - CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]) / 2
 
 							case PG.K_c:
 								PROJECTION_MATRIX = Matrix44.perspective_projection(
@@ -226,8 +226,9 @@ def MAIN():
 						
 						match EVENT.key:
 							case PG.K_LCTRL:
-								if not PREFERENCES["DEV_TEST"]:
-									CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.25, 0.0)
+								CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
+								PLAYER.COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
+								PLAYER.POSITION += (CONSTANTS["PLAYER_COLLISION_CUBOID"] - CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]) / 2
 
 							case PG.K_c:
 								PROJECTION_MATRIX = Matrix44.perspective_projection(
@@ -288,11 +289,11 @@ def MAIN():
 					)
 
 
-				if PAD_CROUCH and not PREFERENCES["DEV_TEST"]:
-					CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.0, 0.0)
+				if PAD_CROUCH:
+					CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET_CROUCH"]
 
-				elif not PAD_CROUCH and not PREFERENCES["DEV_TEST"]:
-					CONSTANTS["CAMERA_OFFSET"] = VECTOR_3D(0.0, 0.25, 0.0)
+				else:
+					CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
 
 				if JOYSTICK[0].get_button(1):
 					RUN = False
@@ -306,7 +307,7 @@ def MAIN():
 				if JOYSTICK[0].get_button(5) and PREVIOUS_FRAME is not None:
 					RAW_TIME = log.GET_TIME()
 					CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
-					render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.jpeg", "COLOUR")
+					render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.png", "COLOUR")
 
 
 			else:
@@ -316,9 +317,6 @@ def MAIN():
 					PREFERENCES["NORMALS_DEBUG"] = False
 
 
-
-
-			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			if (WINDOW_FOCUS == 1): #Mouse/Gamepad inputs for player view rotation.
 				ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0
 				if JOYSTICK is not None:
@@ -341,29 +339,19 @@ def MAIN():
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
 			
 
-
 			glLoadIdentity()
 
 
-
-			"""
-			FPS is the current frames per second - usually around the max FPS set just beforehand, and is used for a basic Δt-type force application system.
-			physics.UPDATE_PHYSICS() moves all movable objects like boxes to their next, velocity-defined position, applies forces, calculates collisions, etc.
-			render.SCENE() visually displays the scene, from the data provided when the scene was loaded.
-			ui.HUD() simply draws any HUD-elements, such as information or text, to the screen as a flat overlay image.
-			"""
 			CLOCK.tick_busy_loop(FPS_CAP)
 
 			PHYS_DATA[0][PLAYER_ID] = PLAYER
-			CONSTANTS["PLAYER_COLLISION_CUBOID"] = PLAYER_COLLISION_CUBOID
 			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, JOYSTICK)
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
-			CAMERA_POSITION = PLAYER.POSITION + CONSTANTS["CAMERA_OFFSET"]
+			CAMERA_POSITION = PLAYER.POSITION + CAMERA_OFFSET
 
 			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
 			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
-
 
 
 			#Pre-FBO render tasks (UI, dynamic shadows)
@@ -380,7 +368,6 @@ def MAIN():
 				SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
 			
 			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
-
 
 
 			#Rendering the main scene.
@@ -477,10 +464,15 @@ def MAIN():
 			
 
 			#Draw UI on a quad slightly closer to the camera
+			if PREFERENCES["DEBUG_UI"]:
+				render.SAVE_MAP(CONSTANTS["UI_RESOLUTION"], UI_TEXTURE_ID, f"screenshots\\debug_maps\\colour_map_ui.png", "COLOUR")
+
 			
 			glBindVertexArray(VAO_UI)
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)

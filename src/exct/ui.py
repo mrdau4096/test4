@@ -45,33 +45,30 @@ def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 
 
 def HUD(PLAYER, FPS):
-	#UI Draws ~8px too low, due to the area being 640x352 rather than 640x360 (accounting for 1080p -> 1057p with windows bar at the top)
-	UI_COLOURS = {"SMOKY_BLACK": (20, 17, 15), "DAVYS_GRAY": (72, 71, 74), "SILVER": (186, 186, 186), "WHITE_SMOKE": (245, 245, 245), "MOSS_GREEN": (116, 142, 84)}
+	#UI Draws ~8px too low, due to the area being 640x352 rather than 640x360 (accounting for 1080p -> 1057p with windows)
+	UI_COLOURS = {
+		"SMOKY_BLACK": (20, 17, 15),
+		"DAVYS_GRAY": (72, 71, 74),
+		"SILVER": (186, 186, 186),
+		"WHITE_SMOKE": (245, 245, 245),
+		"MOSS_GREEN": (116, 142, 84),
+		"GOLD_TIPS": (229, 172, 43),
+	}
 
 	#Create the surface to render the UI to.
 	UI_SURFACE.fill([0, 0, 0, 0])
 
 	#Create the "Crosshair".
-	PG.draw.circle(UI_SURFACE, UI_COLOURS["SILVER"], (320, 180), 5, 1)
+	PG.draw.circle(UI_SURFACE, UI_COLOURS["SILVER"], (320, 180), 7, 2)
 
 	#Create the lower-left info panel.
-	PG.draw.rect(UI_SURFACE, UI_COLOURS["SILVER"], (0, 319, 95, 41))
-	PG.draw.polygon(UI_SURFACE, UI_COLOURS["SILVER"], ((95, 322.5), (95, 362.5), (105, 362.5)))
-	DRAW_TEXT(UI_SURFACE, str(PLAYER.AMMO[0]).zfill(2), (10.5, 345), 16, COLOUR=UI_COLOURS["SMOKY_BLACK"])
-	DRAW_TEXT(UI_SURFACE, str(PLAYER.HEALTH).zfill(3), (54, 345), 16, COLOUR=UI_COLOURS["SMOKY_BLACK"])
-	DRAW_IMG(UI_SURFACE, "ammo2.png", (20, 322), (10, 16))
-	DRAW_IMG(UI_SURFACE, "health2.png", (67.5, 323), (16, 14))
-	PG.draw.line(UI_SURFACE, UI_COLOURS["MOSS_GREEN"], (0, 319), (95, 319), 2)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (0, 340), (100, 340), 2)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (50, 320), (50, 360), 2)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["MOSS_GREEN"], (95, 320), (105, 360), 2)
+	DRAW_TEXT(UI_SURFACE, str(PLAYER.ENERGY).zfill(3), (105, 322), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
+	DRAW_TEXT(UI_SURFACE, str(PLAYER.HEALTH).zfill(3), (105, 343), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
+	DRAW_IMG(UI_SURFACE, "ENERGY.png", (5, 322), (94, 16))
+	DRAW_IMG(UI_SURFACE, "HEALTH.png", (5, 343), (88, 16))
 
 	#FPS counter.
-	PG.draw.rect(UI_SURFACE, UI_COLOURS["SILVER"], (580, 0, 120, 10))
-	PG.draw.polygon(UI_SURFACE, UI_COLOURS["SILVER"], ((580, 10), (580, 0), (575, 0)))
-	PG.draw.line(UI_SURFACE, UI_COLOURS["MOSS_GREEN"], (579, 10), (574, 0), 2)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["MOSS_GREEN"], (579, 10), (640, 10), 2)
-	DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["SMOKY_BLACK"])
+	DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 
 	UI_SURFACE_ID = render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
 

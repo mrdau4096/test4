@@ -50,9 +50,9 @@ def JOYSTICK_DEADZONE(JOYSTICK):
 def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
 	HALF_DIMENTIONS = DIMENTIONS / 2
 
-	OFFSET_X = VECTOR_3D(0.1 * DIMENTIONS.X, 	0.0,  					0.0 				)
-	OFFSET_Y = VECTOR_3D(0.0,  					0.1 * DIMENTIONS.Y, 	0.0 				)
-	OFFSET_Z = VECTOR_3D(0.0,  					0.0,  					0.1 * DIMENTIONS.Z	)
+	OFFSET_X = VECTOR_3D(0.0 * DIMENTIONS.X, 	0.0,  					0.0 				)
+	OFFSET_Y = VECTOR_3D(0.0,  					0.0 * DIMENTIONS.Y, 	0.0 				)
+	OFFSET_Z = VECTOR_3D(0.0,  					0.0,  					0.0 * DIMENTIONS.Z	)
 	
 	return [
 			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) + OFFSET_X + OFFSET_Y + OFFSET_Z,  # Vertex 0 (min x, min y, min z)
@@ -110,44 +110,55 @@ def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
 
 
 def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
-	VERTICES = CUBE.POINTS
-	CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
-	TRIs = (
-		(VERTICES[0], VERTICES[1], VERTICES[2]),  #Bottom Face; Triangle A (-Y)
-		(VERTICES[1], VERTICES[3], VERTICES[2]),  #Bottom Face; Triangle B (-Y)
-		(VERTICES[0], VERTICES[2], VERTICES[4]),  #Left Face; Triangle A (-X)
-		(VERTICES[2], VERTICES[6], VERTICES[4]),  #Left Face; Triangle B (-X)
-		(VERTICES[1], VERTICES[3], VERTICES[5]),  #Right Face; Triangle A (+X)
-		(VERTICES[3], VERTICES[7], VERTICES[5]),  #Right Face; Triangle B (+X)
-		(VERTICES[0], VERTICES[1], VERTICES[4]),  #Front Face; Triangle A (+Z)
-		(VERTICES[1], VERTICES[5], VERTICES[4]),  #Front Face; Triangle B (+Z)
-		(VERTICES[2], VERTICES[3], VERTICES[6]),  #Back Face; Triangle A (-Z)
-		(VERTICES[3], VERTICES[7], VERTICES[6]),  #Back Face; Triangle B (-Z)
-		(VERTICES[4], VERTICES[5], VERTICES[6]),  #Top Face; Triangle A (+Y)
-		(VERTICES[5], VERTICES[7], VERTICES[6])  #Top Face; Triangle B (+Y)
-	)
+    VERTICES = CUBE.POINTS
+    PHYS_BOX = PHYS_BODY.BOUNDING_BOX
+    CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
+    FACES = {
+        "-Y": ((VERTICES[0], VERTICES[1], VERTICES[2]), (VERTICES[1], VERTICES[3], VERTICES[2])),  # Bottom Face (-Y)
+        "-X": ((VERTICES[0], VERTICES[2], VERTICES[4]), (VERTICES[2], VERTICES[6], VERTICES[4])),  # Left Face (-X)
+        "+X": ((VERTICES[1], VERTICES[3], VERTICES[5]), (VERTICES[3], VERTICES[7], VERTICES[5])),  # Right Face (+X)
+        "+Z": ((VERTICES[0], VERTICES[1], VERTICES[4]), (VERTICES[1], VERTICES[5], VERTICES[4])),  # Front Face (+Z)
+        "-Z": ((VERTICES[2], VERTICES[3], VERTICES[6]), (VERTICES[3], VERTICES[7], VERTICES[6])),  # Back Face (-Z)
+        "+Y": ((VERTICES[4], VERTICES[5], VERTICES[6]), (VERTICES[5], VERTICES[7], VERTICES[6])),  # Top Face (+Y)
+    }
 
-	CLOSEST_FACE, CLOSEST_NORMAL, MIN_DISTANCE = None, None, float("inf")
-	
-	for I in range(6):
-		TRIANGLE_A, TRIANGLE_B = TRIs[I * 2], TRIs[(I * 2) + 1]
-		NORMAL = CUBE.NORMALS[I]
+    CLOSEST_DIR, MIN_DIST = None, float("inf")
 
-		FACE_CENTER = FIND_CENTROID((TRIANGLE_A[0], TRIANGLE_A[1], TRIANGLE_A[2], TRIANGLE_B[1]))
-		DISTANCE = abs(FACE_CENTER - PHYS_BODY.POSITION)
-		
-		if abs(DISTANCE) < MIN_DISTANCE:
-			MIN_DISTANCE = min(abs(DISTANCE), MIN_DISTANCE)
-			CLOSEST_FACE = (TRIANGLE_A, TRIANGLE_B)
-			CLOSEST_NORMAL = NORMAL
+    DIRECTIONS = ("-Y", "-X", "+X", "+Z", "-Z", "+Y")
 
-	
+    DISTANCES = {
+        "+Y": abs(PHYS_BOX.MIN_Y - CUBE.POINTS[0].Y),
+        "+X": abs(PHYS_BOX.MIN_X - CUBE.POINTS[0].X),
+        "-X": abs(CUBE.POINTS[7].X - PHYS_BOX.MAX_X),
+        "+Z": abs(CUBE.POINTS[7].Z - PHYS_BOX.MAX_Z),
+        "-Z": abs(PHYS_BOX.MIN_Z - CUBE.POINTS[0].Z),
+        "-Y": abs(CUBE.POINTS[7].Y - PHYS_BOX.MAX_Y),
+    }
 
-	return CLOSEST_FACE, CLOSEST_NORMAL
+    # Sort the distances to find the closest face(s)
+    SORTED_DISTANCES = sorted(DISTANCES.items(), key=lambda ITEM: ITEM[1])
+    
+    # Handle the case where multiple faces are at similar distances
+    MIN_DIST_FACES = [SORTED_DISTANCES[0]]
+    for I in range(1, len(SORTED_DISTANCES)):
+        if abs(SORTED_DISTANCES[I][1] - SORTED_DISTANCES[0][1]) < 0.01:
+            MIN_DIST_FACES.append(SORTED_DISTANCES[I])
+        else:
+            break
+    
+    # Select the face based on priority or additional criteria
+    # You can adjust the priority order here if needed
+    FACE_PRIORITY = {"-Y": 5, "+Y": 6, "-X": 2, "+X": 4, "-Z": 1, "+Z": 3}
+    MIN_DIST_FACES.sort(key=lambda ITEM: FACE_PRIORITY[ITEM[0]])
+    
+    CLOSEST_DIR = MIN_DIST_FACES[0][0]
+    if CUBE.ID == 12: print(CLOSEST_DIR)
+
+    return FACES[CLOSEST_DIR], CUBE.NORMALS[DIRECTIONS.index(CLOSEST_DIR)]
+
 
 
 #Other functions
-
 
 
 def PRINT_GRID(GRID): #Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
@@ -377,7 +388,6 @@ Custom Classes, for objects and datatypes {O.O.P.};
 
 
 class WORLD_OBJECT:
-	#@profile
 	def __init__(self, OBJECT_ID, POSITION, COLLISION, TEXTURE_INFO=None, NORMALS=None, BOUNDING_BOX=None):
 		self.POSITION = POSITION
 		self.COLLISION = bool(COLLISION)
@@ -393,7 +403,6 @@ class WORLD_OBJECT:
 		if COLLISION: self.BOUNDING_BOX = BOUNDING_BOX
 
 class PHYSICS_OBJECT:
-	#@profile
 	def __init__(self, OBJECT_ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX, MASS, TEXTURE_INFO, LATERAL_VELOCITY=None):
 		self.POSITION = POSITION
 		self.MASS = float(MASS)
@@ -411,25 +420,25 @@ class PHYSICS_OBJECT:
 
 
 class BOUNDING_BOX:
-	#@profile
-	def __init__(self, POSITION, OBJECT_POINTS):
-		OFFSET = 1.0
-		
+	def __init__(self, POSITION, OBJECT_POINTS, OFFSET=1.0):		
 		self.MIN_X = min(POINT.X for POINT in OBJECT_POINTS) - OFFSET
 		self.MAX_X = max(POINT.X for POINT in OBJECT_POINTS) + OFFSET
 		self.MIN_Y = min(POINT.Y for POINT in OBJECT_POINTS) - OFFSET
 		self.MAX_Y = max(POINT.Y for POINT in OBJECT_POINTS) + OFFSET
 		self.MIN_Z = min(POINT.Z for POINT in OBJECT_POINTS) - OFFSET
-		
 		self.MAX_Z = max(POINT.Z for POINT in OBJECT_POINTS) + OFFSET
+		
 		BOX_POINTS = FIND_CUBOID_POINTS(VECTOR_3D(self.MAX_X-self.MIN_X, self.MAX_Y-self.MIN_Y, self.MAX_Z-self.MIN_Z), POSITION)
 
 		self.POSITION = VECTOR_3D(*POSITION.TO_LIST())
 		self.NORMALS = NORMALS = FIND_CUBOID_NORMALS(BOX_POINTS)
 		self.POINTS = BOX_POINTS
 
-	def UPDATE(self, NEW_POSITION, NEW_POINTS): #Updates original data using __init__() without creating a new AABB Object
-		self.__init__(NEW_POSITION, NEW_POINTS)
+	def __repr__(self):
+		return f"<BOUNDING_BOX [POSITION: {self.POSITION} // X: {self.MIN_X, self.MAX_X} // Y: {self.MIN_Y, self.MAX_Y} // Z: {self.MIN_Z, self.MAX_Z}]>"
+
+	def UPDATE(self, NEW_POSITION, NEW_POINTS, OFFSET=1.0): #Updates original data using __init__() without creating a new AABB Object
+		self.__init__(NEW_POSITION, NEW_POINTS, OFFSET=OFFSET)
 		return self
 
 
@@ -489,6 +498,7 @@ class CUBE_STATIC(WORLD_OBJECT):
 
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
+		
 
 		self.DIMENTIONS = DIMENTIONS
 		self.POINTS = tuple(POINTS)
@@ -619,6 +629,7 @@ class CUBE_PHYSICS(PHYSICS_OBJECT):
 
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
+		
 
 		self.DIMENTIONS = DIMENTIONS
 		self.POINTS = POINTS
@@ -657,6 +668,7 @@ class ITEM(PHYSICS_OBJECT):
 		self.TYPE = TYPE
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.DIMENTIONS_3D = TYPE_DATA[0]
+		
 
 		self.POINTS = POINTS
 		self.LATERAL_VELOCITY = LATERAL_VELOCITY
@@ -686,7 +698,8 @@ class ENEMY(PHYSICS_OBJECT):
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURES)
 
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
-		self.DIMENTIONS_3D = TYPE_DATA[0]
+		self.DIMENTIONS = TYPE_DATA[0]
+		
 
 		self.POINTS = POINTS
 		self.TYPE = TYPE
@@ -717,6 +730,8 @@ class PROJECTILE(PHYSICS_OBJECT):
 
 		AVG_X = (TYPE_DATA["Dimentions"][0] + TYPE_DATA["Dimentions"][2]) / 2
 		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, TYPE_DATA["Dimentions"][1])
+		self.DIMENTIONS = VECTOR_3D(*TYPE_DATA["Dimentions"])
+		
 
 		self.POINTS = POINTS
 		self.TYPE = hex(TYPE)
@@ -730,18 +745,20 @@ class PROJECTILE(PHYSICS_OBJECT):
 
 class PLAYER(PHYSICS_OBJECT):
 	def __init__(self, ID, POSITION, ROTATION, ITEMS):
-		COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
-		POINTS = FIND_CUBOID_POINTS(COLLISION_CUBOID, POSITION)
+		self.DIMENTIONS = CONSTANTS["PLAYER_COLLISION_CUBOID"]
+		POINTS = FIND_CUBOID_POINTS(self.DIMENTIONS, POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, CONSTANTS["PLAYER_MASS"], None)
+		
+		
 
 		self.POINTS = POINTS
 		self.MAX_HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.ITEMS = ITEMS
-		self.AMMO = [0 for _ in range(len(ITEMS))]
+		self.ENERGY = 0
 		self.ALIVE = True
 
 	def __repr__(self):
@@ -1050,10 +1067,10 @@ class VECTOR_3D:
 		return self - OTHER
 	
 	def __imul__(self, SCALAR):
-		return self * OTHER
+		return self * SCALAR
 
 	def __idiv__(self, SCALAR):
-		return self / OTHER
+		return self / SCALAR
 
 	def __abs__(self): #Magnitude of self // abs({self})
 		return (self.X ** 2 + self.Y ** 2 + self.Z ** 2) ** 0.5
@@ -1088,7 +1105,6 @@ class VECTOR_3D:
 		Z = 1.0 if self.Z > 0.0 else -1.0 if self.Z < 0.0 else 0.0
 		return VECTOR_3D(X, Y, Z)
 
-	#@profile
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()if PREFERENCES["PROFILER_DEBUG"]: ##@profile
 		MAGNITUDE = abs(self)
 		if MAGNITUDE != 0:
@@ -1107,7 +1123,6 @@ class VECTOR_3D:
 		Z = self.X * OTHER.Y - self.Y * OTHER.X
 		return VECTOR_3D(X, Y, Z)
 
-	#@profile
 	def PROJECT(self, OTHER): #Project points (OTHER) onto axis (self) // {AXIS}.PROJECT({POINTS})
 		MIN_PROJ, MAX_PROJ = float('inf'), float('-inf')
 		for POINT in OTHER:
