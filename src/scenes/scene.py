@@ -10,39 +10,45 @@ Importing other files;
 -utils.py
 """
 
-import sys, os
-import math as maths
-import zipfile
-import io
-import copy
-import numpy as NP
-
-#Load log.py, from the subfolder \src\exct\
-sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
 from exct import log
-#Load modules stored in \src\modules\
-import glm, glfw
+try:
+	#Importing base python modules
+	import sys, os
+	import math as maths
+	import zipfile
+	import io
+	import copy
+	import numpy as NP
 
-import pygame as PG
-from pygame import time, joystick, display, image
+	#Stop PyGame from giving that annoying welcome message
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL.shaders import compileProgram, compileShader
+	#Load modules stored in \src\modules\
+	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+	import glm, glfw
+	import pygame as PG
+	from pygame import time, joystick, display, image
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
+	from PIL import Image
+	from pyrr import Matrix44, Vector3, Vector4
 
-from PIL import Image
+	#Import other sub-files.
+	from exct.utils import *
+	from imgs import texture_load
+	from exct import log, utils, render
 
-from pyrr import Matrix44, Vector3, Vector4
+except ImportError:
+	log.ERROR("ui.py", "Initial imports failed.")
 
-from exct.utils import *
-from imgs import texture_load
-from exct import log, utils, render
 
 log.REPORT_IMPORT("scene.py")
 
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 OVERHANG = 1
 
+#Formatting for each class type's file representation
 FORMATTING = {
 	0:  (SCENE, ("rgba", "int", "int")),			 									#Scene data (skybox, lighting etc)
 	1:  (PLAYER, ("vect", "vect", "list")), 											#Playerdata
@@ -71,6 +77,7 @@ FORMATTING = {
 
 
 def PREPARE_SCENE(SCENE_NAME):
+	#Prepares the data for a scene.
 	RENDER_DATA, PHYS_DATA, SHEET_NAME = LOAD_FILE(SCENE_NAME)
 	for OBJECT_ID, OBJECT in PHYS_DATA[0].items():
 		if type(OBJECT) == PLAYER:
@@ -81,15 +88,17 @@ def PREPARE_SCENE(SCENE_NAME):
 
 
 def LOAD_FILE(FILE_NAME):
-	CURRENT_ID = 0
 	"""
 	Loads a file with given name FILE_NAME, returning all data and loading all required textures using load_texture.py
-	This info will get given to render.py by main.py, as it contains info for all of the scene's planes and other shapes.
+	This info will get given to render.py via main.py, as it contains info for all of the scene's planes and other shapes.
 	"""
+	CURRENT_ID = 0
+
 	FILE_NAME_FORMATTED = f"scene-{FILE_NAME}.dat"
 	main_dir = os.path.dirname(os.path.abspath(__file__))
 	file_path = os.path.join(main_dir, FILE_NAME_FORMATTED)
 
+	#Load the given scene.dat file
 	with open(file_path, 'r') as FILE:
 		FILE_CONTENTS_RAW = FILE.readlines()
 	
@@ -98,16 +107,22 @@ def LOAD_FILE(FILE_NAME):
 	for LINE_RAW in FILE_CONTENTS_RAW:
 		FILE_CONTENTS.append(LINE_RAW.strip('\n'))#Remove uneccessary auto-formatting from the file
 
+	#Get the game-data for use here.
 	HOSTILES, SUPPLIES, PROJECTILES = utils.GET_GAME_DATA()
+
 
 	ENV_VAO_DATA = [NP.array([]), NP.array([])]
 	KINETICS, STATICS, LIGHTS = {}, [{}, {}], []
 	for LINE in FILE_CONTENTS:
+		#Read every line
 		if LINE not in (""):
+			#If the line isnt empty..
 			if LINE[0].strip() == ">":
+				#Current sheet is given by "> ID"
 				SHEET_ID = (LINE.strip()).split(" ")[-1]
 
 			elif LINE[0].strip() not in ("/",):
+				#"/" marks a comment, so if it is NOT that, read the line.
 				LINE_DATA = (LINE.strip()).split(' | ')
 				OBJECT_TYPE = int(LINE_DATA[0], 16)
 
@@ -115,8 +130,9 @@ def LOAD_FILE(FILE_NAME):
 				OBJECT_DATA = []
 
 
-				for SECTION, PURE_DATA in zip(FORMAT, LINE_DATA[1:]):
-					DATA = PURE_DATA.strip(" ")
+				for SECTION, RAW_DATA in zip(FORMAT, LINE_DATA[1:]):
+					#Read each part of the data-line, and interpret said part using the formatting for each type.
+					DATA = RAW_DATA.strip(" ")
 					if DATA != "":
 						match SECTION:
 							case "vect":
@@ -161,9 +177,18 @@ def LOAD_FILE(FILE_NAME):
 				texture_load.SHEET_ID = None
 
 				if CLASS_TYPE == SCENE:
+					#Scene is handled differently to the rest, as it isn't particularly "anywhere" in the scene.
 					FINALISED_OBJECT = SCENE(CONSTANTS["VOID_COLOUR"], CONSTANTS["GRAVITY"], CONSTANTS["MULT_AIR_RES"])
 
+
+				elif CLASS_TYPE == LOGIC:
+					#Same story for the LOGIC, as it isn't at any set location.
+					pass
+
+
+
 				elif CLASS_TYPE in [CUBE_STATIC, TRI, QUAD, NPC_PATH_NODE, LIGHT, INTERACTABLE, CUBE_PATH, SPRITE_STATIC]:
+					#Static, non-physics based objects.
 					CURRENT_ID += 1
 
 					if CLASS_TYPE == CUBE_STATIC:
@@ -233,14 +258,21 @@ def LOAD_FILE(FILE_NAME):
 						FINALISED_OBJECT = SPRITE_STATIC(CURRENT_ID, CENTRE, DIMENTIONS, TEXTURE_DATA)
 
 					if TEXTURE_DATA != [] and CLASS_TYPE not in [SPRITE_STATIC,]:
+						#Add to the VAO data, as long as it isnt a dynamic object like a STATIC_SPRITE.
 						ENV_VAO_DATA = render.OBJECT_VAO_MANAGER(FINALISED_OBJECT, ENV_VAO_DATA)
 
-					if FINALISED_OBJECT.COLLISION: #If it has collision, add it to the dict physics.py checks.
+					#STATICS for the environmental objects.
+					if FINALISED_OBJECT.COLLISION:
+						#If it has collision, add it to the dict physics.py checks.
 						STATICS[0][CURRENT_ID] = FINALISED_OBJECT
-					else: #If not, it still must be rendered - add to the dict physics.py DOESNT check.
+					else:
+						#If not, it still must be rendered - add to the dict physics.py DOESNT check.
 						STATICS[1][CURRENT_ID] = FINALISED_OBJECT
 
+
+
 				elif CLASS_TYPE in [PLAYER, SPRITE_STATIC, ITEM, ENEMY, CUBE_PHYSICS]:
+					#Physics based objects.
 					CURRENT_ID += 1
 
 					if CLASS_TYPE == PLAYER:
@@ -276,6 +308,8 @@ def LOAD_FILE(FILE_NAME):
 
 						FINALISED_OBJECT = CUBE_PHYSICS(CURRENT_ID, CENTRE, DIMENTIONS, MASS, VECTOR_3D(0, 0, 0), CURRENT_TEXTURE_DATA)
 
+
+					#Add it to the physics list (Kinetics)
 					KINETICS[CURRENT_ID] = FINALISED_OBJECT
 
 

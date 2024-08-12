@@ -36,3 +36,6 @@
 17:02:03, 22-07-2024 / ERROR in main.py, init() / inconsistent use of tabs and spaces in indentation (physics.py, line 275)
 22:07:37, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'
 22:07:45, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'
+20:24:00, 12-08-2024 / ERROR in Mainloop / ('Shader compile failure (0): b\'0(10) : error C1503: undefined variable "texCoords"\\n\'', [b'#version 330 core\nlayout(location = 0) in vec3 Position;\nlayout(location = 1) in vec2 TexCoords;\n\nout vec2 fragTexCoords;\n\nvoid main()\n{\n\t//Basic vertex shader for the UI quads.\n\tfragTexCoords = texCoords;\n\tgl_Position = vec4(Position, 1.0);\n}'], GL_VERTEX_SHADER)
+20:25:28, 12-08-2024 / ERROR in Mainloop / ('Shader compile failure (0): b\'0(10) : error C1503: undefined variable "texCoords"\\n\'', [b'#version 330 core\nlayout(location = 0) in vec3 Position;\nlayout(location = 1) in vec2 TexCoords;\n\nout vec2 fragTexCoords;\n\nvoid main()\n{\n\t//Basic vertex shader for the UI quads.\n\tfragTexCoords = texCoords;\n\tgl_Position = vec4(Position, 1.0);\n}'], GL_VERTEX_SHADER)
+20:26:05, 12-08-2024 / ERROR in Mainloop / exception: access violation reading 0x0000018EE9794000

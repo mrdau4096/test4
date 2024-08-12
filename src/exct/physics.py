@@ -4,7 +4,7 @@ Controls the physics of the game, such as gravity and collisions.
 Basic systems, not too complex for performance and ease-of-use reasons.
 
 ______________________
-Importing other files;
+Importing other sub-files;
 -render.py
 -physics.py
 -texture_load.py
@@ -12,54 +12,45 @@ Importing other files;
 -log.py
 -utils.py
 """
-import sys, os
-import math as maths
-import zipfile
-import io
-import copy
-import numpy as NP
 
-#Load log.py, from the subfolder \src\exct\
-sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-from exct import log
-#Load modules stored in \src\modules\
-import glm, glfw
+try:
+	#Importing base python modules
+	import sys, os
+	import math as maths
+	import zipfile
+	import io
+	import copy
+	import numpy as NP
 
-import pygame as PG
-from pygame import time, joystick, display, image
+	#Stop PyGame from giving that annoying welcome message
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL.shaders import compileProgram, compileShader
+	#Load modules stored in \src\modules\
+	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+	import glm, glfw
+	import pygame as PG
+	from pygame import time, joystick, display, image
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
+	from PIL import Image
+	from pyrr import Matrix44, Vector3, Vector4
 
-from PIL import Image
+	#Import other sub-files.
+	from exct import log, utils, render
+	from scenes import scene
+	from exct.utils import *
 
-from pyrr import Matrix44, Vector3, Vector4
+except ImportError:
+	log.ERROR("physics.py", "Initial imports failed.")
 
 
-from exct import log, utils, render
-from scenes import scene
-from exct.utils import *
 log.REPORT_IMPORT("physics.py")
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
 
+
 #General Physics Functions
-
-
-
-def AIR_RES_CALC(VELOCITY_VECTOR): #Causes extreme slowdowns? also causes issues when velocity is near 0. Temporarily replaced by a flat x0.975 multiplier, via Prefs.
-	#It seems that by "temporarily", I meant closer to 3 months. Oops?
-	PROCESSED_VELOCITY = []
-	for COMPONENT in VELOCITY_VECTOR:
-		if COMPONENT >= 0:
-			PROCESSED_VELOCITY.append((COMPONENT / 0.0000154) ** (0.3333333))
-		
-		else:
-			PROCESSED_VELOCITY.append(-1*(abs(COMPONENT) / 0.0000154) ** (0.3333333))
-	
-	return PROCESSED_VELOCITY
-
 
 
 def ACCELERATION_CALC(FORCE, MASS):
@@ -80,18 +71,27 @@ def ACCELERATION_CALC(FORCE, MASS):
 
 
 def PLAYER_MOVEMENT(KEY_STATES, JOYSTICK, PLAYER):
+	#Calculates player movement based on either keyboard or GamePad inputs.
 	FINAL_MOVE_SPEED = CONSTANTS["PLAYER_SPEED_MOVE"]
+
 	if KEY_STATES[PG.K_LCTRL]:
+		#Crouching slows you down.
 		FINAL_MOVE_SPEED *= CONSTANTS["MULT_CROUCH"]
+
 	if KEY_STATES[PG.K_LSHIFT]:
+		#Sprinting speeds you up.
 		FINAL_MOVE_SPEED *= CONSTANTS["MULT_RUN"]
+
 	elif KEY_STATES[PG.K_x]:
+		#"Slow-walk" also slows you.
 		FINAL_MOVE_SPEED *= CONSTANTS["MULT_SLOWWALK"]
 
+	#Scale down the movement speed by how many physics iterations per frame there are.
 	FINAL_MOVE_SPEED /= CONSTANTS["PHYSICS_ITERATIONS"]
 
 	X_RADIANS = maths.radians(PLAYER.ROTATION.X)
 
+	#Forward and left movement vectors.
 	FORWARD = VECTOR_3D(
 		-maths.cos(X_RADIANS),
 		0,
@@ -104,11 +104,13 @@ def PLAYER_MOVEMENT(KEY_STATES, JOYSTICK, PLAYER):
 		-maths.cos(X_RADIANS)
 	).NORMALISE()
 
+
 	if JOYSTICK is not None:
+		#Joystick input affecting movement
 		PLAYER.POSITION -= FORWARD * (JOYSTICK[1].Y + PREFERENCES["AXIS_1_OFFSET"]) * FINAL_MOVE_SPEED
 		PLAYER.POSITION += LEFT * (JOYSTICK[1].X + PREFERENCES["AXIS_0_OFFSET"]) * FINAL_MOVE_SPEED
 
-
+	#Keyboard input affecting movement.
 	if KEY_STATES[PG.K_w]:
 		PLAYER.POSITION += FORWARD * FINAL_MOVE_SPEED
 	if KEY_STATES[PG.K_s]:
@@ -118,105 +120,136 @@ def PLAYER_MOVEMENT(KEY_STATES, JOYSTICK, PLAYER):
 	if KEY_STATES[PG.K_d]:
 		PLAYER.POSITION -= LEFT * -FINAL_MOVE_SPEED
 
+
+	#Return updated player data.
 	return PLAYER
 
 
 
 def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, JOYSTICK):
-	#Updates the physics of the system once per frame.
-	KINETICs_LIST, STATICs_LIST = PHYS_DATA
+	#Updates the physics with as many iterations as CONSTANTS["PHYSICS_ITERATIONS"] defines.
+	try:
+		KINETICs_LIST, STATICs_LIST = PHYS_DATA
 
-	for _ in range(CONSTANTS["PHYSICS_ITERATIONS"]):
-		for PHYS_OBJECT_ID, PHYS_OBJECT in KINETICs_LIST.items():
-			COLLIDING, DISPLACEMENT_VECTOR, TOUCHING = False, VECTOR_3D(0, 0, 0), False
-			OBJECT_TYPE = type(PHYS_OBJECT)
+		for _ in range(CONSTANTS["PHYSICS_ITERATIONS"]):
+			for PHYS_OBJECT_ID, PHYS_OBJECT in KINETICs_LIST.items():
+				#Check every physics object (PLAYER, CUBE_PHYSICS, etc.)
+				COLLIDING, DISPLACEMENT_VECTOR, TOUCHING = False, VECTOR_3D(0, 0, 0), False
+				OBJECT_TYPE = type(PHYS_OBJECT)
 
-				
-			if OBJECT_TYPE == PLAYER:
-				PHYS_OBJECT = PLAYER_MOVEMENT(KEY_STATES, JOYSTICK, PHYS_OBJECT)
-				PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
+					
+				if OBJECT_TYPE == PLAYER:
+					#If player, apply movement first.
+					PHYS_OBJECT = PLAYER_MOVEMENT(KEY_STATES, JOYSTICK, PHYS_OBJECT)
+					PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
 
-			#Collisions between physics-bodies (not itself, hence the comparing of IDs)
-			for BODY_ID, BODY in KINETICs_LIST.items():
-				if BODY_ID != PHYS_OBJECT_ID: #Stops self collisions.
-					if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, BODY.BOUNDING_BOX):
-						COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, BODY)
+
+				#Collisions between physics-bodies (not with itself, hence the comparing of IDs)
+				for BODY_ID, BODY in KINETICs_LIST.items():
+					if BODY_ID != PHYS_OBJECT_ID: #Stops self collisions.
+						if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, BODY.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
+							COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, BODY)
+							if COLLISION_DATA[2]:
+								TOUCHING = True
+
+							if COLLISION_DATA[0]:
+								COLLIDING = True
+								DISPLACEMENT = COLLISION_DATA[1]
+								DISPLACEMENT.Y = 0.0
+
+								#Moves each proportional to their mass (i.e. pushing)
+								PHYS_OBJECT_PROPORTION = BODY.MASS / (PHYS_OBJECT.MASS + BODY.MASS)
+								BODY_PROPORTION = PHYS_OBJECT.MASS / (PHYS_OBJECT.MASS + BODY.MASS)
+
+								DISPLACEMENT_VECTOR += DISPLACEMENT * PHYS_OBJECT_PROPORTION
+								BODY.POSITION -= DISPLACEMENT * BODY_PROPORTION
+
+
+								if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
+									#Calculate new points data (Axis aligned)
+									PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
+								elif OBJECT_TYPE in (CUBE_PHYSICS,):
+									#Calculate new points data (Rotated)
+									PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
+
+
+				#Collisions between phys-body and environmental objects
+				for STATIC_ID, STATIC in STATICs_LIST[0].items(): #Check the statics (environmental objects) with collision only.
+					if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, STATIC.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
+						COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, STATIC)
 						if COLLISION_DATA[2]:
 							TOUCHING = True
 
 						if COLLISION_DATA[0]:
 							COLLIDING = True
-							DISPLACEMENT = COLLISION_DATA[1]
-							DISPLACEMENT.Y = 0.0
-
-							PHYS_OBJECT_PROPORTION = BODY.MASS / (PHYS_OBJECT.MASS + BODY.MASS)
-							BODY_PROPORTION = PHYS_OBJECT.MASS / (PHYS_OBJECT.MASS + BODY.MASS)
-
-							DISPLACEMENT_VECTOR += DISPLACEMENT * PHYS_OBJECT_PROPORTION
-							BODY.POSITION -= DISPLACEMENT * BODY_PROPORTION
-
-							if OBJECT_TYPE in (ENEMY, ITEM, PLAYER):
-								PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
-							elif OBJECT_TYPE in (CUBE_PHYSICS,):
-								PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
-
-			#Collisions between phys-body and environment
-			for STATIC_ID, STATIC in STATICs_LIST[0].items(): #Check the statics (environmental objects) with collision only.
-				if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, STATIC.BOUNDING_BOX):
-					COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, STATIC)
-					if COLLISION_DATA[2]:
-						TOUCHING = True
-
-					if COLLISION_DATA[0]:
-						COLLIDING = True
-						DISPLACEMENT_VECTOR += COLLISION_DATA[1] * 0.975
-			
+							"""
+							Stops bouncing from perfect displacement outside of the surface.
+							If it were perfect, it would be outside and so not colliding; thus would be subject to gravity.
+							Then the next frame, it is inside the object again, and is perfectly displaced.
+							Repeat every 2nd frame, causes vibration.
+							"""
+							DISPLACEMENT_VECTOR += COLLISION_DATA[1] * 0.975
+				
 
 
-			if PHYS_OBJECT.POSITION.Y <= -256.0:
-				PHYS_OBJECT.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
-				PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
-
-			elif COLLIDING:
-				if OBJECT_TYPE == PLAYER:
-					KEY_STATES["JUMP_GRACE"] = 0
-				PHYS_OBJECT.POSITION += DISPLACEMENT_VECTOR
-				PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
-				if TOUCHING:
-					PHYS_OBJECT.LATERAL_VELOCITY *= CONSTANTS["MULT_FRICTION"]
-
-			else:
-				if KEY_STATES["JUMP_GRACE"] <= 10:
-					KEY_STATES["JUMP_GRACE"] += 1
-				try:
-					GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/FPS, CONSTANTS["PLAYER_MASS"]) / CONSTANTS["PHYSICS_ITERATIONS"]
-				except ZeroDivisionError:
-					GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/PREFERENCES["FPS_LIMIT"], 10) / CONSTANTS["PHYSICS_ITERATIONS"]
-
-				OBJECT_ACCELERATION = VECTOR_3D(0, GRAVITY_ACCEL, 0)
-				PHYS_OBJECT.LATERAL_VELOCITY += OBJECT_ACCELERATION
-				PHYS_OBJECT.POSITION += PHYS_OBJECT.LATERAL_VELOCITY / CONSTANTS["PHYSICS_ITERATIONS"]
-
-			if KEY_STATES[PG.K_SPACE] and OBJECT_TYPE == PLAYER and KEY_STATES["JUMP_GRACE"] <= 10:
-				KEY_STATES[PG.K_SPACE] = False
-				PHYS_OBJECT.LATERAL_VELOCITY.Y += CONSTANTS["JUMP_VELOCITY"]
-				PHYS_OBJECT.POSITION += (PHYS_OBJECT.LATERAL_VELOCITY * (1 - (CONSTANTS["MULT_AIR_RES"] / CONSTANTS["PHYSICS_ITERATIONS"])))
-
-			if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
-				PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
-			elif OBJECT_TYPE in (CUBE_PHYSICS,):
-				PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
-			
-			PHYS_OBJECT.BOUNDING_BOX.UPDATE(PHYS_OBJECT.POSITION, PHYS_OBJECT.POINTS)
-
-			KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
+				if PHYS_OBJECT.POSITION.Y <= -256.0:
+					#If the object falls outside of the scene boundaries, return to the player's initial position.
+					PHYS_OBJECT.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
+					PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
 
 
-	PHYS_DATA = (KINETICs_LIST, STATICs_LIST)
-	return PHYS_DATA
+				elif COLLIDING:
+					#If colliding; apply displacement vectors, allow for jumping, etc.
+					if OBJECT_TYPE == PLAYER:
+						KEY_STATES["JUMP_GRACE"] = 0
+					PHYS_OBJECT.POSITION += DISPLACEMENT_VECTOR
+					PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
+
+					if TOUCHING:
+						#Slide along surfaces, but not forever.
+						PHYS_OBJECT.LATERAL_VELOCITY *= CONSTANTS["MULT_FRICTION"]
+
+
+				else:
+					#You can still jump if you do it within 10 frames of falling off of an edge.
+					if KEY_STATES["JUMP_GRACE"] <= 10:
+						KEY_STATES["JUMP_GRACE"] += 1/CONSTANTS["PHYSICS_ITERATIONS"]
+
+					try:
+						GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/FPS, CONSTANTS["PLAYER_MASS"]) / CONSTANTS["PHYSICS_ITERATIONS"]
+					except ZeroDivisionError: #If player mass is inexplicably 0, try 10 as a "safe" value.
+						GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/PREFERENCES["FPS_LIMIT"], 10) / CONSTANTS["PHYSICS_ITERATIONS"]
+
+					OBJECT_ACCELERATION = VECTOR_3D(0, GRAVITY_ACCEL, 0)
+					PHYS_OBJECT.LATERAL_VELOCITY += OBJECT_ACCELERATION
+					PHYS_OBJECT.POSITION += PHYS_OBJECT.LATERAL_VELOCITY / CONSTANTS["PHYSICS_ITERATIONS"]
+
+
+				if KEY_STATES[PG.K_SPACE] and OBJECT_TYPE == PLAYER and KEY_STATES["JUMP_GRACE"] <= 10:
+					#If the player presses SPACE and its within 10 frames of starting to fall/are on a surface, jump.
+					KEY_STATES[PG.K_SPACE] = False
+					PHYS_OBJECT.LATERAL_VELOCITY.Y += CONSTANTS["JUMP_VELOCITY"]
+					PHYS_OBJECT.POSITION += (PHYS_OBJECT.LATERAL_VELOCITY * (1 - (CONSTANTS["MULT_AIR_RES"] / CONSTANTS["PHYSICS_ITERATIONS"])))
+
+
+				if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
+					#Calculate new points data (Axis aligned)
+					PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
+				elif OBJECT_TYPE in (CUBE_PHYSICS,):
+					#Calculate new points data (Rotated)
+					PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
+				
+
+				#Update object's bounding box for this iteration, and re-assign in the dictionary of phys-bodies. Move onto next object.
+				PHYS_OBJECT.BOUNDING_BOX.UPDATE(PHYS_OBJECT.POSITION, PHYS_OBJECT.POINTS)
+				KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
+
+
+		PHYS_DATA = (KINETICs_LIST, STATICs_LIST)
+		return PHYS_DATA
 	
-	#except Exception as E:
-		#log.ERROR("physics.UPDATE_PHYSICS", E)
+	except Exception as E:
+		log.ERROR("physics.UPDATE_PHYSICS", E)
 
 
 
@@ -225,26 +258,28 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, JOYSTICK):
 
 
 def BOUNDING_BOX_COLLISION(BOX_A, BOX_B, OFFSET=0.0):
+	#Calculates axis-aligned bounding box collisions.
 	if ((BOX_A.MIN_X - OFFSET > BOX_B.MAX_X + OFFSET) or (BOX_A.MAX_X + OFFSET < BOX_B.MIN_X - OFFSET)
 	  or (BOX_A.MIN_Y - OFFSET > BOX_B.MAX_Y + OFFSET) or (BOX_A.MAX_Y + OFFSET < BOX_B.MIN_Y - OFFSET)
 	   or (BOX_A.MIN_Z - OFFSET > BOX_B.MAX_Z + OFFSET) or (BOX_A.MAX_Z + OFFSET < BOX_B.MIN_Z - OFFSET)):
-		del BOX_A, BOX_B
 		return False
-	del BOX_A, BOX_B
+
 	return True
 
 
 
 def COLLISION_CHECK(PHYS_BODY, STATIC):
+	#Check if 2 objects are colliding by splitting them into triangles and using S.A.T. OR comparing cube-like properties (AABB_COLLISION_RESPONSE())
 	COLLIDING, TOUCHING = False, False
 	APPLIED_VECTOR, PEN_DEPTH = VECTOR_3D(0.0, 0.0, 0.0), float("inf")
 	STATIC_TYPE = type(STATIC)
 	
-	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH):#Cubelike objects
+	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH): #Cube-like objects
 		APPLIED_VECTOR = AABB_COLLISION_RESPONSE(PHYS_BODY, STATIC)		
 		if APPLIED_VECTOR is not None: return (True, APPLIED_VECTOR, False)
 	
-	elif STATIC_TYPE in (QUAD, INTERACTABLE,):#Quadlike Objects
+
+	elif STATIC_TYPE in (QUAD, INTERACTABLE,): #Quad-like Objects
 		QUAD_POINTS = STATIC.POINTS
 		TRI_LIST = (
 			[QUAD_POINTS[0], QUAD_POINTS[1], QUAD_POINTS[2]],
@@ -252,6 +287,7 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 		)
 		
 		for I, TRIANGLE in enumerate(TRI_LIST):
+			#Use SAT on the current triangle and the phys-body.
 			QUAD_COLLISION = AABB_TRI_COLLISION_RESPONSE(PHYS_BODY.POINTS, TRIANGLE, STATIC.NORMALS[I])
 			if QUAD_COLLISION[0] or QUAD_COLLISION[2]:
 				PEN_DEPTH = min(QUAD_COLLISION[1], PEN_DEPTH)
@@ -260,7 +296,9 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 		
 		if COLLIDING: return (COLLIDING, APPLIED_VECTOR, TOUCHING)
 	
-	elif STATIC_TYPE == TRI:#Only Tris are singular triangles.
+
+	elif STATIC_TYPE == TRI: #Only Tris are singular triangles.
+		#Use SAT on the current triangle and the phys-body.
 		TRI_COLLISION = AABB_TRI_COLLISION_RESPONSE(PHYS_BODY.POINTS, STATIC.POINTS, STATIC.NORMALS)
 		
 		if TRI_COLLISION[0] or TRI_COLLISION[2]:
@@ -269,24 +307,27 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 		
 		if COLLIDING: return (COLLIDING, APPLIED_VECTOR, TOUCHING)
 	
+
+	#If no collision found, return False.
 	return (False, APPLIED_VECTOR, False)
 
 
 def AABB_COLLISION_RESPONSE(AABB_1, AABB_2):
+	#Compares 2 axis-aligned bounding boxes to determine collisions and their response.
 	if BOUNDING_BOX_COLLISION(AABB_1.BOUNDING_BOX, AABB_2.BOUNDING_BOX, OFFSET=-1.0):
 		NORMALS = [VECTOR_3D(1.0, 0.0, 0.0), VECTOR_3D(0.0, 1.0, 0.0), VECTOR_3D(0.0, 0.0, 1.0)]
 		X_AXIS = min(
 			(AABB_1.POSITION.X + (AABB_1.DIMENTIONS.X / 2)) - (AABB_2.POSITION.X - (AABB_2.DIMENTIONS.X / 2)),
 			(AABB_2.POSITION.X + (AABB_2.DIMENTIONS.X / 2)) - (AABB_1.POSITION.X - (AABB_1.DIMENTIONS.X / 2))
-		)
+		) #Minimums in the X axis.
 		Y_AXIS = min(
 			(AABB_1.POSITION.Y + (AABB_1.DIMENTIONS.Y / 2)) - (AABB_2.POSITION.Y - (AABB_2.DIMENTIONS.Y / 2)),
 			(AABB_2.POSITION.Y + (AABB_2.DIMENTIONS.Y / 2)) - (AABB_1.POSITION.Y - (AABB_1.DIMENTIONS.Y / 2))
-		)
+		) #Minimums in the Y axis.
 		Z_AXIS = min(
 			(AABB_1.POSITION.Z + (AABB_1.DIMENTIONS.Z / 2)) - (AABB_2.POSITION.Z - (AABB_2.DIMENTIONS.Z / 2)),
 			(AABB_2.POSITION.Z + (AABB_2.DIMENTIONS.Z / 2)) - (AABB_1.POSITION.Z - (AABB_1.DIMENTIONS.Z / 2))
-		)
+		) #Minimums in the Z axis.
 		
 		INTERSECTS = (X_AXIS, Y_AXIS, Z_AXIS)
 		SMALLEST_INTERSECT = min(INTERSECTS)
@@ -297,11 +338,19 @@ def AABB_COLLISION_RESPONSE(AABB_1, AABB_2):
 
 		return DISPLACEMENT_VECTOR
 
+
+	#If no collision, return None.
 	return None
 
 
 
 def AABB_TRI_COLLISION_RESPONSE(CUBOID, TRI, TRI_NORMAL):
+	"""
+	Uses S.A.T. (Separating Axis Theorem)
+	Check a few axis shared between the cuboid and triangle.
+	Project onto a singular line, check for overlap.
+	If any have no overlap, there exists a direction of separation and so are not touching.
+	"""
 	SEPARATING_AXIS = (
 		(CUBOID[1] - CUBOID[0]).NORMALISE(),
 		(CUBOID[2] - CUBOID[0]).NORMALISE(),
@@ -320,14 +369,17 @@ def AABB_TRI_COLLISION_RESPONSE(CUBOID, TRI, TRI_NORMAL):
 
 		if CUBOID_MIN_MAX[1] < TRI_MIN_MAX[0] or CUBOID_MIN_MAX[0] > TRI_MIN_MAX[1]:
 			del SEPARATING_AXIS, CUBOID_MIN_MAX, TRI_MIN_MAX, CURRENT_AXIS
+			#Must not be touching, as a seperating axis has been found.
 			return (False, 0, False)
 		
-		# Calculate penetration depth for the current axis
+		#Calculate penetration depth for the current axis
 		PEN_DEPTH = min(abs(CUBOID_MIN_MAX[1] - TRI_MIN_MAX[0]), abs(TRI_MIN_MAX[1] - CUBOID_MIN_MAX[0]))
 		MIN_PEN_DEPTH = min(MIN_PEN_DEPTH, PEN_DEPTH)
 
 	OFFSET = -0.01 if MIN_PEN_DEPTH > 0.0 else 0.01 if MIN_PEN_DEPTH < 0.0 else 0.0
 	del SEPARATING_AXIS, CUBOID_MIN_MAX, TRI_MIN_MAX, CURRENT_AXIS
 
+
+	#If colliding, round the distance to 8 decimals and if its smaller than 0.01 treat as "TOUCHING".
 	PEN_DEPTH = round(MIN_PEN_DEPTH + OFFSET, 8)
 	return (True, PEN_DEPTH, False) if abs(PEN_DEPTH) > 0.001 else (False, PEN_DEPTH, True)

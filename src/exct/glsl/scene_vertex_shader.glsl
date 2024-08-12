@@ -10,13 +10,14 @@ out vec3 fragPos;
 
 uniform mat4 MODEL_MATRIX;
 uniform mat4 VIEW_MATRIX;
-uniform mat4 PROJ_MATRIX;
+uniform mat4 PROJECTION_MATRIX;
 
 void main()
 {
-    fragTexCoords = TexCoords;
-    fragNormal = mat3(transpose(inverse(MODEL_MATRIX))) * Normal;
-    fragPos = vec3(MODEL_MATRIX * vec4(Position, 1.0)); // Transform position to world space
+	//Simple vertex shader to pass along the UV coordinates, normals data and the positional data.
+	fragTexCoords = TexCoords;
+	fragNormal = mat3(transpose(inverse(MODEL_MATRIX))) * Normal; //Transform the normal vector, and pass to frag shader.
+	fragPos = vec3(MODEL_MATRIX * vec4(Position, 1.0)); //Transform position to world space, then pass to frag shader.
 
-    gl_Position = PROJ_MATRIX * VIEW_MATRIX * vec4(fragPos, 1.0);
+	gl_Position = PROJECTION_MATRIX * VIEW_MATRIX * vec4(fragPos, 1.0); //Transform position.
 }

@@ -1,44 +1,49 @@
 """
 [ui.py]
-Creates the UI, based off of "prompts" such as player stats and current item.
-Makes use of pygame blit functions
+Creates the UI, based off of data such as player stats and current item.
+Makes use of PyGame drawing/image manipulation functions.
 ______________________
 Importing other files;
 -texture_load.py
 -log.py
 """
-import sys, os
-import math as maths
-import zipfile
-import io
-import copy
-import numpy as NP
-
-#Load log.py, from the subfolder \src\exct\
-sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
 from exct import log
-#Load modules stored in \src\modules\
-import glm, glfw
+try:
+	#Importing base python modules
+	import sys, os
+	import math as maths
+	import zipfile
+	import io
+	import copy
+	import numpy as NP
 
-import pygame as PG
-from pygame import time, joystick, display, image
+	#Stop PyGame from giving that annoying welcome message
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL.shaders import compileProgram, compileShader
+	#Load modules stored in \src\modules\
+	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+	import glm, glfw
+	import pygame as PG
+	from pygame import time, joystick, display, image
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
+	from PIL import Image
+	from pyrr import Matrix44, Vector3, Vector4
 
-from PIL import Image
+	#Import other sub-files.
+	from imgs import texture_load
+	from exct import log, utils, render
+	from exct.utils import *
 
-from pyrr import Matrix44, Vector3, Vector4
+except ImportError:
+	log.ERROR("ui.py", "Initial imports failed.")
 
-from imgs import texture_load
-from exct import log, utils, render
-from exct.utils import *
 
 log.REPORT_IMPORT("ui.py")
 
-PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
+PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 UI_SURFACE = PG.Surface(CONSTANTS["UI_RESOLUTION"].TO_LIST(), PG.SRCALPHA)
 #Dictionary of "standard" UI colours.
 UI_COLOURS = {
@@ -50,15 +55,18 @@ UI_COLOURS = {
 	"GOLD_TIPS": (229, 172, 43),
 }
 
+
 #General UI related functions
 
 
 def DRAW_TEXT(SCREEN, TEXT, POSITION, FONT_SIZE, COLOUR=(255, 255, 255)):
+	#Draws text on a given surface, with colour, size and position.
 	FONT = PG.font.Font('src\\exct\\fonts\\PressStart2P-Regular.ttf', FONT_SIZE)
 	text_surface = FONT.render(str(TEXT), True, COLOUR)
 	SCREEN.blit(text_surface, POSITION)
 
 def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
+	#Draws an image loaded from the file structure (in \src\imgs\) to a position and with scale.
 	IMAGE = PG.image.load(f"src\\imgs\\{IMG_NAME}")
 	SCALED_IMAGE = PG.transform.scale(IMAGE, SCALE)
 	SCREEN.blit(SCALED_IMAGE, POSITION)
@@ -68,8 +76,10 @@ def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 
 
 def HUD(PLAYER, FPS):
+	#Draws the heads-up display (HUD) user-interface (UI) onto a PyGame surface, which is then returned as an OpenGL texture.
+	#Uses data about the player, such as Health and Energy.
 
-	#Fill the UI surface with transparent pixels.
+	#Fill the UI surface with transparent pixels first.
 	UI_SURFACE.fill([0, 0, 0, 0])
 
 	#Draw the "Crosshair" cross.
@@ -87,6 +97,24 @@ def HUD(PLAYER, FPS):
 	#Top-Right corner's FPS counter.
 	DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 
+	#Top-Left debug notices.
+	DEBUG_TYPES = {
+		"DEBUG_MAPS": PREFERENCES["DEBUG_MAPS"],
+		"DEBUG_UI": PREFERENCES["DEBUG_UI"],
+		"DEBUG_NORMALS": PREFERENCES["DEBUG_NORMALS"],
+		"DEBUG_PROFILER": PREFERENCES["DEBUG_PROFILER"],
+		"DEV_TEST": PREFERENCES["DEV_TEST"]
+	}
+	SHOWN_DEBUG_TYPES = []
+	for DEBUG_TYPE, ENABLED in DEBUG_TYPES.items():
+		if ENABLED:
+			SHOWN_DEBUG_TYPES.append(DEBUG_TYPE)
+
+	for I, DEBUG_TYPE in enumerate(SHOWN_DEBUG_TYPES):
+		DRAW_TEXT(UI_SURFACE, DEBUG_TYPE, (5, (10*I) + 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
+		
+
+	#Convert to an OpenGL texture.
 	UI_SURFACE_ID = render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
 
 	return UI_SURFACE_ID

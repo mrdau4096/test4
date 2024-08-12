@@ -14,25 +14,29 @@ import os, sys, datetime
 
 
 #Logging-supporting functions
+
+
+#Keeps track of which sub-files were imported.
 IMPORTED_FILES = []
 
 
-def GET_TIME(): #Gets current date/time, returns as a string.
+def GET_TIME():
+	#Gets current date/time, returns as a nicely formatted string.
 	FULL_TIME = str(datetime.datetime.now())
 	UNFORMATTED_DATE, TIME = FULL_TIME[:10], FULL_TIME[11:-7]
 	DATE = f"{UNFORMATTED_DATE[8:]}-{UNFORMATTED_DATE[5:7]}-{UNFORMATTED_DATE[:4]}"
 	return f"{TIME}, {DATE}"
 
 
-def REPORT_IMPORT(SUB_FILE_NAME): #Outputs a message to console, and logs which files were loaded.
+def REPORT_IMPORT(SUB_FILE_NAME):
+	#Outputs a message to console, and logs which files were loaded.
 	print(f"Successfully imported sub-file // {SUB_FILE_NAME}")
 	IMPORTED_FILES.append(SUB_FILE_NAME)
 
 
 def ERROR(LOCATION, ISSUE):
-	"""
-	Getting the log file, and writing to it etc.
-	"""
+	#Writes an error to the log file, and closes the current python instance to prevent further errors.
+	#The logged error includes a location and an issue (Issue is either manually assigned, or from a "try: except:" block.)
 	CURRENT_DIR = os.path.dirname(__file__)
 	PARENT_DIR = os.path.dirname(CURRENT_DIR)
 	sys.path.append(PARENT_DIR)
@@ -56,7 +60,9 @@ def ERROR(LOCATION, ISSUE):
 		input(f"\a{MESSAGE}\nPress ENTER or close terminal to exit.\n> ")
 
 	except Exception as e:
-		print(f"\a{FORMATTED_TIME} / ERROR @ log.py / {e} WHILE REPORTING / {LOCATION}, {ISSUE}")
+		#If an error occurs during the logging process, display this message to the user;
+		input(f"\a{FORMATTED_TIME} / ERROR @ log.py / {e} WHILE REPORTING / {LOCATION}, {ISSUE}\n[Press ENTER to close window]\n> ")
+		#Uses an input, so that the user must manually press ENTER before the program closes - allowing them to read the error.
 
 	sys.exit()
 

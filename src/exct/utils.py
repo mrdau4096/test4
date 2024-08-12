@@ -9,37 +9,44 @@ Imports Modules;
 -NumPy
 """
 
-import sys, os
-import math as maths
-import zipfile
-import io
-import copy
-import numpy as NP
-
-#Load log.py, from the subfolder \src\exct\
-sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
 from exct import log
-#Load modules stored in \src\modules\
-import glm, glfw
+try:
+	#Importing base python modules
+	import sys, os
+	import math as maths
+	import zipfile
+	import io
+	import copy
+	import numpy as NP
 
-import pygame as PG
-from pygame import time, joystick, display, image
+	#Stop PyGame from giving that annoying welcome message
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL.shaders import compileProgram, compileShader
+	#Load modules stored in \src\modules\
+	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+	import glm, glfw
+	import pygame as PG
+	from pygame import time, joystick, display, image
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
+	from PIL import Image
+	from pyrr import Matrix44, Vector3, Vector4
 
-from PIL import Image
+except ImportError:
+	log.ERROR("ui.py", "Initial imports failed.")
 
-from pyrr import Matrix44, Vector3, Vector4
 
 log.REPORT_IMPORT("utils.py")
 
 
+#Assorted mathematical values for use elsewhere.
+e = maths.e
 π = maths.pi
 πDIV2 = π / 2
 πMUL2 = π * 2
 πPOW2 = π ** 2
+
 
 #Mathematical functions
 
@@ -49,37 +56,43 @@ def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almo
 
 
 def JOYSTICK_DEADZONE(JOYSTICK):
-		L_X = JOYSTICK[0].get_axis(0) if abs(JOYSTICK[0].get_axis(0)) > 0.1 else 0.0
-		L_Y = JOYSTICK[0].get_axis(1) if abs(JOYSTICK[0].get_axis(1)) > 0.1 else 0.0
-		R_X = JOYSTICK[0].get_axis(2) if abs(JOYSTICK[0].get_axis(2)) > 0.1 else 0.0
-		R_Y = JOYSTICK[0].get_axis(3) if abs(JOYSTICK[0].get_axis(3)) > 0.1 else 0.0
-		L_STICK = VECTOR_2D(L_X, L_Y)
-		R_STICK = VECTOR_2D(R_X, R_Y)
-		return [JOYSTICK[0], L_STICK, R_STICK]
+	#Applies a deadzone to a GamePad's axis inputs to counteract drift (User can define the offset in prefs.txt)
+	L_X = JOYSTICK[0].get_axis(0) if abs(JOYSTICK[0].get_axis(0)) > 0.1 else 0.0
+	L_Y = JOYSTICK[0].get_axis(1) if abs(JOYSTICK[0].get_axis(1)) > 0.1 else 0.0
+	R_X = JOYSTICK[0].get_axis(2) if abs(JOYSTICK[0].get_axis(2)) > 0.1 else 0.0
+	R_Y = JOYSTICK[0].get_axis(3) if abs(JOYSTICK[0].get_axis(3)) > 0.1 else 0.0
+	L_STICK = VECTOR_2D(L_X, L_Y)
+	R_STICK = VECTOR_2D(R_X, R_Y)
+	return [JOYSTICK[0], L_STICK, R_STICK]
 
 
 
-def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE): #Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
+def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE):
+	#Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
 	HALF_DIMENTIONS = DIMENTIONS / 2
 
-	OFFSET_X = VECTOR_3D(0.0 * DIMENTIONS.X, 	0.0,  					0.0 				)
-	OFFSET_Y = VECTOR_3D(0.0,  					0.0 * DIMENTIONS.Y, 	0.0 				)
-	OFFSET_Z = VECTOR_3D(0.0,  					0.0,  					0.0 * DIMENTIONS.Z	)
+	OFFSET_MULTIPLIER = 0.0
+	#Applies a small, configurable offset if needed.
+	OFFSET_X = VECTOR_3D(OFFSET_MULTIPLIER * DIMENTIONS.X,	0.0,								0.0 							)
+	OFFSET_Y = VECTOR_3D(0.0,								OFFSET_MULTIPLIER * DIMENTIONS.Y,	0.0 							)
+	OFFSET_Z = VECTOR_3D(0.0,								0.0,								OFFSET_MULTIPLIER * DIMENTIONS.Z)
 	
 	return [
-			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) + OFFSET_X + OFFSET_Y + OFFSET_Z,  # Vertex 0 (min x, min y, min z)
-			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) - OFFSET_X + OFFSET_Y + OFFSET_Z,  # Vertex 1 (max x, min y, min z)
-			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) + OFFSET_X + OFFSET_Y - OFFSET_Z,  # Vertex 2 (min x, min y, max z)
-			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) - OFFSET_X + OFFSET_Y - OFFSET_Z,  # Vertex 3 (max x, min y, max z)
-			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) + OFFSET_X - OFFSET_Y + OFFSET_Z,  # Vertex 4 (min x, max y, min z)
-			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) - OFFSET_X - OFFSET_Y + OFFSET_Z,  # Vertex 5 (max x, max y, min z)
-			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) + OFFSET_X - OFFSET_Y - OFFSET_Z,  # Vertex 6 (min x, max y, max z)
-			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) - OFFSET_X - OFFSET_Y - OFFSET_Z   # Vertex 7 (max x, max y, max z)
+			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) + OFFSET_X + OFFSET_Y + OFFSET_Z, #Vertex 0 (min x, min y, min z)
+			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) - OFFSET_X + OFFSET_Y + OFFSET_Z, #Vertex 1 (max x, min y, min z)
+			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) + OFFSET_X + OFFSET_Y - OFFSET_Z, #Vertex 2 (min x, min y, max z)
+			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y - HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) - OFFSET_X + OFFSET_Y - OFFSET_Z, #Vertex 3 (max x, min y, max z)
+			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) + OFFSET_X - OFFSET_Y + OFFSET_Z, #Vertex 4 (min x, max y, min z)
+			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z - HALF_DIMENTIONS.Z) - OFFSET_X - OFFSET_Y + OFFSET_Z, #Vertex 5 (max x, max y, min z)
+			VECTOR_3D(CENTRE.X - HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) + OFFSET_X - OFFSET_Y - OFFSET_Z, #Vertex 6 (min x, max y, max z)
+			VECTOR_3D(CENTRE.X + HALF_DIMENTIONS.X, CENTRE.Y + HALF_DIMENTIONS.Y, CENTRE.Z + HALF_DIMENTIONS.Z) - OFFSET_X - OFFSET_Y - OFFSET_Z  #Vertex 7 (max x, max y, max z)
 		]
 
 
 
-def FIND_CUBOID_NORMALS(POINTS): #Find the normals of a cuboid, via its 8 points. This allows the cuboid to be rotated along any axis, and still give the normals.
+def FIND_CUBOID_NORMALS(POINTS):
+	#Find the normals of a cuboid, via its 8 points.
+	#This allows the cuboid to be rotated along any axis, and still give the normals.
 	VECTOR_R = (POINTS[1] - POINTS[0]).NORMALISE() #Maximum X
 	VECTOR_G = (POINTS[4] - POINTS[0]).NORMALISE() #Maximum Y
 	VECTOR_B = (POINTS[2] - POINTS[0]).NORMALISE() #Maximum Z
@@ -96,6 +109,7 @@ def FIND_CUBOID_NORMALS(POINTS): #Find the normals of a cuboid, via its 8 points
 
 
 def FIND_CENTROID(POINTS):
+	#Finds the centroid of any number of vertices (Mostly used on quads and tris)
 	SUM = VECTOR_3D(0.0, 0.0, 0.0)
 	for PT in POINTS:
 		SUM += PT
@@ -104,6 +118,8 @@ def FIND_CENTROID(POINTS):
 
 
 def CALC_2D_VECTOR_ANGLE(V1, V2):
+	#Calculates the angle between 2 vectors, signed.
+	#The signed portion is useful (DET, determinant) because the calculations for what enemy sprite to use also tests for negative angle values.
 	V1_2D = VECTOR_2D(V1.X, V1.Z).NORMALISE()
 	V2_2D = VECTOR_2D(V2.X, V2.Z).NORMALISE()
 
@@ -115,6 +131,7 @@ def CALC_2D_VECTOR_ANGLE(V1, V2):
 
 
 def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
+	#Rotates a list of points around a centre by an angle.
 	FINAL = []
 	for POINT in POINTS:
 		FINAL.append((POINT - CENTRE).ROTATE_BY(ANGLE, CENTRE))
@@ -122,6 +139,8 @@ def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
 
 
 def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
+	#Finds the closest triangle on a cube to a specific physics body.
+	#Unused for now, but may become useful again in the future.
 	VERTICES = CUBE.POINTS
 	PHYS_BOX = PHYS_BODY.BOUNDING_BOX
 	CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
@@ -147,10 +166,10 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 		"-Y": abs(CUBE.POINTS[7].Y - PHYS_BOX.MAX_Y),
 	}
 
-	# Sort the distances to find the closest face(s)
+	#Sort the distances to find the closest face(s)
 	SORTED_DISTANCES = sorted(DISTANCES.items(), key=lambda ITEM: ITEM[1])
 	
-	# Handle the case where multiple faces are at similar distances
+	#Handle the case where multiple faces are at similar distances
 	MIN_DIST_FACES = [SORTED_DISTANCES[0]]
 	for I in range(1, len(SORTED_DISTANCES)):
 		if abs(SORTED_DISTANCES[I][1] - SORTED_DISTANCES[0][1]) < 0.01:
@@ -158,13 +177,10 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 		else:
 			break
 	
-	# Select the face based on priority or additional criteria
-	# You can adjust the priority order here if needed
+	#Select the face based on directional priority (vertical faces last)
 	FACE_PRIORITY = {"-Y": 5, "+Y": 6, "-X": 2, "+X": 4, "-Z": 1, "+Z": 3}
 	MIN_DIST_FACES.sort(key=lambda ITEM: FACE_PRIORITY[ITEM[0]])
-	
 	CLOSEST_DIR = MIN_DIST_FACES[0][0]
-	if CUBE.ID == 12: print(CLOSEST_DIR)
 
 	return FACES[CLOSEST_DIR], CUBE.NORMALS[DIRECTIONS.index(CLOSEST_DIR)]
 
@@ -173,16 +189,18 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 #Other functions
 
 
-def PRINT_GRID(GRID): #Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
+def PRINT_GRID(GRID):
+	#Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
 	for ENTRY in GRID:
-		print(ENTRY)
-
+		print(''.join(ENTRY))
 
 
 #Data retrieval functions
 
 
 def GET_CUBOID_FACE_INDICES():
+	#Gives the face indices of a cube.
+	#Must be standardised, as a lot of functions require it in this order.
 	return (
 		(0, 1, 3, 2),
 		(4, 6, 2, 0),
@@ -201,7 +219,9 @@ def GET_DATA_PATH():
 
 
 def GET_CONFIGS():
+	#Gets the user-defined config files (prefs.txt and config.dat) and their data.
 	try:
+		#prefs.txt
 		PREFERENCE_FILE = open("Prefs.txt", "r")
 		PREFERENCE_DATA = PREFERENCE_FILE.readlines()
 		PREFERENCES = {}
@@ -233,65 +253,67 @@ def GET_CONFIGS():
 
 				PREFERENCES[P_LINE_DATA[0]] = CHOSEN_DATA
 
-	except FileNotFoundError:
-		PREFERENCES = {}
+	except FileNotFoundError as E:
+		#If file is not found, log error.
+		log.ERROR("utils.py", E)
 
-	DATA_PATH = GET_DATA_PATH()
-	CONFIG_FILE = open(f"{DATA_PATH}\\config.dat", "r")
-	CONFIG_DATA = CONFIG_FILE.readlines()
-	global CONSTANTS
-	CONSTANTS = {}
-	
-	for LINE in CONFIG_DATA:
-		if LINE[0].strip() not in ("/", ""):
-			C_LINE_DATA = (LINE.strip()).split(' = ')
-			LISTED_CONSTANT = C_LINE_DATA[1]
-			FILE_VECTOR = LISTED_CONSTANT[4:].split(', ')
-			match LISTED_CONSTANT[:3]:
-				case "rgba:":
-					OUTPUT_CONSTANT = RGBA(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2], FILE_VECTOR[3])
-
-				case "v3:":
-					OUTPUT_CONSTANT = VECTOR_3D(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2])
-
-				case "v2:":
-					OUTPUT_CONSTANT = VECTOR_2D(FILE_VECTOR[0], FILE_VECTOR[1])
-				
-				case _:
-					try:
-						try:
-							OUTPUT_CONSTANT = int(LISTED_CONSTANT)
-							
-							if C_LINE_DATA[0] == "FPS_LIMIT":
-								LISTED_CONSTANT = CLAMP(LISTED_CONSTANT, 1, 10000)
-						
-						except:
-							OUTPUT_CONSTANT = float(LISTED_CONSTANT)
-					
-					except ValueError:
-						if LISTED_CONSTANT == "True":
-							OUTPUT_CONSTANT = True
-						
-						elif LISTED_CONSTANT == "False":
-							OUTPUT_CONSTANT = False
-						
-						else:
-							OUTPUT_CONSTANT = LISTED_CONSTANT
-
-			CONSTANTS[C_LINE_DATA[0]] = OUTPUT_CONSTANT
-	
 	try:
-		if PREFERENCES["DEV_TEST"]:
-			CONSTANTS["FORCE_GRAV"] = 0
-	except KeyError:
-		pass
+		#config.dat
+		DATA_PATH = GET_DATA_PATH()
+		CONFIG_FILE = open(f"{DATA_PATH}\\config.dat", "r")
+		CONFIG_DATA = CONFIG_FILE.readlines()
+		global CONSTANTS
+		CONSTANTS = {}
+		
+		for LINE in CONFIG_DATA:
+			if LINE[0].strip() not in ("/", ""):
+				C_LINE_DATA = (LINE.strip()).split(' = ')
+				LISTED_CONSTANT = C_LINE_DATA[1]
+				FILE_VECTOR = LISTED_CONSTANT[4:].split(', ')
+				match LISTED_CONSTANT[:3]:
+					case "rgba:":
+						OUTPUT_CONSTANT = RGBA(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2], FILE_VECTOR[3])
+
+					case "v3:":
+						OUTPUT_CONSTANT = VECTOR_3D(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2])
+
+					case "v2:":
+						OUTPUT_CONSTANT = VECTOR_2D(FILE_VECTOR[0], FILE_VECTOR[1])
+					
+					case _:
+						try:
+							try:
+								OUTPUT_CONSTANT = int(LISTED_CONSTANT)
+								
+								if C_LINE_DATA[0] == "FPS_LIMIT":
+									LISTED_CONSTANT = CLAMP(LISTED_CONSTANT, 1, 10000)
+							
+							except:
+								OUTPUT_CONSTANT = float(LISTED_CONSTANT)
+						
+						except ValueError:
+							if LISTED_CONSTANT == "True":
+								OUTPUT_CONSTANT = True
+							
+							elif LISTED_CONSTANT == "False":
+								OUTPUT_CONSTANT = False
+							
+							else:
+								OUTPUT_CONSTANT = LISTED_CONSTANT
+
+				CONSTANTS[C_LINE_DATA[0]] = OUTPUT_CONSTANT
+	
+	except FileNotFoundError as E:
+		#If file is not found, log error.
+		log.ERROR("utils.py", E)
+
 
 	return PREFERENCES, CONSTANTS
 
 
 
 def GET_GAME_DATA():
-	#Gets the hostiles.dat and supplies.dat file data for use elsewhere.
+	#Gets the hostiles.dat, supplies.dat and projectiles.dat file data for use elsewhere.
 	DATA_PATH = GET_DATA_PATH()
 	HOSTILES, SUPPLIES, PROJECTILES = {}, {}, {}
 
@@ -303,11 +325,12 @@ def GET_GAME_DATA():
 	SUPPLIES_DATA = SUPPLIES_FILE.readlines()
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
 
-	H_FORMATTING = ("float", "float", "hex", "list", "list")#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
-	S_FORMATTING = ("hex", "int")#What-to-give, Quantity,
-	P_FORMATTING = ("bool", "float")#Create-explosion, Strength
+	H_FORMATTING = ("float", "float", "hex", "list", "list")	#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+	S_FORMATTING = ("hex", "int")								#What-to-give, Quantity,
+	P_FORMATTING = ("bool", "float")							#Create-explosion, Strength
 
 	for H_DATA, S_DATA, P_DATA in zip(HOSTILES_DATA, SUPPLIES_DATA, PROJECTILES_DATA):
+		#Process each type.
 		PROCESSED_H = PROCESS_LINE(H_DATA, H_FORMATTING)
 		PROCESSED_S = PROCESS_LINE(S_DATA, S_FORMATTING)
 		PROCESSED_P = PROCESS_LINE(P_DATA, P_FORMATTING)
@@ -316,6 +339,8 @@ def GET_GAME_DATA():
 		if PROCESSED_S is not None: SUPPLIES[PROCESSED_S[0]] = PROCESSED_S[1:]
 		if PROCESSED_P is not None: PROJECTILES[PROCESSED_P[0]] = PROCESSED_P[1:]
 
+
+	#Close the files.
 	HOSTILES_FILE.close()
 	SUPPLIES_FILE.close()
 	PROJECTILES_FILE.close()
@@ -325,6 +350,7 @@ def GET_GAME_DATA():
 
 
 def PROCESS_LINE(LINE, FORMATTING):
+	#Process a line of a .dat file.
 	if LINE != "":
 		if LINE[0] != "/":
 			DATA = LINE.split(" | ")
@@ -333,9 +359,10 @@ def PROCESS_LINE(LINE, FORMATTING):
 			TEXTURES = list(DATA[-1].split("/"))
 			SIZE_RAW = DATA[1].split(", ")
 			COLLISION_SIZE = VECTOR_3D(SIZE_RAW[0], SIZE_RAW[1], SIZE_RAW[2])
-			OUT = [TYPE, COLLISION_SIZE, MASS]
+			OUT = [TYPE, COLLISION_SIZE, MASS, []]
 
 			for FORM, INFO in zip(FORMATTING, DATA[3:-1]):
+				#Match the found data's type to the formatting step provided.
 				match FORM:
 					case "vect":
 						FILE_VECTOR = INFO.split(', ')
@@ -369,12 +396,6 @@ def PROCESS_LINE(LINE, FORMATTING):
 					case "str":
 						OUT.append(INFO)
 
-			LOADED_TEXTURES = []
-			for TX in TEXTURES:
-				pass#LOADED_TEXTURES.append(texture_load.TEXTURE_CACHE_MANAGER(TX))
-			
-			OUT.append(LOADED_TEXTURES)
-
 			return OUT
 	return None
 
@@ -384,16 +405,21 @@ def PROCESS_LINE(LINE, FORMATTING):
 
 """
 Custom Classes, for objects and datatypes {O.O.P.};
-- Static, Environmental objects [WORLD_OBJECT]'s children.
-- Physics-based objects [PHYSICS_OBJECT]'s children.
-- RGBA format and functions for colour manipulation.
-- VECTOR_2D/VECTOR_3D and their related mathematical functions.
+- Static, Environmental objects // [WORLD_OBJECT]'s children classes.
+- Physics-based objects // [PHYSICS_OBJECT]'s children classes.
+- Bounding boxes // instances of [BOUNDING_BOX].
+- Rays for raycasting // instances of [RAY].
+- Logic gates for flag-state manipulation // instances of [LOGIC].
+- Scene-wide data // instances of [SCENE].
+- RGBA format and functions for colour manipulation // instances of [RGBA].
+- VECTOR_2D/VECTOR_3D and their related mathematical functions // instances of [VECTOR_2D/VECTOR_3D].
 """
 #Parent Classes
 
 
 
 class WORLD_OBJECT:
+	#Static objects (Environmental)
 	def __init__(self, OBJECT_ID, POSITION, COLLISION, TEXTURE_INFO=None, NORMALS=None, BOUNDING_BOX=None):
 		self.POSITION = POSITION
 		self.COLLISION = bool(COLLISION)
@@ -408,7 +434,10 @@ class WORLD_OBJECT:
 		if TEXTURE_INFO is not None: self.TEXTURE_INFO = TEXTURE_INFO
 		if COLLISION: self.BOUNDING_BOX = BOUNDING_BOX
 
+
+
 class PHYSICS_OBJECT:
+	#Objects with physics calculations (Gravity etc)
 	def __init__(self, OBJECT_ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX, MASS, TEXTURE_INFO, LATERAL_VELOCITY=None):
 		self.POSITION = POSITION
 		self.MASS = float(MASS)
@@ -425,7 +454,9 @@ class PHYSICS_OBJECT:
 		else: self.ROTATION = ROTATION.RADIANS()
 
 
+
 class BOUNDING_BOX:
+	#Bounding boxes for the physics system
 	def __init__(self, POSITION, OBJECT_POINTS, OFFSET=1.0):		
 		self.MIN_X = min(POINT.X for POINT in OBJECT_POINTS) - OFFSET
 		self.MAX_X = max(POINT.X for POINT in OBJECT_POINTS) + OFFSET
@@ -449,6 +480,7 @@ class BOUNDING_BOX:
 
 
 class RAY:
+	#Ray for raycasting calculations
 	def __init__(self, START_POINT, RAY_TYPE, DIRECTION_VECTOR=None, ANGLE=None, ADVANCE_DISTANCE=0.5):
 		#Optionally direction vector or angle.
 		self.START_POINT = START_POINT
@@ -474,6 +506,7 @@ class RAY:
 
 
 	def ADVANCE(self):
+		#Advances the ray by a certain amount, and updates the bounding box.
 		self.START_POINT += self.ADVANCE_VECTOR
 		self.END_POINT += self.ADVANCE_VECTOR
 
@@ -482,6 +515,8 @@ class RAY:
 
 
 	def RAY_VISUAL(self, WIDTH=0.1):
+		#Creates a ray visual, when called.
+		#Looks like a long triangle between its start point and end point.
 		VERTICAL_OFFSET = VECTOR_3D(0.0, WIDTH, 0.0)
 		HORIZONTAL_OFFSETS = CALC_SPRITE_POINTS(self.START_POINT, self.END_POINT, VECTOR_2D(WIDTH, 0.0))
 
@@ -500,7 +535,9 @@ class RAY:
 		return TRI_A, TRI_B
 
 
+
 class LOGIC:
+	#Logic gates for manipulating the values of flag-states.
 	def __init__(self, INPUT_A, INPUT_B, TYPE, OUTPUT_FLAG):
 		self.GATE_TYPE = TYPE
 		self.INPUT_A = INPUT_A
@@ -511,6 +548,7 @@ class LOGIC:
 
 
 	def UPDATE(self, FLAG_STATES):
+		#Updates the LOGIC gate based on its type and the current inputs.
 		VALUE_A = FLAG_STATES[self.INPUT_A]
 		VALUE_B = FLAG_STATES[self.INPUT_B] if self.INPUT_B is not None else None
 		#If not applicable (e.g. NOT gate) then VALUE_B is None.
@@ -565,12 +603,8 @@ class LOGIC:
 		return FLAG_STATES
 
 
-
-#Static Objects
-
-
-
 class SCENE():
+	#Scene object for scene-wide data like gravity values. (Likely deprecated.)
 	def __init__(self, VOID_COLOUR, GRAVITY, AIR_RES_MULT):
 		self.VOID = RGBA(VOID_COLOUR)
 		self.GRAVITY = GRAVITY
@@ -580,7 +614,27 @@ class SCENE():
 		return f"<SCENE: [VOID_COLOUR: {self.VOID} // GRAVITY: {self.GRAVITY} // AIR_RES_MULT: {AIR_RES_MULT}]>"
 
 
+
+
+
+"""
+Static Objects
+> TRI (Triangles)
+> QUAD (quads/planes)
+> CUBE_STATIC (A static cube)
+> SPRITE_STATIC (A sprite for decoration, non-collideable)
+> CUBE_PATH (For moving doors/walls)
+> TRIGGER (Bounding box that gives a flag value when stood inside of by player)
+> INTERACTABLE (Quad that gives a flag value when player interacts with it)
+> LIGHT (Light that casts shadows)
+> EXPLOSION (Explosion that harms PLAYER/ENEMY)
+> NPC_PATH_NODE (Pathing node for ENEMY)
+"""
+
+
+
 class TRI(WORLD_OBJECT):
+	#Static triangle object.
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES):
 		CENTROID = FIND_CENTROID(VERTICES)
 		NORMAL = (VERTICES[0] - VERTICES[2].CROSS(VERTICES[1] - VERTICES[2]),)
@@ -596,6 +650,7 @@ class TRI(WORLD_OBJECT):
 
 
 class QUAD(WORLD_OBJECT):
+	#Static quad/plane object.
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES):
 		CENTROID = FIND_CENTROID(VERTICES)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
@@ -613,6 +668,7 @@ class QUAD(WORLD_OBJECT):
 
 
 class CUBE_STATIC(WORLD_OBJECT):
+	#Static cube object.
 	def __init__(self, ID, POSITION, DIMENTIONS, COLLISION, TEXTURE_INFO):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
@@ -631,6 +687,7 @@ class CUBE_STATIC(WORLD_OBJECT):
 
 
 class SPRITE_STATIC(WORLD_OBJECT):
+	#Static decorational sprite
 	def __init__(self, ID, POSITION, COLLISION_DIMENTIONS, TEXTURE_COORDINATES):
 		POINTS = FIND_CUBOID_POINTS(COLLISION_DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
@@ -645,6 +702,7 @@ class SPRITE_STATIC(WORLD_OBJECT):
 
 
 class CUBE_PATH(WORLD_OBJECT):
+	#Used for moving doors/walls.
 	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG, MAX_DISTANCE):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
@@ -659,7 +717,9 @@ class CUBE_PATH(WORLD_OBJECT):
 		self.TRIGGERED = False
 		self.CURRENT_DISTANCE = 0.0
 
+
 	def ADVANCE(self, FLAG_STATES):
+		#Moves the cube forward by its speed in a frame, if that doesnt go past its max distance.
 		STATE = FLAG_STATES[self.FLAG]
 
 		if STATE and self.CURRENT_DISTANCE < self.MAX_DISTANCE:
@@ -681,6 +741,7 @@ class CUBE_PATH(WORLD_OBJECT):
 
 
 class TRIGGER(WORLD_OBJECT):
+	#Sets its flag to True when collided with. Only while player is inside, but there is a LOGIC type for retaining the value.
 	def __init__(self, ID, POSITION, DIMENTIONS, FLAG):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
@@ -694,6 +755,7 @@ class TRIGGER(WORLD_OBJECT):
 
 
 class INTERACTABLE(WORLD_OBJECT):
+	#Sets its flag state to True when interacted with. Only while held, but there is a LOGIC type for retaining the value.
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES, FLAG):
 		CENTROID = FIND_CENTROID(VERTICES)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
@@ -710,6 +772,7 @@ class INTERACTABLE(WORLD_OBJECT):
 
 
 class LIGHT(WORLD_OBJECT):
+	#Casts shadows, emits light.
 	def __init__(self, ID, POSITION, RAW_LOOK_AT, FOV, COLOUR, INTENSITY, MAX_DISTANCE, FLAG):
 		super().__init__(ID, POSITION, False)
 
@@ -728,6 +791,7 @@ class LIGHT(WORLD_OBJECT):
 
 
 class EXPLOSION(WORLD_OBJECT):
+	#Hurts/moves ENEMY/PLAYER
 	def __init__(self, POSITION, SIZE, FORCE, STRENGTH, TEXTURE_INFO):
 		POINTS = FIND_CUBOID_POINTS([SIZE, SIZE, SIZE], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
@@ -746,6 +810,7 @@ class EXPLOSION(WORLD_OBJECT):
 
 
 class NPC_PATH_NODE(WORLD_OBJECT):
+	#Pathing node for ENEMY
 	def __init__(self, POSITION, FLAG, CONNECTIONS):
 		super().__init__(None, POSITION, False)
 
@@ -757,11 +822,18 @@ class NPC_PATH_NODE(WORLD_OBJECT):
 
 
 
-#Physics Objects
-
+"""
+Physics Objects
+> CUBE_PHYSICS (Physics-cube)
+> ITEM (Gives supplies to the player when touched)
+> ENEMY (Hostile towards the player)
+> PROJECTILE (Harms ENEMY/PLAYER)
+> PLAYER (Player data)
+"""
 
 
 class CUBE_PHYSICS(PHYSICS_OBJECT):
+	#Physics cube.
 	def __init__(self, ID, POSITION, DIMENTIONS, MASS, ROTATION, TEXTURE_INFO):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
@@ -781,6 +853,7 @@ class CUBE_PHYSICS(PHYSICS_OBJECT):
 
 
 class ITEM(PHYSICS_OBJECT):
+	#Item that gives supplies when touched
 	def __init__(self, ID, POSITION, POP, TEXTURE_INFO, TYPE):
 		_, SUPPLIES, _ = GET_GAME_DATA()
 		TYPE_DATA = SUPPLIES[TYPE]
@@ -821,6 +894,7 @@ class ITEM(PHYSICS_OBJECT):
 		return f"<ITEM: [POSITION: {self.POSITION} // ITEM_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // DIMENTIONS_3D: {self.DIMENTIONS_3D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY}]>"
 
 	def TAKE(self, AMOUNT_TO_TAKE):
+		#When touched; removes as much as possible, and if not all; retains some.
 		self.QUANTITY -= AMOUNT_TO_TAKE
 		if self.QUANTITY <= 0:
 			self.EMPTY = True
@@ -828,6 +902,7 @@ class ITEM(PHYSICS_OBJECT):
 
 
 class ENEMY(PHYSICS_OBJECT):
+	#Hostile enemy towards the player.
 	def __init__(self, ID, POSITION, TYPE, TEXTURES, ROTATION):
 		HOSTILES, _, _ = GET_GAME_DATA()
 		TYPE_DATA = HOSTILES[TYPE]
@@ -855,6 +930,7 @@ class ENEMY(PHYSICS_OBJECT):
 		return f"<ENEMY: [POSITION: {self.POSITION} // ENEMY_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ATTACK_TYPE: {self.ATTACK_TYPE} // ATTACK_STRENGTH: {self.ATTACK_STRENGTH} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 	def HURT(self, DAMAGE):
+		#Harms the enemy, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH)
 		if self.HEALTH <= 0:
 			self.ALIVE = False
@@ -862,6 +938,7 @@ class ENEMY(PHYSICS_OBJECT):
 
 
 class PROJECTILE(PHYSICS_OBJECT):
+	#Harms ENEMY/PLAYER.
 	def __init__(self, POSITION, MASS, FIRED_VELOCITY, TYPE, TEXTURE_INFO):
 		TYPE_DATA = PROJECTILES[hex(TYPE)]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA["Dimentions"], POSITION)
@@ -885,7 +962,9 @@ class PROJECTILE(PHYSICS_OBJECT):
 		return f"<PROJECTILE: [POSITION: {self.POSITION} // PROJECTILE_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // DAMAGE_TYPE: {self.DAMAGE_TYPE} // DAMAGE_STRENGTH: {self.DAMAGE_STRENGTH} // CREATE_EXPLOSION: {self.CREATE_EXPLOSION}]>"
 
 
+
 class PLAYER(PHYSICS_OBJECT):
+	#Player Data.
 	def __init__(self, ID, POSITION, ROTATION, ITEMS):
 		self.DIMENTIONS = CONSTANTS["PLAYER_COLLISION_CUBOID"]
 		POINTS = FIND_CUBOID_POINTS(self.DIMENTIONS, POSITION)
@@ -903,10 +982,13 @@ class PLAYER(PHYSICS_OBJECT):
 		self.ENERGY = 0
 		self.ALIVE = True
 
+
 	def __repr__(self):
 		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {self.ITEMS} // AMMUNITION: {self.AMMO} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
+
 	def HURT(self, DAMAGE):
+		#Harms the player, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH)
 		if self.HEALTH <= 0:
 			self.ALIVE = False
@@ -921,7 +1003,8 @@ class PLAYER(PHYSICS_OBJECT):
 class RGBA:
 	"""
 	RGB Colour type.
-	Has 4 values (RGBA)
+	Has 4 values (RGBA), as either floats (0-1) or integers (0-255)
+	Allows for further colour manipulation
 	"""
 	def __init__(self, R, G, B, A, RANGE=(0, 255)): #Formatting as [R, G, B, A]
 		self.R = round(CLAMP(R, RANGE[0], RANGE[1]), 8)
@@ -1031,7 +1114,7 @@ class VECTOR_2D:
 	"""
 	Custom 2D Vector type.
 	Has X and Y coordinate.
-	Allows for many basic and mid-level operations.
+	Allows for many basic and mid-level operations internally, and is used for more advanced cases (e.g. Angle comparisons) externally.
 	"""
 	def __init__(self, X, Y): #Formatting as [X, Y]
 		self.X = float(X)
@@ -1060,16 +1143,16 @@ class VECTOR_2D:
 		Y = self.Y / SCALAR
 		return VECTOR_2D(X, Y)
 
-	def __iadd__(self, OTHER):
+	def __iadd__(self, OTHER): #Support for +=
 		return self + OTHER
 
-	def __isub__(self, OTHER):
+	def __isub__(self, OTHER): #Support for -=
 		return self - OTHER
 	
-	def __imul__(self, SCALAR):
+	def __imul__(self, SCALAR): #Support for *=
 		return self * OTHER
 
-	def __idiv__(self, SCALAR):
+	def __idiv__(self, SCALAR): #Support for /=
 		return self / OTHER
 	
 	def __abs__(self): #Magnitude of self // abs({self})
@@ -1099,7 +1182,7 @@ class VECTOR_2D:
 	def __iter__(self):
 		return iter([self.X, self.Y])
 
-	def SIGN(self):
+	def SIGN(self): #Gives the sign of each value in the vector.
 		X = 1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0
 		Y = 1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0
 		return VECTOR_2D(X, Y)
@@ -1127,30 +1210,31 @@ class VECTOR_2D:
 				return True
 		return False
 
-	def TO_LIST(self):
+	def TO_LIST(self): #Converts to a list.
 		return [self.X, self.Y]
 
-	def TO_INT(self):
+	def TO_INT(self): #Converts to integers.
 		X = int(self.X)
 		Y = int(self.Y)
 		return VECTOR_2D(X, Y)
 
-	def TO_FLOAT(self):
+	def TO_FLOAT(self): #Converts to floats.
 		X = float(self.X)
 		Y = float(self.Y)
 		return VECTOR_2D(X, Y)
 
-	def RADIANS(self):
+	def RADIANS(self): #Converts to radians.
 		X = maths.radians(self.X)
 		Y = maths.radians(self.Y)
 		return VECTOR_2D(X, Y)
 
-	def DEGREES(self):
+	def DEGREES(self): #Converts to degrees.
 		X = maths.degrees(self.X)
 		Y = maths.degrees(self.Y)
 		return VECTOR_2D(X, Y)
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None):
+		#Clamps within a set of boundaries.
 		if X_BOUNDS is not None:
 			self.X = CLAMP(self.X, X_BOUNDS[0], X_BOUNDS[1])
 		if Y_BOUNDS is not None:
@@ -1158,6 +1242,7 @@ class VECTOR_2D:
 		return self
 
 	def ROTATE_BY(self, ANGLE):
+		#Rotates by a 2D angle vector, around (0,0)
 		X = (self.X * maths.cos(ANGLE)) - (self.Y * maths.sin(ANGLE))
 		Y = (self.X * maths.sin(ANGLE)) + (self.Y * maths.cos(ANGLE))
 		return VECTOR_2D(X, Y)
@@ -1168,7 +1253,7 @@ class VECTOR_3D:
 	"""
 	Custom 3D Vector type.
 	Has X, Y and Z coordinate.
-	Allows for many basic and mid-level operations.
+	Allows for many basic and mid-level operations internally, and is used for more advanced cases (e.g. S.A.T.) externally.
 	"""
 	def __init__(self, X, Y, Z): #Formatting as [X, Y, Z]
 		self.X = float(X)
@@ -1202,16 +1287,16 @@ class VECTOR_3D:
 		Z = self.Z / SCALAR
 		return VECTOR_3D(X, Y, Z)
 
-	def __iadd__(self, OTHER):
+	def __iadd__(self, OTHER): #Support for +=
 		return self + OTHER
 
-	def __isub__(self, OTHER):
+	def __isub__(self, OTHER): #Support for -=
 		return self - OTHER
 	
-	def __imul__(self, SCALAR):
+	def __imul__(self, SCALAR): #Support for *=
 		return self * SCALAR
 
-	def __idiv__(self, SCALAR):
+	def __idiv__(self, SCALAR): #Support for /=
 		return self / SCALAR
 
 	def __abs__(self): #Magnitude of self // abs({self})
@@ -1238,10 +1323,10 @@ class VECTOR_3D:
 	def __repr__(self):
 		return f"<VECTOR_3D: [{self.X}, {self.Y}, {self.Z}]>"
 
-	def __iter__(self):
+	def __iter__(self): #Creates an iterable of itself
 		return iter([self.X, self.Y, self.Z])
 	
-	def SIGN(self):
+	def SIGN(self): #Gets the sign of each value in the vector.
 		X = 1.0 if self.X > 0.0 else -1.0 if self.X < 0.0 else 0.0
 		Y = 1.0 if self.Y > 0.0 else -1.0 if self.Y < 0.0 else 0.0
 		Z = 1.0 if self.Z > 0.0 else -1.0 if self.Z < 0.0 else 0.0
@@ -1281,37 +1366,35 @@ class VECTOR_3D:
 				return True
 		return False
 
-	def DISTANCE(self, OTHER):
-		return ((self.X - OTHER.X) ** 2 + (self.Y - OTHER.Y) ** 2 + (self.Z - OTHER.Z) ** 2) ** 0.5
-
-	def TO_LIST(self):
+	def TO_LIST(self): #Converts to list.
 		return [self.X, self.Y, self.Z]
 
-	def TO_INT(self):
+	def TO_INT(self): #Converts to integers.
 		X = int(self.X)
 		Y = int(self.Y)
 		Z = int(self.Z)
 		return VECTOR_3D(X, Y, Z)
 
-	def TO_FLOAT(self):
+	def TO_FLOAT(self): #Converts to floats.
 		X = float(self.X)
 		Y = float(self.Y)
 		Z = float(self.Z)
 		return VECTOR_3D(X, Y, Z)
 
-	def RADIANS(self):
+	def RADIANS(self): #Converts to radians.
 		X = maths.radians(self.X)
 		Y = maths.radians(self.Y)
 		Z = maths.radians(self.Z)
 		return VECTOR_3D(X, Y, Z)
 
-	def DEGREES(self):
+	def DEGREES(self): #Converts to degrees.
 		X = maths.degrees(self.X)
 		Y = maths.degrees(self.Y)
 		Z = maths.degrees(self.Z)
 		return VECTOR_3D(X, Y, Z)
 
 	def CLAMP(self, X_BOUNDS=None, Y_BOUNDS=None, Z_BOUNDS=None):
+		#Clamps each within set boundaries.
 		if X_BOUNDS is not None:
 			self.X = CLAMP(self.X, X_BOUNDS[0], X_BOUNDS[1])
 		if Y_BOUNDS is not None:
@@ -1321,23 +1404,26 @@ class VECTOR_3D:
 		return self
 
 	def ROTATE_BY(self, ANGLE, CENTRE):
-		#3D Rotation matrix.
+		#Rotates around a centrepoint, using a 3D rotational matrix.
+		sinX, cosX = maths.sin(ANGLE.X), maths.cos(ANGLE.X)
+		sinY, cosY = maths.sin(ANGLE.Y), maths.cos(ANGLE.Y)
+		sinZ, cosZ = maths.sin(ANGLE.Z), maths.cos(ANGLE.Z)
 		MATRIX = NP.array([
-			[maths.cos(ANGLE.Y) * maths.cos(ANGLE.Z),	(maths.sin(ANGLE.X) * maths.sin(ANGLE.Y) * maths.cos(ANGLE.Z)) - (maths.cos(ANGLE.X) * maths.sin(ANGLE.Z)),	(maths.cos(ANGLE.X) * maths.sin(ANGLE.Y) * maths.cos(ANGLE.Z)) + (maths.sin(ANGLE.X) * maths.sin(ANGLE.Z))],
-			[maths.cos(ANGLE.Y) * maths.sin(ANGLE.Z),	(maths.sin(ANGLE.X) * maths.sin(ANGLE.Y) * maths.sin(ANGLE.Z)) + (maths.cos(ANGLE.X) * maths.cos(ANGLE.Z)),	(maths.cos(ANGLE.X) * maths.sin(ANGLE.Y) * maths.sin(ANGLE.Z)) - (maths.sin(ANGLE.X) * maths.cos(ANGLE.Z))],
-			[-maths.sin(ANGLE.Y),					 	 maths.sin(ANGLE.X) * maths.cos(ANGLE.Y),																	 maths.cos(ANGLE.X) * maths.cos(ANGLE.Y)]
+			[cosY * cosZ,	(sinX * sinY * cosZ) - (cosX * sinZ),	(cosX * sinY * cosZ) + (sinX * sinZ)],
+			[cosY * sinZ,	(sinX * sinY * sinZ) + (cosX * cosZ),	(cosX * sinY * sinZ) - (sinX * cosZ)],
+			[-sinY,			sinX * cosY,							cosX * cosY							]
 		])
 
 		X, Y, Z = NP.dot(MATRIX, self.CONVERT_TO_NP_ARRAY())
 		return VECTOR_3D(X + CENTRE.X, Y + CENTRE.Y, Z + CENTRE.Z)
 
-	def CONVERT_TO_NP_ARRAY(self):
+	def CONVERT_TO_NP_ARRAY(self): #Convert to a NumPy array.
 		return NP.array([self.X, self.Y, self.Z])
 
-	def CONVERT_TO_PYRR_VECTOR3(self):
+	def CONVERT_TO_PYRR_VECTOR3(self): #Convert to a pyrr Vector3.
 		return Vector3(self.TO_LIST())
 
-	def CONVERT_TO_GLM_VEC3(self):
+	def CONVERT_TO_GLM_VEC3(self): #Convert to a GLM vec3.
 		return glm.vec3(self.X, self.Y, self.Z)
 
 
@@ -1345,8 +1431,5 @@ class VECTOR_3D:
 
 #Program-wide values, that must be sync-ed between all files.
 #(Uses utils.py as a "hub" for this data, as all other files import these functions/data.)
-
-
-
 global PREFERENCES, CONSTANTS
 PREFERENCES, CONSTANTS = GET_CONFIGS()
