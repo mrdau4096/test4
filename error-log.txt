@@ -34,3 +34,5 @@
 16:19:19, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
 16:29:53, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 231)
 17:02:03, 22-07-2024 / ERROR in main.py, init() / inconsistent use of tabs and spaces in indentation (physics.py, line 275)
+22:07:37, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'
+22:07:45, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'

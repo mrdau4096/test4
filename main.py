@@ -18,57 +18,60 @@ print("--")
 try:
 	import sys, os
 	import math as maths
-	print("Imported Module(s) // sys, math, os") #Successfully imported said modules.
-	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1" #Hides the Pygame default welcome message in console.
-	sys.path.append("src") #Access the source subfolder in the path, for the data.
+	import zipfile
+	import io
+	import copy
+	import numpy as NP
+
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
+	#Load log.py, from the subfolder \src\exct\
+	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
 	from exct import log
+	#Load modules stored in \src\modules\
+	import glm, glfw
 
+	import pygame as PG
+	from pygame import time, joystick, display, image
 
-	#All sub-files for the program - think of main.py as a hub for these other files to interface within.
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
 
+	from PIL import Image
 
+	from pyrr import Matrix44, Vector3, Vector4
 
 	from imgs import texture_load
 	from exct import render, physics, utils, ui
 	from scenes import scene
 	from exct.utils import *
 
-	#Import the memory-profiler I used in testing.
-	try:
-		from memory_profiler import profile
+except ImportError:
+	LOG.ERROR("main.py", "Initial imports failed.")
 
-	except ImportError:
-		pass #If it fails, then this is not an issue - It is only used for the sake of testing anyhow, and is non-essential in actual operation.
+print("--\n")
+
+#Import the memory-profiler I used in testing.
+try:
+	from memory_profiler import profile
+
+except ImportError:
+	pass #If it fails, then this is not an issue - It is only used for the sake of testing anyhow, and is non-essential in actual operation.
 
 
-	"""
-	Importing external modules from "modules"
-	-PyGame
-	-PyOpenGL
-	-GLM
-	-Pyrr
-	-NumPy
-	"""
-	sys.path.append("modules.zip")
-	import pygame as PG
-	from pygame.locals import *
-	from pygame import *
-	print("Imported Module(s) // PyGame")
-	from OpenGL.GL import *
-	from OpenGL.GLU import *
-	from OpenGL.GL.shaders import compileShader, compileProgram
-	print("Imported Module(s) // PyOpenGL")
-	import glm
-	print("Imported Module(s) // PyGLM")
-	from pyrr import Matrix44, Vector3
-	print("Imported Module(s) // Pyrr")
-	import numpy as NP
-	print("Imported Module(s) // NumPy\n--\n")
+"""
+Importing external modules from "modules"
+-PyGame
+-PyOpenGL
+-GLM
+-Pyrr
+-NumPy
 
-except Exception as E:
-	log.ERROR("main.py, init()", E)
-	quit()
-
+#except Exception as E:
+	#log.ERROR("main.py, init()", E)
+	#quit()
+"""
 
 
 
@@ -84,15 +87,37 @@ def MAIN():
 		Give error to log.py, something is set up severely incorrectly.
 		"""
 
-		# General preference-gathering.
+		# General preference-gathering & Data assignment.
 		PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 		DISPLAY_RESOLUTION = CONSTANTS["DISPLAY_RESOLUTION"]
 		SCALING_FACTOR = CONSTANTS["RENDER_SCALING_FACTOR"]
 		RENDER_RESOLUTION = DISPLAY_RESOLUTION / SCALING_FACTOR
+		CONSTANTS["RENDER_RESOLUTION"] = RENDER_RESOLUTION
 		print("Current user configs;")
 		for OPTION in PREFERENCES:
 			print(f"{OPTION}: {PREFERENCES[OPTION]}")
 		print("\n")
+
+		if PREFERENCES["DYNAMIC_SHADOWS"]:
+			print("DYNAMIC_SHADOWS is enabled, this will cause issues. Be warned.")
+
+		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
+		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
+		CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
+		KEY_STATES = {
+			PG.K_w: False, PG.K_s: False,			#Forward/Backwards keys
+			PG.K_a: False, PG.K_d: False,			#Left/Right keys
+			PG.K_e: False, PG.K_q: False,			#Interaction keys
+			PG.K_SPACE: False, PG.K_LCTRL: False,	#Vertical control keys
+			PG.K_LSHIFT: False, PG.K_x: False,		#Movement speed keys
+			PG.K_RETURN: False,						#Debug key
+			PG.K_c: False,							#Zoom key
+			"CROUCH": False,						#If currently crouching (Toggle)
+			"JUMP_GRACE": 0,						#Allows for a "grace period" to jump after leaving the floor
+			"PAD_JUMP_PREV": False,					#To stop multiple GamePad jump inputs
+		}
+
+
 
 		#PyGame setup.
 		CLOCK = PG.time.Clock()
@@ -100,77 +125,56 @@ def MAIN():
 		PG.joystick.init()
 		JOYSTICK = None
 		PAD_COUNT = PG.joystick.get_count()
-		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE | HIDDEN)
-		PG.display.set_caption("test4.2.3b//main.py")
-		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
 		DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
 
-		#PyOpenGL setup.
-		SCENE_SHADER, QUAD_SHADER, SHADOW_SHADER = render.SHADER_INIT()
-		VAO_QUAD, VAO_UI, SCENE_FBO, SCENE_TCB = render.FBO_QUAD_INIT(RENDER_RESOLUTION)
+		#Create a GLFW window to initialise the OpenGL VAOs, Shaders, FBOs etc.
+		if not glfw.init():
+			raise Exception("GLFW could not be initialised.")
 
-		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
-		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
-		CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
-		KEY_STATES = {
-			PG.K_w: False,
-			PG.K_s: False,
-			PG.K_a: False,
-			PG.K_d: False,
-			PG.K_e: False,
-			PG.K_q: False,
-			PG.K_SPACE: False,
-			PG.K_LCTRL: False,
-			PG.K_LSHIFT: False,
-			PG.K_RETURN: False,
-			PG.K_c: False,
-			PG.K_x: False,
-			"CROUCH": False,
-			"JUMP_GRACE": 0,
-			"PAD_JUMP_PREV": False,
-		}
+		glfw.window_hint(glfw.VISIBLE, glfw.FALSE)
+		OPENGL_SETUP_WINDOW = glfw.create_window(int(DISPLAY_RESOLUTION.X), int(DISPLAY_RESOLUTION.Y), "Hidden Window", None, None)
+		if not OPENGL_SETUP_WINDOW:
+			glfw.terminate()
+			raise Exception("GLFW could not create OpenGL setup window.")
+		glfw.make_context_current(OPENGL_SETUP_WINDOW)
 
 
+		#PyOpenGL & VAO/VBO/EBO setup.
 		
-		RENDER_DATA, PHYS_DATA, CURRENT_SHEET_ID, PLAYER_ID = scene.PREPARE_SCENE(PREFERENCES["SCENE"])
+		RENDER_DATA, PHYS_DATA, SHEET_NAME, PLAYER_ID = scene.PREPARE_SCENE(PREFERENCES["SCENE"])
 		BLANK_TEXTURE = texture_load.LOAD_SHEET("_")
+		CURRENT_SHEET_ID = texture_load.LOAD_SHEET(SHEET_NAME)
 		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
 
-		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
 
+		#Mid-loading Shadow-Mapping
+		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
+		SHEET_DATA = render.GET_TEXTURE_DATA(CURRENT_SHEET_ID, VECTOR_2D(2048, 2048), "COLOUR")
 		for I, LIGHT in enumerate(LIGHTS):
-			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
-			LIGHT.SHADOW_MAP = SHADOW_MAP
-			
-			if PREFERENCES["DEBUG_MAPS"]:
-				render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)			
+			if not glfw.init():
+				raise Exception("GLFW could not be initialised.")
+
+			glfw.window_hint(glfw.VISIBLE, glfw.FALSE)
+			SURFACE = glfw.create_window(int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), "Hidden Window", None, None)
+			if not SURFACE:
+				glfw.terminate()
+				raise Exception("GLFW could not create window.")
+			glfw.make_context_current(SURFACE)
+
+			LIGHTS[I] = render.CREATE_LIGHT_MAPS(SURFACE, I, LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHEET_DATA)
+
 
 
 		#Setup OpenGL scene data
-		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
-		VAO_SCENE, VBO_SCENE, EBO_SCENE = render.BUFFERS_INIT()
-		glEnable(GL_DEPTH_TEST)
-		glDepthFunc(GL_LESS)
-		glEnable(GL_BLEND)
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
-		if CONSTANTS["FACE_CULLING"]: #Only culls faces if the prefs file states it should, mostly for debugging and to help with scene designing.
-			glEnable(GL_CULL_FACE)
-			glCullFace(GL_BACK)
-		glMatrixMode(GL_PROJECTION)
-		glLoadIdentity()
-		gluPerspective(PREFERENCES["FOV"], float(DISPLAY_RESOLUTION.X) / float(DISPLAY_RESOLUTION.Y), CONSTANTS["MIN_VIEW_DIST"], CONSTANTS["MAX_VIEW_DIST"])  # Example parameters
-		glMatrixMode(GL_MODELVIEW)
-		MODEL_MATRIX = Matrix44.identity()
-		glLoadIdentity()
-		
-		PROJECTION_MATRIX = Matrix44.perspective_projection(
-			PREFERENCES["FOV"],
-			(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
-			CONSTANTS["MIN_VIEW_DIST"],
-			CONSTANTS["MAX_VIEW_DIST"]
-		)
+		PG.display.set_caption("test4.2.4//main.py")
+		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
+		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+
+		(SCENE_SHADER, QUAD_SHADER), (VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE), CURRENT_SHEET_ID, (VAO_SCENE, VBO_SCENE, EBO_SCENE), (MODEL_MATRIX, PROJECTION_MATRIX) = render.SET_PYGAME_CONTEXT(SHEET_NAME)
+
+		for I, LIGHT in enumerate(LIGHTS):
+			LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
 
 		RUN = True
 		PREVIOUS_FRAME, WINDOW_FOCUS = None, 0
@@ -203,6 +207,7 @@ def MAIN():
 									RAW_TIME = log.GET_TIME()
 									CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
 									render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.png", "COLOUR")
+									print(f"Saved screenshot as [{CURRENT_TIME}.png]")
 
 							case PG.K_ESCAPE:
 								RUN = False
@@ -228,7 +233,7 @@ def MAIN():
 							case PG.K_LCTRL:
 								CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
 								PLAYER.COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
-								PLAYER.POSITION += (CONSTANTS["PLAYER_COLLISION_CUBOID"] - CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]) / 2
+								PLAYER.POSITION += (CONSTANTS["PLAYER_COLLISION_CUBOID"] - CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"])/4
 
 							case PG.K_c:
 								PROJECTION_MATRIX = Matrix44.perspective_projection(
@@ -241,9 +246,10 @@ def MAIN():
 					case PG.VIDEORESIZE:
 						DISPLAY_RESOLUTION = VECTOR_2D(EVENT.w, EVENT.h)
 						RENDER_RESOLUTION = DISPLAY_RESOLUTION / CONSTANTS["RENDER_SCALING_FACTOR"]  #Set render resolution to be half of the screen resolution
+						CONSTANTS["RENDER_RESOLUTION"] = RENDER_RESOLUTION
 						utils.CONSTANTS["DISPLAY_RESOLUTION"] = DISPLAY_RESOLUTION
-						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
-						SCENE_FBO, SCENE_TCB, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
+						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+						FBO_SCENE, TCB_SCENE, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
 						glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
@@ -311,7 +317,7 @@ def MAIN():
 
 
 			else:
-				if KEY_STATES[K_RETURN] and PREFERENCES["DEV_TEST"]:
+				if KEY_STATES[PG.K_RETURN] and PREFERENCES["DEV_TEST"]:
 					PREFERENCES["NORMALS_DEBUG"] = True
 				else:
 					PREFERENCES["NORMALS_DEBUG"] = False
@@ -339,7 +345,6 @@ def MAIN():
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
 			
 
-			glLoadIdentity()
 
 
 			CLOCK.tick_busy_loop(FPS_CAP)
@@ -348,6 +353,9 @@ def MAIN():
 			PHYS_DATA = physics.UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, JOYSTICK)
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			CAMERA_POSITION = PLAYER.POSITION + CAMERA_OFFSET
+
+			#print(PLAYER.POSITION)
+
 
 			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
 			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
@@ -358,27 +366,33 @@ def MAIN():
 
 			if PREFERENCES["DYNAMIC_SHADOWS"]:
 				#If dynamic shadows are enabled, recalculate the shadow map every frame. Not reccomended to use, but is present.
-				#!CURRENTLY BROKEN!
 				for LIGHT in LIGHTS:
-					SHADOW_MAP, LIGHT = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
-					LIGHT.SHADOW_MAP = SHADOW_MAP
-					if PREFERENCES["DEBUG_MAPS"]:
-						render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], SHADOW_MAP, f"screenshots\\debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)			
+					LIGHTS[I] = render.CREATE_LIGHT_MAPS(SURFACE, I, LIGHT, (NP.array(COPIED_VAO_VERTICES, dtype=NP.float32), NP.array(COPIED_VAO_INDICES, dtype=NP.uint32)), SHEET_DATA)
 
-				SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
+				SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+
+				(SCENE_SHADER, QUAD_SHADER), (VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE), CURRENT_SHEET_ID, (VAO_SCENE, VBO_SCENE, EBO_SCENE), (MODEL_MATRIX, PROJECTION_MATRIX) = render.SET_PYGAME_CONTEXT(SHEET_NAME)
+
+				for I, LIGHT in enumerate(LIGHTS):
+					LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
+					if PREFERENCES["DEBUG_MAPS"]:
+						render.SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], LIGHT.SHADOW_MAP, f"debug_maps\\depth_map_{I}.png", "DEPTH", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)
+
 			
+
 			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
 
 
 			#Rendering the main scene.
 
+			glLoadIdentity()
 
-			glBindFramebuffer(GL_FRAMEBUFFER, SCENE_FBO)
+			glBindFramebuffer(GL_FRAMEBUFFER, FBO_SCENE)
+			glUseProgram(SCENE_SHADER)
 			glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 			glClearColor(VOID_COLOUR.R, VOID_COLOUR.G, VOID_COLOUR.B, VOID_COLOUR.A)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 			glClearDepth(1.0)
-			glUseProgram(SCENE_SHADER)
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
 
@@ -388,9 +402,10 @@ def MAIN():
 			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'TRI_TEXTURE')
 			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MAX_DIST')
 			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'CAMERA_POSITION')
-			VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'VOID_COLOUR')
+			#VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'VOID_COLOUR')
 			LIGHT_COUNT_LOC = glGetUniformLocation(SCENE_SHADER, "LIGHT_COUNT")
 			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
+
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
 			glUniformMatrix4fv(PROJECTION_LOC, 1, GL_FALSE, PROJECTION_MATRIX)
@@ -453,11 +468,13 @@ def MAIN():
 
 			#Draw the current frame to a quad in the camera's view
 			
-			PREVIOUS_FRAME = SCENE_TCB
+			PREVIOUS_FRAME = TCB_SCENE
 
 			glBindVertexArray(VAO_QUAD)
 			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, SCENE_TCB)
+			glBindTexture(GL_TEXTURE_2D, TCB_SCENE)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
@@ -471,7 +488,7 @@ def MAIN():
 			glBindVertexArray(VAO_UI)
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
@@ -479,7 +496,17 @@ def MAIN():
 			glDeleteTextures([UI_TEXTURE_ID])
 			PG.display.flip()
 
-		# Quitting all that needs to be done, when RUN == False
+
+		#Quitting/Deleting all that needs to be done, when RUN == False
+		FRAME_BUFFERS = [FBO_SCENE,]
+		VERTEX_BUFFERS = [VAO_SCENE, VAO_QUAD, VAO_UI]
+		DATA_BUFFERS = [VBO_SCENE, EBO_SCENE, TCB_SCENE]
+
+		glDeleteFramebuffers(len(FRAME_BUFFERS), FRAME_BUFFERS)
+		glDeleteVertexArrays(len(VERTEX_BUFFERS), VERTEX_BUFFERS)
+		glDeleteBuffers(len(DATA_BUFFERS), DATA_BUFFERS)
+		glDeleteTextures([CURRENT_SHEET_ID])
+
 		PG.mouse.set_visible(True)
 		PG.joystick.quit()
 		PG.quit()

@@ -7,27 +7,35 @@ ______________________
 Importing other files;
 -log.py
 """
-#Import Internal modules
+import sys, os
+import math as maths
+import zipfile
+import io
+import copy
+import numpy as NP
+
+#Load log.py, from the subfolder \src\exct\
+sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+from exct import log
+#Load modules stored in \src\modules\
+import glm, glfw
+
+import pygame as PG
+from pygame import time, joystick, display, image
+
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL.shaders import compileProgram, compileShader
+
+from PIL import Image
+
+from pyrr import Matrix44, Vector3, Vector4
+
 from exct import log, utils, render
 from exct.utils import *
 
 
-#Import External modules
-import os, sys
-
-CURRENT_DIR = os.path.dirname(__file__)
-PARENT_DIR = os.path.dirname(CURRENT_DIR)
-sys.path.append(PARENT_DIR)
-sys.path.append("modules")
-
-import pygame as PG
-from pygame.locals import *
-from pygame import image
-from OpenGL.GL import *
-from OpenGL.GLU import *
-
-print("Imported Sub-file // texture_load.py")
-
+log.REPORT_IMPORT("texture_load.py")
 """
 Texture cache;
 > stores all previously loaded textures
@@ -35,10 +43,10 @@ Texture cache;
 > if duplicate found, return duplicate
 > otherwise, load texture, add to cache and return data
 """
+PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 global TEXTURE_CACHE, SHEET_CACHE
 TEXTURE_CACHE = {}
 SHEET_CACHE = {}
-PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
 
 #Texture loading functions
@@ -69,9 +77,13 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 
 
 
-def LOAD_SHEET(FILE_NAME):
-	MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-	TEXTURE_PATH = os.path.join(MAIN_DIR, f"sheet-{FILE_NAME}.png")
+def LOAD_SHEET(FILE_NAME, SUBFOLDER=None):
+	if SUBFOLDER is None:
+		MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
+		TEXTURE_PATH = os.path.join(MAIN_DIR, f"sheet-{FILE_NAME}.png")
+	else:
+		MAIN_DIR = os.path.dirname(os.path.abspath(__file__)).replace(r"\src\imgs", SUBFOLDER)
+		TEXTURE_PATH = os.path.join(MAIN_DIR, f"{FILE_NAME}.png")
 
 	SURFACE = PG.image.load(TEXTURE_PATH)
 	DATA = PG.image.tostring(SURFACE, 'RGBA', 1)

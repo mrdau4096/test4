@@ -7,26 +7,35 @@ ______________________
 Importing other files;
 -log.py
 """
-import sys, math
-from exct import log, ui, utils
-from imgs import texture_load
-from exct.utils import *
+import sys, os
+import math as maths
+import zipfile
+import io
+import copy
+import numpy as NP
 
-sys.path.append("modules.zip")
+#Load log.py, from the subfolder \src\exct\
+sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+from exct import log
+#Load modules stored in \src\modules\
+import glm, glfw
+
 import pygame as PG
-from pygame.locals import *
-from pygame import *
+from pygame import time, joystick, display, image
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GL.shaders import compileProgram, compileShader
-from pyrr import Matrix44, Vector3
-import numpy as NP
-import copy
-import glm
+
 from PIL import Image
 
-print("Imported Sub-file // render.py")
+from pyrr import Matrix44, Vector3, Vector4
 
+from exct import ui, utils
+from imgs import texture_load
+from exct.utils import *
+
+log.REPORT_IMPORT("render.py")
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
 
@@ -40,6 +49,111 @@ def GL_ERRORCHECK():
 	else:
 		print("OpenGL ERROR: None")
 
+
+
+def GET_TEXTURE_DATA(TEXTURE, RESOLUTION, TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0):
+	glBindTexture(GL_TEXTURE_2D, TEXTURE)
+	DATA = None
+	PROCESSED_DATA = None
+
+	match TYPE:
+		case "DEPTH":
+			# Retrieve the depth data as a float
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT)
+			if DATA is None:
+				raise ValueError("[ERROR] // Failed to retrieve depth texture data")
+
+			# Convert the byte data to a numpy array
+			DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
+
+			# Clip the depth values to the specified range
+			DEPTH_MIN = NP.clip(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
+			DEPTH_MAX = NP.clip(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
+
+			if DEPTH_MIN == DEPTH_MAX:
+				PROCESSED_DATA = NP.zeros_like(DATA)
+			else:
+				PROCESSED_DATA = DATA#(DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
+
+		case "COLOUR":
+			# Retrieve the color data as float
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT)
+			if DATA is None:
+				raise ValueError("[ERROR] // Failed to retrieve color texture data")
+
+			# Convert the byte data to a numpy array
+			DATA = NP.frombuffer(DATA, dtype=NP.float32)
+			
+			# Reshape the data to the expected dimensions
+			PROCESSED_DATA = DATA.reshape((int(RESOLUTION.Y), int(RESOLUTION.X), 4))
+
+		case _:
+			raise TypeError(f"Map type {TYPE} is not recognised. Please choose from;\nDEPTH\nCOLOUR")
+
+
+	glBindTexture(GL_TEXTURE_2D, 0)
+
+	if PROCESSED_DATA is None:
+		raise ValueError("[ERROR] // Failed to process texture data")
+
+	if NP.any(NP.isnan(PROCESSED_DATA)):
+		raise ValueError("[WARNING] // NaN values found in texture data; Issues may ensue.")
+		PROCESSED_DATA = NP.nan_to_num(PROCESSED_DATA)
+
+	if TYPE == "DEPTH":
+		PROCESSED_DATA = NP.stack((PROCESSED_DATA,) * 3, axis=-1)
+		
+	return PROCESSED_DATA
+
+
+
+
+
+def CREATE_TEXTURE_FROM_DATA(DATA, GL_TYPE=GL_RGB, FILTER=GL_LINEAR, DATA_TYPE=GL_UNSIGNED_BYTE):
+	TEXTURE_ID = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D, TEXTURE_ID)
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, FILTER)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, FILTER)
+
+	# Ensure that the input data is a NumPy array
+	if not isinstance(DATA, NP.ndarray):
+		raise ValueError("DATA must be a NumPy array.")
+	
+	# Check for supported data types
+	if DATA.dtype not in [NP.uint8, NP.float32]:
+		raise ValueError("DATA must be of type np.uint8 or np.float32.")
+
+	# Adjust the OpenGL data type based on the NumPy data type
+	if DATA.dtype == NP.uint8:
+		DATA_TYPE = GL_UNSIGNED_BYTE
+	elif DATA.dtype == NP.float32:
+		DATA_TYPE = GL_FLOAT
+
+	# Validate the shape of the data array
+	if DATA.ndim not in [3, 4] or DATA.shape[2] not in [3, 4]:
+		print(DATA.shape, DATA.ndim)
+		raise ValueError("DATA must be a 3D array with 3 or 4 channels.")
+
+	# Adjust the internal format for floating-point data
+	if DATA_TYPE == GL_FLOAT:
+		if GL_TYPE == GL_RGB:
+			INTERNAL_FORMAT = GL_RGB32F
+		elif GL_TYPE == GL_RGBA:
+			INTERNAL_FORMAT = GL_RGBA32F
+		else:
+			raise ValueError("Unsupported GL_TYPE for float data.")
+	else:
+		INTERNAL_FORMAT = GL_TYPE
+
+	# Upload the texture data to the GPU
+	glTexImage2D(GL_TEXTURE_2D, 0, INTERNAL_FORMAT, DATA.shape[1], DATA.shape[0], 0, GL_TYPE, DATA_TYPE, DATA)
+
+	glBindTexture(GL_TEXTURE_2D, 0)
+
+	return TEXTURE_ID
 
 
 def CALC_VIEW_MATRIX(CAMERA_POSITION, CAMERA_ROTATION):
@@ -79,8 +193,8 @@ def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
 	ADJACENT = SPRITE_POSITION.X - PLAYER_POSITION.X
 	
 	PLAYER_SPRITE_ANGLE = -1 * maths.atan2(OPPOSITE, ADJACENT)
-	ANGLE_A = PLAYER_SPRITE_ANGLE + (π / 2)
-	ANGLE_B = PLAYER_SPRITE_ANGLE - (π / 2)
+	ANGLE_A = PLAYER_SPRITE_ANGLE + utils.πDIV2
+	ANGLE_B = PLAYER_SPRITE_ANGLE - utils.πDIV2
 	
 	LEFT_SIDE_X = SPRITE_POSITION.X + ((SPRITE_DIMENTIONS.X / 2) * maths.cos(ANGLE_A))
 	LEFT_SIDE_Z = SPRITE_POSITION.Z + ((SPRITE_DIMENTIONS.X / 2) * maths.sin(ANGLE_B))
@@ -94,6 +208,47 @@ def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
 			VECTOR_3D(RIGHT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, RIGHT_SIDE_Z),
 			VECTOR_3D(LEFT_SIDE_X, SPRITE_POSITION.Y + SPRITE_DIMENTIONS.Y, LEFT_SIDE_Z)
 		)
+
+
+def SET_PYGAME_CONTEXT(SHEET_NAME):
+	DISPLAY_RESOLUTION = CONSTANTS["DISPLAY_RESOLUTION"]
+	RENDER_RESOLUTION = CONSTANTS["RENDER_RESOLUTION"]
+
+	PG.display.gl_set_attribute(PG.GL_CONTEXT_MAJOR_VERSION, 3)
+	PG.display.gl_set_attribute(PG.GL_CONTEXT_MINOR_VERSION, 3)
+	PG.display.gl_set_attribute(PG.GL_CONTEXT_PROFILE_MASK, PG.GL_CONTEXT_PROFILE_CORE)
+
+
+		
+	SCENE_SHADER, QUAD_SHADER = SHADER_INIT(SCENE=True, QUAD=True)
+	VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE = FBO_QUAD_INIT(RENDER_RESOLUTION)
+	CURRENT_SHEET_ID = texture_load.LOAD_SHEET(SHEET_NAME)
+
+
+	VAO_SCENE, VBO_SCENE, EBO_SCENE = BUFFERS_INIT()
+	glEnable(GL_DEPTH_TEST)
+	glDepthFunc(GL_LESS)
+	glEnable(GL_BLEND)
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+	if CONSTANTS["FACE_CULLING"]: #Only culls faces if the prefs file states it should, mostly for debugging and to help with scene designing.
+		glEnable(GL_CULL_FACE)
+		glCullFace(GL_BACK)
+	glMatrixMode(GL_PROJECTION)
+	glLoadIdentity()
+	gluPerspective(PREFERENCES["FOV"], DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y, CONSTANTS["MIN_VIEW_DIST"], CONSTANTS["MAX_VIEW_DIST"])  # Example parameters
+	glMatrixMode(GL_MODELVIEW)
+	MODEL_MATRIX = Matrix44.identity()
+	glLoadIdentity()
+	
+	PROJECTION_MATRIX = Matrix44.perspective_projection(
+		PREFERENCES["FOV"],
+		(DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y),
+		CONSTANTS["MIN_VIEW_DIST"],
+		CONSTANTS["MAX_VIEW_DIST"]
+	)
+
+	return (SCENE_SHADER, QUAD_SHADER), (VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE), CURRENT_SHEET_ID, (VAO_SCENE, VBO_SCENE, EBO_SCENE), (MODEL_MATRIX, PROJECTION_MATRIX)
 
 
 
@@ -127,73 +282,100 @@ def SURFACE_TO_TEXTURE(SURFACE, RESOLUTION):
 	return FINAL_ID
 
 
-def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0, DEBUG=False):
+def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANCE=1.0, DEBUG=False, ZIP=False, ZIP_PATH=""):
 	glBindTexture(GL_TEXTURE_2D, MAP)
+
+	if ZIP: BUFFER = io.BytesIO()
 	
-	if MAP_TYPE == "DEPTH":
-		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT)
-		DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
-		DATA = NP.flipud(DATA)
-		if DEBUG: print("Depth data before normalization:\n", DATA)
-		glBindTexture(GL_TEXTURE_2D, 0)
+	match MAP_TYPE:
+		case "DEPTH":
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT)
+			DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X))
+			DATA = NP.flipud(DATA)
+			if DEBUG: print("Depth data before normalization:\n", DATA)
 
-		# Normalize depth data and ensure no NaN values
-		DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
-		DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
-		if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
-		if DEPTH_MIN == DEPTH_MAX:
-			NORMALISED_DATA = NP.zeros_like(DATA)
-		else:
-			NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
-			if DEBUG: print(NORMALISED_DATA)
+			# Normalize depth data and ensure no NaN values
+			DEPTH_MIN = utils.CLAMP(NP.min(DATA), MIN_DISTANCE, MAX_DISTANCE)
+			DEPTH_MAX = utils.CLAMP(NP.max(DATA), MIN_DISTANCE, MAX_DISTANCE)
+			if DEBUG: print(f"Depth range: min={DEPTH_MIN}, max={DEPTH_MAX}")
+			if DEPTH_MIN == DEPTH_MAX:
+				NORMALISED_DATA = NP.zeros_like(DATA)
+			else:
+				NORMALISED_DATA = (DATA - DEPTH_MIN) / (DEPTH_MAX - DEPTH_MIN + 1e-7)
+				if DEBUG: print(NORMALISED_DATA)
 
-		if NP.any(NP.isnan(NORMALISED_DATA)):
-			raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
-			NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
+			if NP.any(NP.isnan(NORMALISED_DATA)):
+				raise ValueError("[WARNING] // NaN values found in depth data; Issues may ensue.")
+				NORMALISED_DATA = NP.nan_to_num(NORMALISED_DATA)
+			
+			IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
+
+			del NORMALISED_DATA, DEPTH_MIN, DEPTH_MAX
+			
+		case "NORMAL":
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
+			DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+			if DEBUG: print("Normal data before processing:\n", DATA)
+
+			DATA = NP.flipud(DATA)
+
+			#Scale normals from [-1, 1] to [0, 255] for visualization
+			NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
+
+			if NP.any(NP.isnan(DATA)):
+				raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
+
+			IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
+			del NORMAL_DATA_VIS
 		
-		IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
+		case "COLOUR":
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
+			DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
+			if DEBUG: print("Colour data before processing:\n", DATA)
 
-		del NORMALISED_DATA, DEPTH_MIN, DEPTH_MAX
-		
-	elif MAP_TYPE == "NORMAL":
-		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT)
-		DATA = NP.frombuffer(DATA, dtype=NP.float32).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-		if DEBUG: print("Normal data before processing:\n", DATA)
-		glBindTexture(GL_TEXTURE_2D, 0)
+			# Flip the image data vertically
+			DATA = NP.flipud(DATA)
 
-		DATA = NP.flipud(DATA)
+			if NP.any(NP.isnan(DATA)):
+				raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
 
-		#Scale normals from [-1, 1] to [0, 255] for visualization
-		NORMAL_DATA_VIS = ((DATA + 1) / 2 * 255).astype(NP.uint8)
+			IMAGE = Image.fromarray(DATA, mode='RGB')
 
-		if NP.any(NP.isnan(DATA)):
-			raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
+		case "COLOUR_RGBA":
+			DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE)
+			DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 4)
+			if DEBUG: print("Colour data before processing:\n", DATA)
 
-		IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
-		del NORMAL_DATA_VIS
+			# Flip the image data vertically
+			DATA = NP.flipud(DATA)
+
+			if NP.any(NP.isnan(DATA)):
+				raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
+
+			IMAGE = Image.fromarray(DATA, mode='RGBA')
+
+		case _:
+			raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'DEPTH', 'NORMAL', 'COLOUR', or 'COLOUR_RGBA'.")
 	
-	elif MAP_TYPE == "COLOUR":
-		DATA = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE)
-		DATA = NP.frombuffer(DATA, dtype=NP.uint8).reshape(int(RESOLUTION.Y), int(RESOLUTION.X), 3)
-		if DEBUG: print("Colour data before processing:\n", DATA)
-		glBindTexture(GL_TEXTURE_2D, 0)
 
-		# Flip the image data vertically
-		DATA = NP.flipud(DATA)
+	if ZIP:
+		IMAGE.save(BUFFER, format="jpeg")
+		IMAGE_BYTES = BUFFER.getvalue()
+		BUFFER.close()
 
-		if NP.any(NP.isnan(DATA)):
-			raise ValueError("[WARNING] // NaN values found in colour data; Issues may ensue.")
-
-		IMAGE = Image.fromarray(DATA, mode='RGB')
+		with zipfile.ZipFile(ZIP_PATH, "a", zipfile.ZIP_DEFLATED) as ZIP_FILE:
+			ZIP_FILE.writestr(FILE_NAME, IMAGE_BYTES)
 
 	else:
-		raise ValueError("[ERROR] // Invalid MAP_TYPE specified. Use 'depth', 'normal', or 'color'.")
-	
-	IMAGE.save(FILE_NAME)
+		IMAGE.save(FILE_NAME)
+
+
 	if DEBUG:
 		IMAGE.show()
 
 	del IMAGE, DATA
+
+	glBindTexture(GL_TEXTURE_2D, 0)
 
 
 
@@ -339,39 +521,46 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURES=None, POINTS=None):
 
 #Shader loading functions
 
-
-def LOAD_SHADER_SOURCE(FILE_PATH):
-	with open(FILE_PATH, 'r') as FILE:
-		SOURCE = FILE.read()
-	return SOURCE
-
-
-
-def SHADER_INIT():
-	GLSL_PATH = utils.GET_GLSL_PATH()
+def SHADER_INIT(SCENE=False, QUAD=False, SHADOW=False):
+	def LOAD_SHADER_SOURCE(FILE_PATH):
+		with open(FILE_PATH, 'r') as FILE:
+			SOURCE = FILE.read()
+		return SOURCE
 	
+	#Get filepath to ..\src\exct\glsl\
+	GLSL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glsl')
+	
+	SHADERS = []
+
 	#Scene Shaders
-	SCENE_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\scene_vertex_shader.glsl")
-	SCENE_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\scene_fragment_shader.glsl")
-	SCENE_VERTEX_SHADER_COMPILED = compileShader(SCENE_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
-	SCENE_FRAGMENT_SHADER_COMPILED = compileShader(SCENE_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
-	SCENE_SHADER = compileProgram(SCENE_VERTEX_SHADER_COMPILED, SCENE_FRAGMENT_SHADER_COMPILED)
+	if SCENE:
+		SCENE_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\scene_vertex_shader.glsl")
+		SCENE_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\scene_fragment_shader.glsl")
+		SCENE_VERTEX_SHADER_COMPILED = compileShader(SCENE_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
+		SCENE_FRAGMENT_SHADER_COMPILED = compileShader(SCENE_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
+		SCENE_SHADER = compileProgram(SCENE_VERTEX_SHADER_COMPILED, SCENE_FRAGMENT_SHADER_COMPILED)
+		SHADERS.append(SCENE_SHADER)
 
-	#Quad Shaders
-	QUAD_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\quad_vertex_shader.glsl")
-	QUAD_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\quad_fragment_shader.glsl")
-	QUAD_VERTEX_SHADER_COMPILED = compileShader(QUAD_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
-	QUAD_FRAGMENT_SHADER_COMPILED = compileShader(QUAD_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
-	QUAD_SHADER = compileProgram(QUAD_VERTEX_SHADER_COMPILED, QUAD_FRAGMENT_SHADER_COMPILED)
+	if QUAD:
+		#Quad Shaders
+		QUAD_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\quad_vertex_shader.glsl")
+		QUAD_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\quad_fragment_shader.glsl")
+		QUAD_VERTEX_SHADER_COMPILED = compileShader(QUAD_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
+		QUAD_FRAGMENT_SHADER_COMPILED = compileShader(QUAD_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
+		QUAD_SHADER = compileProgram(QUAD_VERTEX_SHADER_COMPILED, QUAD_FRAGMENT_SHADER_COMPILED)
+		SHADERS.append(QUAD_SHADER)
 
-	#Shadow Shaders
-	SHADOW_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\shadow_vertex_shader.glsl")
-	SHADOW_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\shadow_fragment_shader.glsl")
-	SHADOW_VERTEX_SHADER_COMPILED = compileShader(SHADOW_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
-	SHADOW_FRAGMENT_SHADER_COMPILED = compileShader(SHADOW_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
-	SHADOW_SHADER = compileProgram(SHADOW_VERTEX_SHADER_COMPILED, SHADOW_FRAGMENT_SHADER_COMPILED)
+	if SHADOW:
+		#Shadow Shaders
+		SHADOW_VERTEX_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\shadow_vertex_shader.glsl")
+		SHADOW_FRAGMENT_SHADER_SOURCE = LOAD_SHADER_SOURCE(f"{GLSL_PATH}\\shadow_fragment_shader.glsl")
+		SHADOW_VERTEX_SHADER_COMPILED = compileShader(SHADOW_VERTEX_SHADER_SOURCE, GL_VERTEX_SHADER)
+		SHADOW_FRAGMENT_SHADER_COMPILED = compileShader(SHADOW_FRAGMENT_SHADER_SOURCE, GL_FRAGMENT_SHADER)
+		SHADOW_SHADER = compileProgram(SHADOW_VERTEX_SHADER_COMPILED, SHADOW_FRAGMENT_SHADER_COMPILED)
+		SHADERS.append(SHADOW_SHADER)
 
-	return SCENE_SHADER, QUAD_SHADER, SHADOW_SHADER
+	#Return any shaders required, and if only 1, return that shader alone.
+	return SHADERS if len(SHADERS) > 1 else SHADERS[0]
 
 
 
@@ -454,17 +643,15 @@ def CREATE_FBO(SIZE, DEPTH=False, NORMALS=False):
 	if DEPTH:
 		DTB = glGenTextures(1)
 		glBindTexture(GL_TEXTURE_2D, DTB)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, int(SIZE.X), int(SIZE.Y), 0, GL_DEPTH_COMPONENT, GL_FLOAT, None)
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, int(SIZE.X), int(SIZE.Y), 0, GL_RED, GL_FLOAT, None)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 		glBindTexture(GL_TEXTURE_2D, 0)
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, DTB, 0)
-		glDrawBuffer(GL_NONE)
-		glReadBuffer(GL_NONE)
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DTB, 0)
+		glDrawBuffers(1, [GL_COLOR_ATTACHMENT0])
 
 	else:
 		TCB = glGenTextures(1)
@@ -522,20 +709,21 @@ def BUFFERS_INIT(VERTICES=None, INDICES=None, NORMALS=False):
 	else:
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER_SIZE_INITIAL, None, GL_DYNAMIC_DRAW)  # Initialize with a default size
 
-	stride = (3 + 2 + 3) * 4  # 3 position floats, 2 texture coordinate floats, 3 normal floats, each float is 4 bytes
-	offset = 0
+	STRIDE = (3 + 2 + 3) * 4  # 3 position floats, 2 texture coordinate floats, 3 normal floats, each float is 4 bytes
+	OFFSET = 0
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	#Vertex Position XYZ
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, ctypes.c_void_p(OFFSET))
 	glEnableVertexAttribArray(0)
-	offset += 3 * 4  # Move offset to account for positions (3 floats * 4 bytes)
+	OFFSET += 3 * 4
 
-	# Texture coordinate attribute (location = 1)
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	#Texture Coordinate XY
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, STRIDE, ctypes.c_void_p(OFFSET))
 	glEnableVertexAttribArray(1)
-	offset += 2 * 4  # Move offset to account for texture coordinates (2 floats * 4 bytes)
+	OFFSET += 2 * 4
 
-	# Normal attribute (location = 2)
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(offset))
+	#Vertex Normal XYZ
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, STRIDE, ctypes.c_void_p(OFFSET))
 	glEnableVertexAttribArray(2)
 
 
@@ -577,7 +765,7 @@ def UPDATE_BUFFERS(UNPROCESSED_VERTS, UNPROCESSED_INDICES, VBO, EBO):
 #Shadowmap creation
 
 
-def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID):
+def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SHADOWMAP_RESOLUTION, ENV_VAO_INDICES, SHEET_ID, LIGHT):
 	#Bind the framebuffer for rendering
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO_SHADOW)
 	glViewport(0, 0, int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y))
@@ -587,15 +775,23 @@ def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SH
 	glUseProgram(SHADOW_SHADER)
 
 	#Set the shader uniform for the depth MVP matrix
-	PROJECTION_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "projection")
-	VIEW_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "view")
-	MODEL_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "model")
+	PROJECTION_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "PROJECTION")
+	VIEW_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "VIEW")
+	MODEL_MATRIX_LOC = glGetUniformLocation(SHADOW_SHADER, "MODEL")
+	LIGHT_POSITION_LOC = glGetUniformLocation(SHADOW_SHADER, "LIGHT_POSITION")
+	MAX_DIST_LOC = glGetUniformLocation(SHADOW_SHADER, "MAX_DIST")
 	glUniformMatrix4fv(PROJECTION_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(PROJECTION))
 	glUniformMatrix4fv(VIEW_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(VIEW))
 	glUniformMatrix4fv(MODEL_MATRIX_LOC, 1, GL_FALSE, Matrix44.identity())
 
+	glUniform3fv(LIGHT_POSITION_LOC, 1, glm.value_ptr(LIGHT.POSITION.CONVERT_TO_GLM_VEC3()))
+	glUniform3f(LIGHT_POSITION_LOC, LIGHT.POSITION.X, LIGHT.POSITION.Y, LIGHT.POSITION.Z)
+
+	glUniform1f(MAX_DIST_LOC, LIGHT.MAX_DISTANCE)
+
+
 	#Set the shader uniform for the texture
-	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'screenTexture')
+	TEXTURE_LOC = glGetUniformLocation(SHADOW_SHADER, 'TEXTURE')
 	glUniform1i(TEXTURE_LOC, 0)
 
 	#Activate and bind the texture
@@ -617,8 +813,10 @@ def RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, PROJECTION, VIEW, FBO_SHADOW, SH
 
 
 
-def CREATE_LIGHT_MAPS(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, SHEET_ID):
-	SCREEN = PG.display.set_mode(SHADOWMAP_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | HIDDEN)
+def CREATE_LIGHT_MAPS(SURFACE, I, LIGHT, VAO_DATA, SHEET_DATA):
+	SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
+	glfw.make_context_current(SURFACE)
+	
 
 	glEnable(GL_DEPTH_TEST)
 	glDepthFunc(GL_LESS)
@@ -627,28 +825,35 @@ def CREATE_LIGHT_MAPS(LIGHT, VAO_DATA, SHADOW_SHADER, SHADOWMAP_RESOLUTION, SHEE
 	glAlphaFunc(GL_GREATER, 0.5)
 	glEnable(GL_BLEND)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-	glEnable(GL_POLYGON_OFFSET_FILL)
-	glPolygonOffset(10, 1)
+	#glEnable(GL_POLYGON_OFFSET_FILL)
+	#glPolygonOffset(10.0, 1.0)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
 
-	VAO_SHADOW, VBO_SHADOW, EBO_SHADOW = BUFFERS_INIT(VERTICES=VAO_DATA[0], INDICES=VAO_DATA[1], NORMALS=True)
-	FBO_SHADOW, _, DTB_SHADOW, _, _ = CREATE_FBO(SHADOWMAP_RESOLUTION, DEPTH=True)
+	VAO_SHADOW, VBO_SHADOW, EBO_SHADOW = BUFFERS_INIT(VERTICES=VAO_DATA[0], INDICES=VAO_DATA[1])
+	FBO_SHADOW, DTB_SHADOW, _, _, _ = CREATE_FBO(SHADOWMAP_RESOLUTION)
+	SHADOW_SHADER = SHADER_INIT(SHADOW=True)
 
-	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, 0.1, LIGHT.MAX_DISTANCE).tolist())
+	SHEET_ID = CREATE_TEXTURE_FROM_DATA(SHEET_DATA, GL_TYPE=GL_RGBA)
+
+
+	LIGHT_PROJECTION_MATRIX = glm.mat4(Matrix44.perspective_projection(LIGHT.FOV, SHADOWMAP_RESOLUTION.X / SHADOWMAP_RESOLUTION.Y, LIGHT.MAX_DISTANCE/100, LIGHT.MAX_DISTANCE).tolist())
 	LIGHT_VIEW_MATRIX = glm.lookAt(LIGHT.POSITION.CONVERT_TO_GLM_VEC3(), LIGHT.LOOK_AT.CONVERT_TO_GLM_VEC3(), glm.vec3(0.0, 1.0, 0.0))
 	
 	DEPTH_SPACE_MATRIX = LIGHT_PROJECTION_MATRIX * LIGHT_VIEW_MATRIX
 	DEPTH_MVP_MATRIX = DEPTH_SPACE_MATRIX * glm.mat4(1.0) #Projection Matrix * View Matrix * Model Matrix -> M-V-P Matrix for shader.
 
-	RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, LIGHT_PROJECTION_MATRIX, LIGHT_VIEW_MATRIX, FBO_SHADOW, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID)
+
+	RENDER_DEPTH_MAP(VAO_SHADOW, SHADOW_SHADER, LIGHT_PROJECTION_MATRIX, LIGHT_VIEW_MATRIX, FBO_SHADOW, SHADOWMAP_RESOLUTION, VAO_DATA[1], SHEET_ID, LIGHT)
+
+
+	if PREFERENCES["DEBUG_MAPS"]:
+		SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], DTB_SHADOW, f"screenshots\\debug_maps\\depth_map_{I}.png", "COLOUR_RGBA", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)
 
 	LIGHT.SPACE_MATRIX = DEPTH_SPACE_MATRIX
+	LIGHT.SHADOW_MAP_DATA = GET_TEXTURE_DATA(DTB_SHADOW, SHADOWMAP_RESOLUTION, "DEPTH")
 
-	#Disable these, as they are reassigned as needed for the main FBO.
-	glDisable(GL_DEPTH_TEST)
-	glDisable(GL_ALPHA_TEST)
-	glDisable(GL_BLEND)
-	glDisable(GL_POLYGON_OFFSET_FILL)
 
-	return DTB_SHADOW, LIGHT
+	glfw.terminate()
+
+	return LIGHT

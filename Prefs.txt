@@ -27,8 +27,9 @@ PROFILER_DEBUG = False
 
 
 /Broken/Other/Strange
-DEV_TEST = True
+DEV_TEST = False
 /^^ Doesn't acctually do anything anymore, feel free to try I suppose.
 /Don't expect much to happen. L_TRIGGER/RETURN shows normals data though.
+
 DYNAMIC_SHADOWS = False
 /^^ Warning; VERY broken, and if not causes you a LOT of lag. Use at own risk.

@@ -9,24 +9,37 @@ Importing other files;
 -log.py
 -utils.py
 """
-#Importing Internal modules
-from imgs import texture_load
-from exct import log, utils, render
-from exct.utils import *
 
-#Importing External modules
-import os, sys
-CURRENT_DIR = os.path.dirname(__file__)
-PARENT_DIR = os.path.dirname(CURRENT_DIR)
-sys.path.append(PARENT_DIR)
-sys.path.append("modules.zip")
+import sys, os
+import math as maths
+import zipfile
+import io
+import copy
 import numpy as NP
 
-print("Imported Sub-file // scene.py")
+#Load log.py, from the subfolder \src\exct\
+sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+from exct import log
+#Load modules stored in \src\modules\
+import glm, glfw
 
+import pygame as PG
+from pygame import time, joystick, display, image
 
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL.shaders import compileProgram, compileShader
 
-global OVERHANG
+from PIL import Image
+
+from pyrr import Matrix44, Vector3, Vector4
+
+from exct.utils import *
+from imgs import texture_load
+from exct import log, utils, render
+
+log.REPORT_IMPORT("scene.py")
+
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 OVERHANG = 1
 
@@ -34,19 +47,22 @@ FORMATTING = {
 	0:  (SCENE, ("rgba", "int", "int")),			 									#Scene data (skybox, lighting etc)
 	1:  (PLAYER, ("vect", "vect", "list")), 											#Playerdata
 	2:  (CUBE_STATIC, ("vect", "vect", "bool", "texture")), 							#Static cube
-	3:  (QUAD, ("vect", "vect", "vect", "vect", "bool", "texture")), 					#Quad
+	3:  (QUAD, ("vect", "vect", "vect", "vect", "bool", "texture")), 					#Quad/Plane
 	4:  (TRI, ("vect", "vect", "vect", "bool", "texture")), 							#Triangle
 	5:  (SPRITE_STATIC, ("vect", "vect", "texture")), 									#Static Sprite
-	6:  (ITEM, ("vect", "hex", "str", "texture")), 										#Item
-	7:  (TRIGGER, ("vect", "vect", "str")), 											#Trigger
+	6:  (ITEM, ("vect", "hex", "str", "texture")), 										#Item/Suppli-Object
+	7:  (TRIGGER, ("vect", "vect", "str")), 											#Trigger Box
 	8:  (INTERACTABLE, ("vect", "vect", "vect", "vect", "str", "bool", "texture")), 	#Interactable
-	9:  (CUBE_PATH, ("vect", "vect", "vect", "int", "str", "texture")),	 				#Moving surface (i.e. door)
-	10: (ENEMY, ("vect", "vect", "str", "texture")),									#Hostile
-	11: (CUBE_PHYSICS, ("vect", "vect", "float", "texture")), 							#Phys-cube
-	12: (LIGHT, ("vect", "vect", "rgba", "float", "float", "float", "str")),			#Light
+	9:  (CUBE_PATH, ("vect", "vect", "vect", "float", "int", "str", "texture")),		#Moving surface (i.e. door)
+	10: (ENEMY, ("vect", "vect", "str", "texture")),									#Hostile Enemy
+	11: (CUBE_PHYSICS, ("vect", "vect", "float", "texture")), 							#Physics cube
+	12: (LIGHT, ("vect", "vect", "rgba", "float", "float", "float", "str")),			#Light object
 	13: (NPC_PATH_NODE, ("vect", "hex", "list")),  										#NPC Path node
-	14: (None, ()),																		#Unused
-	15: (None, ())																		#Unused
+	14: (LOGIC, ("str", "str", "str", "str")),											#Flag-Logic gate (Not rendered.)
+	15: (None, ()),																		#Unused, Placeholder
+	#Unavailable in file, but here for the sake of completeness.						--------------------
+	16: (PROJECTILE, ("vect", "float", "vect", "str", "texture")),						#Projectile
+	17: (EXPLOSION, ("vect", "vect", "float", "float", "texture")),						#Explosion
 }
 
 
@@ -55,13 +71,12 @@ FORMATTING = {
 
 
 def PREPARE_SCENE(SCENE_NAME):
-	RENDER_DATA, PHYS_DATA, SHEET_ID = LOAD_FILE(SCENE_NAME)
-	CURRENT_SHEET_ID = texture_load.LOAD_SHEET(SHEET_ID)
+	RENDER_DATA, PHYS_DATA, SHEET_NAME = LOAD_FILE(SCENE_NAME)
 	for OBJECT_ID, OBJECT in PHYS_DATA[0].items():
 		if type(OBJECT) == PLAYER:
 			PLAYER_ID = OBJECT.ID
 
-	return RENDER_DATA, PHYS_DATA, CURRENT_SHEET_ID, PLAYER_ID
+	return RENDER_DATA, PHYS_DATA, SHEET_NAME, PLAYER_ID
 
 
 
@@ -202,12 +217,13 @@ def LOAD_FILE(FILE_NAME):
 						CENTRE = OBJECT_DATA[0]
 						DIMENTIONS = OBJECT_DATA[1]
 						MOVEMENT = OBJECT_DATA[2]
-						SPEED = OBJECT_DATA[3]
-						FLAG = OBJECT_DATA[4]
-						for TEXTURE in OBJECT_DATA[5]:
+						MAX_DISTANCE = OBJECT_DATA[3]
+						SPEED = OBJECT_DATA[4]
+						FLAG = OBJECT_DATA[5]
+						for TEXTURE in OBJECT_DATA[6]:
 							CURRENT_TEXTURE_DATA.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
 
-						FINALISED_OBJECT = CUBE_PATH(CURRENT_ID, CENTRE, DIMENTIONS, CURRENT_TEXTURE_DATA, MOVEMENT, SPEED, FLAG)
+						FINALISED_OBJECT = CUBE_PATH(CURRENT_ID, CENTRE, DIMENTIONS, CURRENT_TEXTURE_DATA, MOVEMENT, SPEED, FLAG, MAX_DISTANCE)
 
 					elif CLASS_TYPE == SPRITE_STATIC:
 						CENTRE = OBJECT_DATA[0]

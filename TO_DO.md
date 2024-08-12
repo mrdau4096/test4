@@ -12,13 +12,10 @@
 
 
 ## Bugs;
-- Add support for more texture sheets.
-- Dynamic shadows still do not work.
-
+N/A
 
 
 ## Testing TO-DO;
 - Mem-Profile & Process-Profile for an extended period, with large quantity of triangles (scene-m3.dat?)
-- Test with no systemwide pip3.10 installed modules.
 - Test on the laptop (slow-hardware test)
 - Test in a VM (mid-hardware test?)

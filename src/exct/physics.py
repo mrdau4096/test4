@@ -12,21 +12,35 @@ Importing other files;
 -log.py
 -utils.py
 """
-import sys, copy
+import sys, os
 import math as maths
+import zipfile
+import io
+import copy
+import numpy as NP
+
+#Load log.py, from the subfolder \src\exct\
+sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+from exct import log
+#Load modules stored in \src\modules\
+import glm, glfw
+
+import pygame as PG
+from pygame import time, joystick, display, image
+
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL.shaders import compileProgram, compileShader
+
+from PIL import Image
+
+from pyrr import Matrix44, Vector3, Vector4
+
+
 from exct import log, utils, render
 from scenes import scene
 from exct.utils import *
-
-
-sys.path.append("modules.zip")
-import pygame as PG
-from pygame.locals import *
-from pygame import *
-import numpy as NP
-
-print("Imported Sub-file // physics.py")
-
+log.REPORT_IMPORT("physics.py")
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 
 

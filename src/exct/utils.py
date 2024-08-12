@@ -8,32 +8,44 @@ Imports Modules;
 -Math
 -NumPy
 """
+
+import sys, os
 import math as maths
-import random
-import os, sys
+import zipfile
+import io
+import copy
+import numpy as NP
+
+#Load log.py, from the subfolder \src\exct\
+sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
+from exct import log
+#Load modules stored in \src\modules\
+import glm, glfw
+
+import pygame as PG
+from pygame import time, joystick, display, image
+
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL.shaders import compileProgram, compileShader
+
+from PIL import Image
+
+from pyrr import Matrix44, Vector3, Vector4
+
+log.REPORT_IMPORT("utils.py")
+
 
 π = maths.pi
 πDIV2 = π / 2
-
-sys.path.append("modules")
-from pyrr import Matrix44, Vector3, Vector4
-import numpy as NP
-import glm
-
+πMUL2 = π * 2
+πPOW2 = π ** 2
 
 #Mathematical functions
 
 
 def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almost exclusively for camera angle.
-	match VARIABLE:
-		case N if N > UPPER:
-			return UPPER
-		
-		case N if N < LOWER:
-			return LOWER
-		
-		case _:
-			return VARIABLE
+	return max(LOWER, min(VARIABLE, UPPER))
 
 
 def JOYSTICK_DEADZONE(JOYSTICK):
@@ -110,51 +122,51 @@ def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
 
 
 def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
-    VERTICES = CUBE.POINTS
-    PHYS_BOX = PHYS_BODY.BOUNDING_BOX
-    CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
-    FACES = {
-        "-Y": ((VERTICES[0], VERTICES[1], VERTICES[2]), (VERTICES[1], VERTICES[3], VERTICES[2])),  # Bottom Face (-Y)
-        "-X": ((VERTICES[0], VERTICES[2], VERTICES[4]), (VERTICES[2], VERTICES[6], VERTICES[4])),  # Left Face (-X)
-        "+X": ((VERTICES[1], VERTICES[3], VERTICES[5]), (VERTICES[3], VERTICES[7], VERTICES[5])),  # Right Face (+X)
-        "+Z": ((VERTICES[0], VERTICES[1], VERTICES[4]), (VERTICES[1], VERTICES[5], VERTICES[4])),  # Front Face (+Z)
-        "-Z": ((VERTICES[2], VERTICES[3], VERTICES[6]), (VERTICES[3], VERTICES[7], VERTICES[6])),  # Back Face (-Z)
-        "+Y": ((VERTICES[4], VERTICES[5], VERTICES[6]), (VERTICES[5], VERTICES[7], VERTICES[6])),  # Top Face (+Y)
-    }
+	VERTICES = CUBE.POINTS
+	PHYS_BOX = PHYS_BODY.BOUNDING_BOX
+	CUBE_CENTRE = (VERTICES[0] + VERTICES[7]) / 2
+	FACES = {
+		"-Y": ((VERTICES[0], VERTICES[1], VERTICES[2]), (VERTICES[1], VERTICES[3], VERTICES[2])),  # Bottom Face (-Y)
+		"-X": ((VERTICES[0], VERTICES[2], VERTICES[4]), (VERTICES[2], VERTICES[6], VERTICES[4])),  # Left Face (-X)
+		"+X": ((VERTICES[1], VERTICES[3], VERTICES[5]), (VERTICES[3], VERTICES[7], VERTICES[5])),  # Right Face (+X)
+		"+Z": ((VERTICES[0], VERTICES[1], VERTICES[4]), (VERTICES[1], VERTICES[5], VERTICES[4])),  # Front Face (+Z)
+		"-Z": ((VERTICES[2], VERTICES[3], VERTICES[6]), (VERTICES[3], VERTICES[7], VERTICES[6])),  # Back Face (-Z)
+		"+Y": ((VERTICES[4], VERTICES[5], VERTICES[6]), (VERTICES[5], VERTICES[7], VERTICES[6])),  # Top Face (+Y)
+	}
 
-    CLOSEST_DIR, MIN_DIST = None, float("inf")
+	CLOSEST_DIR, MIN_DIST = None, float("inf")
 
-    DIRECTIONS = ("-Y", "-X", "+X", "+Z", "-Z", "+Y")
+	DIRECTIONS = ("-Y", "-X", "+X", "+Z", "-Z", "+Y")
 
-    DISTANCES = {
-        "+Y": abs(PHYS_BOX.MIN_Y - CUBE.POINTS[0].Y),
-        "+X": abs(PHYS_BOX.MIN_X - CUBE.POINTS[0].X),
-        "-X": abs(CUBE.POINTS[7].X - PHYS_BOX.MAX_X),
-        "+Z": abs(CUBE.POINTS[7].Z - PHYS_BOX.MAX_Z),
-        "-Z": abs(PHYS_BOX.MIN_Z - CUBE.POINTS[0].Z),
-        "-Y": abs(CUBE.POINTS[7].Y - PHYS_BOX.MAX_Y),
-    }
+	DISTANCES = {
+		"+Y": abs(PHYS_BOX.MIN_Y - CUBE.POINTS[0].Y),
+		"+X": abs(PHYS_BOX.MIN_X - CUBE.POINTS[0].X),
+		"-X": abs(CUBE.POINTS[7].X - PHYS_BOX.MAX_X),
+		"+Z": abs(CUBE.POINTS[7].Z - PHYS_BOX.MAX_Z),
+		"-Z": abs(PHYS_BOX.MIN_Z - CUBE.POINTS[0].Z),
+		"-Y": abs(CUBE.POINTS[7].Y - PHYS_BOX.MAX_Y),
+	}
 
-    # Sort the distances to find the closest face(s)
-    SORTED_DISTANCES = sorted(DISTANCES.items(), key=lambda ITEM: ITEM[1])
-    
-    # Handle the case where multiple faces are at similar distances
-    MIN_DIST_FACES = [SORTED_DISTANCES[0]]
-    for I in range(1, len(SORTED_DISTANCES)):
-        if abs(SORTED_DISTANCES[I][1] - SORTED_DISTANCES[0][1]) < 0.01:
-            MIN_DIST_FACES.append(SORTED_DISTANCES[I])
-        else:
-            break
-    
-    # Select the face based on priority or additional criteria
-    # You can adjust the priority order here if needed
-    FACE_PRIORITY = {"-Y": 5, "+Y": 6, "-X": 2, "+X": 4, "-Z": 1, "+Z": 3}
-    MIN_DIST_FACES.sort(key=lambda ITEM: FACE_PRIORITY[ITEM[0]])
-    
-    CLOSEST_DIR = MIN_DIST_FACES[0][0]
-    if CUBE.ID == 12: print(CLOSEST_DIR)
+	# Sort the distances to find the closest face(s)
+	SORTED_DISTANCES = sorted(DISTANCES.items(), key=lambda ITEM: ITEM[1])
+	
+	# Handle the case where multiple faces are at similar distances
+	MIN_DIST_FACES = [SORTED_DISTANCES[0]]
+	for I in range(1, len(SORTED_DISTANCES)):
+		if abs(SORTED_DISTANCES[I][1] - SORTED_DISTANCES[0][1]) < 0.01:
+			MIN_DIST_FACES.append(SORTED_DISTANCES[I])
+		else:
+			break
+	
+	# Select the face based on priority or additional criteria
+	# You can adjust the priority order here if needed
+	FACE_PRIORITY = {"-Y": 5, "+Y": 6, "-X": 2, "+X": 4, "-Z": 1, "+Z": 3}
+	MIN_DIST_FACES.sort(key=lambda ITEM: FACE_PRIORITY[ITEM[0]])
+	
+	CLOSEST_DIR = MIN_DIST_FACES[0][0]
+	if CUBE.ID == 12: print(CLOSEST_DIR)
 
-    return FACES[CLOSEST_DIR], CUBE.NORMALS[DIRECTIONS.index(CLOSEST_DIR)]
+	return FACES[CLOSEST_DIR], CUBE.NORMALS[DIRECTIONS.index(CLOSEST_DIR)]
 
 
 
@@ -185,12 +197,6 @@ def GET_CUBOID_FACE_INDICES():
 def GET_DATA_PATH():
 	#Path for the ..\\test4.2.2\\exct\\data\\.. data files.
 	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-
-
-
-def GET_GLSL_PATH():
-	#Path for the ..\\test4.2.2\\exct\\glsl\\.. shader files.
-	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glsl')
 
 
 
@@ -442,6 +448,123 @@ class BOUNDING_BOX:
 		return self
 
 
+class RAY:
+	def __init__(self, START_POINT, RAY_TYPE, DIRECTION_VECTOR=None, ANGLE=None, ADVANCE_DISTANCE=0.5):
+		#Optionally direction vector or angle.
+		self.START_POINT = START_POINT
+		self.RAY_TYPE = RAY_TYPE
+
+		if ANGLE is not None:
+			DIRECTION_VECTOR = VECTOR_3D(
+				-sin(ANGLE.X),
+				cos(ANGLE.X) * sin(ANGLE.Y),
+				-cos(ANGLE.X) * cos(ANGLE.Y)
+			)
+
+		elif DIRECTION_VECTOR is None:
+			raise ValueError("RAY must have either a DIRECTION_VECTOR or an ANGLE.")
+			#If handled, set end point to start point.
+			DIRECTION_VECTOR = VECTOR_3D(0.0, 0.0, 0.0)
+
+		self.ADVANCE_VECTOR = DIRECTION_VECTOR * ADVANCE_DISTANCE
+		self.END_POINT = START_POINT + ADVANCE_VECTOR
+
+		BOUNDING_BOX_OBJ = BOUNDING_BOX(FIND_CENTROID((self.START_POINT, self.END_POINT)), (self.START_POINT, self.END_POINT))
+		self.BOUNDING_BOX = BOUNDING_BOX_OBJ
+
+
+	def ADVANCE(self):
+		self.START_POINT += self.ADVANCE_VECTOR
+		self.END_POINT += self.ADVANCE_VECTOR
+
+		BOUNDING_BOX_OBJ = BOUNDING_BOX(FIND_CENTROID((self.START_POINT, self.END_POINT)), (self.START_POINT, self.END_POINT))
+		self.BOUNDING_BOX = BOUNDING_BOX_OBJ
+
+
+	def RAY_VISUAL(self, WIDTH=0.1):
+		VERTICAL_OFFSET = VECTOR_3D(0.0, WIDTH, 0.0)
+		HORIZONTAL_OFFSETS = CALC_SPRITE_POINTS(self.START_POINT, self.END_POINT, VECTOR_2D(WIDTH, 0.0))
+
+		TRI_A = (
+			self.END_POINT,
+			self.START_POINT + VERTICAL_OFFSET,
+			self.START_POINT - VERTICAL_OFFSET
+		)
+
+		TRI_B = (
+			self.END_POINT,
+			self.START_POINT + HORIZONTAL_OFFSET,
+			self.START_POINT - HORIZONTAL_OFFSET
+		)
+
+		return TRI_A, TRI_B
+
+
+class LOGIC:
+	def __init__(self, INPUT_A, INPUT_B, TYPE, OUTPUT_FLAG):
+		self.GATE_TYPE = TYPE
+		self.INPUT_A = INPUT_A
+		self.INPUT_B = INPUT_B
+		self.OUTPUT_FLAG = OUTPUT_FLAG
+
+		self.STATE = False #Only used for [LATCH, SWITCH, PULSE] but good to give all this value.
+
+
+	def UPDATE(self, FLAG_STATES):
+		VALUE_A = FLAG_STATES[self.INPUT_A]
+		VALUE_B = FLAG_STATES[self.INPUT_B] if self.INPUT_B is not None else None
+		#If not applicable (e.g. NOT gate) then VALUE_B is None.
+
+		match self.GATE_TYPE:
+			case "AND": #AND
+				RESULT = VALUE_A and VALUE_B
+
+			case "OR": #OR
+				RESULT = VALUE_A or VALUE_B
+
+			case "NOT": #NOT
+				RESULT = not VALUE_A
+
+			case "NAND": #Not AND
+				RESULT = not (VALUE_A and VALUE_B)
+
+			case "NOR": #Not OR
+				RESULT = not (VALUE_A or VALUE_B)
+
+			case "XOR": #eXclusive OR
+				RESULT = (VALUE_A and (not VALUE_B)) or ((not VALUE_A) and VALUE_B)
+
+			case "LATCH": #JK flip-flop behavior: A sets, B resets the state
+				if VALUE_A and not VALUE_B:
+					self.STATE = True
+				elif VALUE_B and not VALUE_A:
+					self.STATE = False
+
+				RESULT = self.STATE
+
+			case "SWITCH": #Toggles between 2 states with 1 input
+				if VALUE_A:
+					self.STATE = not self.STATE
+				RESULT = self.STATE
+
+			case "PULSE": #Outputs a singular frame if A is true
+				if VALUE_A and not self.STATE:
+					RESULT = True
+					self.STATE = True
+				elif not VALUE_A and self.STATE:
+					self.STATE = False
+					RESULT = False
+				else:
+					RESULT = False
+
+			case _:
+				raise TypeError(f"Invalid flag-logic GATE_TYPE; [{self.GATE_TYPE}]")
+
+
+		FLAG_STATES[self.OUTPUT_FLAG] = RESULT
+		return FLAG_STATES
+
+
 
 #Static Objects
 
@@ -522,17 +645,36 @@ class SPRITE_STATIC(WORLD_OBJECT):
 
 
 class CUBE_PATH(WORLD_OBJECT):
-	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG):
+	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG, MAX_DISTANCE):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		super().__init__(ID, POSITION, True, TEXTURE_INFO=TEXTURE_DATA, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 		
 		self.DIMENTIONS = DIMENTIONS
+		self.MAX_DISTANCE = MAX_DISTANCE
 		self.MOVEMENT = MOVEMENT_VECTOR
-		self.SPEED = SPEED
+		self.SPEED = CLAMP(SPEED, 0.0, MAX_DISTANCE)
 		self.FLAG = FLAG
 		self.TRIGGERED = False
+		self.CURRENT_DISTANCE = 0.0
+
+	def ADVANCE(self, FLAG_STATES):
+		STATE = FLAG_STATES[self.FLAG]
+
+		if STATE and self.CURRENT_DISTANCE < self.MAX_DISTANCE:
+			self.CURRENT_DISTANCE += self.SPEED
+			self.POSITION += self.MOVEMENT * self.SPEED
+
+		elif not STATE and self.CURRENT_DISTANCE > 0:
+			self.CURRENT_DISTANCE -= self.SPEED
+			self.POSITION -= self.MOVEMENT * self.SPEED
+
+		POINTS = FIND_CUBOID_POINTS(self.DIMENTIONS, self.POSITION)
+		BOUNDING_BOX_OBJ = BOUNDING_BOX(self.POSITION, POINTS)
+		NORMALS = FIND_CUBOID_NORMALS(POINTS)
+		super().__init__(self.ID, self.POSITION, True, TEXTURE_INFO=self.TEXTURE_DATA, NORMALS=self.NORMALS, BOUNDING_BOX=self.BOUNDING_BOX_OBJ)
+
 
 	def __repr__(self):
 		return f"<CUBE_PATH: [CENTROID: {self.POSITION} // NORMALS: {self.NORMALS} // COLLISION: {self.COLLISION} // BOUNDING_BOX: {self.BOUNDING_BOX} // VERTICES: {self.POINTS} // MOTION: {self.MOVEMENT} // SPEED: {self.SPEED} // FLAG: {self.FLAG}]>"
