@@ -1,9 +1,11 @@
-cd C:\Users\User\Documents\GitHub\test-4.2.3b
+cd C:\Users\User\Documents\GitHub\test4
 
 REM Run PyInstaller with the specified options
 pyinstaller --onefile ^
-    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src;src" ^
-    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src\modules.zip;modules.zip" ^
+    --add-data "C:\Users\User\Documents\GitHub\test4\src;src" ^
+    --add-data "C:\Users\User\Documents\GitHub\test4\src\modules;modules" ^
+    --hidden-import numpy ^
+    --hidden-import pyrr ^
     main.py
 
 REM Check if the build was successful

@@ -32,7 +32,8 @@ try:
 
 	#Load modules stored in \src\modules\
 	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm, glfw
+	import glm
+	import glfw
 	import pygame as PG
 	from pygame import time, joystick, display, image
 	from OpenGL.GL import *
@@ -46,7 +47,7 @@ try:
 	from exct import render, physics, utils, ui
 	from scenes import scene
 	from exct.utils import *
-
+	
 except ImportError:
 	log.ERROR("main.py", "Initial imports failed.")
 
@@ -67,7 +68,7 @@ except ImportError:
 
 
 def MAIN():
-	#try:
+	try:
 		"""
 		[if main:]
 		Preparing the game:
@@ -554,10 +555,10 @@ def MAIN():
 		PG.mouse.set_visible(True)
 		PG.joystick.quit()
 		PG.quit()
-		quit()
+		sys.exit()
 
-	#except Exception as E:
-		#log.ERROR("Mainloop", E)
+	except Exception as E:
+		log.ERROR("Mainloop", E)
 
 
 
