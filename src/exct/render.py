@@ -282,23 +282,6 @@ def SET_PYGAME_CONTEXT(SHEET_NAME):
 
 
 
-def CLIP_EDGES(TEX_COORD):
-	#Slightly "trims" the edges of a texture, as sometimes a sheet can have colours "leak" between the grid squares (annoyingly so.)
-	CLIP_VALUES = (
-			VECTOR_2D(0.002, 0.002),
-			VECTOR_2D(-0.002, 0.002),
-			VECTOR_2D(-0.002, -0.002),
-			VECTOR_2D(0.002, -0.002)
-		)
-
-	return (
-		TEX_COORD[0] + CLIP_VALUES[0],
-		TEX_COORD[1] + CLIP_VALUES[1],
-		TEX_COORD[2] + CLIP_VALUES[2],
-		TEX_COORD[3] + CLIP_VALUES[3],
-	)
-
-
 
 def SURFACE_TO_TEXTURE(SURFACE, RESOLUTION):
 	#Converts a PG surface's data into an OpenGL texture. Used for the UI conversion.
@@ -438,14 +421,28 @@ def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANC
 
 def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER):
 	#Renders the entire scene, from the positional and texture datas included.
-	ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
-	for ID, PHYS_OBJECT in PHYS_DATA[0].items(): #All physics objects, such as Items and Cubes.
-		ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(PHYS_OBJECT, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES)
-	for ID, DYNAMIC_STATIC in PHYS_DATA[1][1].items(): #All "dynamic statics" such as static sprites, that must face camera.
-		ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(DYNAMIC_STATIC, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES)
+	try:
+		ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
+		NEW_DYNAMIC_STATICS = {}
 
-	return [ENV_VAO_VERTICES, ENV_VAO_INDICES]
+		for ID, PHYS_OBJECT in PHYS_DATA[0].items(): #All physics objects, such as Items and Cubes.
+			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(PHYS_OBJECT, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES)
+		for ID, DYNAMIC_STATIC in PHYS_DATA[1][1].items(): #All "dynamic statics" such as static sprites, that must face camera.
+			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(DYNAMIC_STATIC, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES)
 
+			if type(DYNAMIC_STATIC) == RAY:
+				if DYNAMIC_STATIC.LIFETIME >= CONSTANTS["MAX_RAY_PERSIST_FRAMES"]:
+					continue
+
+			NEW_DYNAMIC_STATICS[ID] = DYNAMIC_STATIC
+
+
+		PHYS_DATA = [PHYS_DATA[0], (PHYS_DATA[1][0], NEW_DYNAMIC_STATICS)]
+
+		return [ENV_VAO_VERTICES, ENV_VAO_INDICES], PHYS_DATA
+
+	except Exception as E:
+		log.ERROR("render.SCENE", E)
 
 
 def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
@@ -483,10 +480,21 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
 
 		COPIED_VERTS, COPIED_INDICES = OBJECT_VAO_MANAGER(OBJECT_DATA, [COPIED_VERTS, COPIED_INDICES], TEXTURES=TEXTURES, POINTS=COORDINATES)
 
-	elif OBJECT_TYPE in [CUBE_PHYSICS,]:
+	elif OBJECT_TYPE in [CUBE_PHYSICS, CUBE_PATH,]:
 		#Physics cubes.
 		NORMALS = utils.FIND_CUBOID_NORMALS(OBJECT_DATA.POINTS)
 		COPIED_VERTS, COPIED_INDICES = OBJECT_VAO_MANAGER(OBJECT_DATA, [COPIED_VERTS, COPIED_INDICES])
+
+	elif OBJECT_TYPE == RAY:
+		OBJECT_DATA.LIFETIME += 1
+
+		if OBJECT_DATA.LIFETIME < CONSTANTS["MAX_RAY_PERSIST_FRAMES"]:
+			RAY_POINTS = OBJECT_DATA.RAY_VISUAL()
+			#Generic UV coordinate data for the triangles to reference.
+			TEXTURES = (VECTOR_2D(0.3145, 0.9395), VECTOR_2D(0.373, 0.9395), VECTOR_2D(0.373, 0.998), VECTOR_2D(0.3145, 0.998))
+
+			for TRI_POINTS in RAY_POINTS: #Rays visualise as 2 triangles.
+				COPIED_VERTS, COPIED_INDICES = OBJECT_VAO_MANAGER(OBJECT_DATA, [COPIED_VERTS, COPIED_INDICES], TEXTURES=TEXTURES, POINTS=TRI_POINTS)
 
 
 	return COPIED_VERTS, COPIED_INDICES
@@ -496,95 +504,97 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES):
 def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURES=None, POINTS=None):
 	#Appends the current object's data to the VAO data, depending on the type and associated data.
 	#For example, a sprite would be added to the vertices as a quad, and same for the indices, with the UV data and normals data as needed.
+	try:
+		if POINTS is None:
+			POINTS = OBJECT.POINTS
+		if TEXTURES is None:
+			TEXTURES = OBJECT.TEXTURE_INFO
+		
+		VAO_VERTICES, VAO_INDICES = VAO_DATA[0], VAO_DATA[1]
 
-	if POINTS is None:
-		POINTS = OBJECT.POINTS
-	if TEXTURES is None:
-		TEXTURES = OBJECT.TEXTURE_INFO
-	
-	VAO_VERTICES, VAO_INDICES = VAO_DATA[0], VAO_DATA[1]
-
-	#Ensure VAO_VERTICES is a 2D array (List of triangles; each triangle is a list of 3 vertices.), even if initially empty.
-	if VAO_VERTICES.size == 0:
-		VAO_VERTICES = NP.empty((0, 8), dtype=NP.float32)
-	if VAO_INDICES.size == 0:
-		VAO_INDICES = NP.empty(0, dtype=NP.uint32)
-
-
-	#Calculate the size of NumPy arrays to pre-make.
-	CLASS_TYPE = type(OBJECT)
-	NUM_FACES = 6 if isinstance(OBJECT, (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH)) else 1
-	NUM_VERTS, NUM_INDICES = NUM_FACES * 4, NUM_FACES * 6
-	NEW_VERTICES = NP.zeros((NUM_VERTS, 8), dtype=NP.float32)
-	NEW_INDICES = NP.zeros(NUM_INDICES, dtype=NP.uint32)
+		#Ensure VAO_VERTICES is a 2D array (List of triangles; each triangle is a list of 3 vertices.), even if initially empty.
+		if VAO_VERTICES.size == 0:
+			VAO_VERTICES = NP.empty((0, 8), dtype=NP.float32)
+		if VAO_INDICES.size == 0:
+			VAO_INDICES = NP.empty(0, dtype=NP.uint32)
 
 
-	#Index offset to be added to any indices value, so that they still correspond to the right index in the vertices data.
-	INDEX_OFFSET = len(VAO_VERTICES)
+		#Calculate the size of NumPy arrays to pre-make.
+		CLASS_TYPE = type(OBJECT)
+		NUM_FACES = 6 if isinstance(OBJECT, (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH,)) else 1
+		NUM_VERTS, NUM_INDICES = NUM_FACES * 4, NUM_FACES * 6
+		NEW_VERTICES = NP.zeros((NUM_VERTS, 8), dtype=NP.float32)
+		NEW_INDICES = NP.zeros(NUM_INDICES, dtype=NP.uint32)
 
-	if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH): #Cube-like objects.
-		FACE_ORDER = [
-			(0, 1, 3, 2),  # -Y | Bottom
-			(0, 2, 6, 4),  # -X | Left
-			(5, 7, 3, 1),  # +X | Right
-			(1, 0, 4, 5),  # -Z | Back
-			(7, 6, 2, 3),  # +Z | Front
-			(6, 7, 5, 4)   # +Y | Top
-		]
 
-		CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
+		#Index offset to be added to any indices value, so that they still correspond to the right index in the vertices data.
+		INDEX_OFFSET = len(VAO_VERTICES)
 
-		#Iterate through each of the 6 faces
-		for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
-			NORMAL = OBJECT.NORMALS[FACE_INDEX]
-			FACE_INDICES = FACE_ORDER[FACE_INDEX]
-			INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
-
-			NEW_INDICES[FACE_INDEX * 6:FACE_INDEX * 6 + 6] = [
-				INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
-				INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
+		if CLASS_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH,): #Cube-like objects.
+			FACE_ORDER = [
+				(0, 1, 3, 2),  # -Y | Bottom
+				(0, 2, 6, 4),  # -X | Left
+				(5, 7, 3, 1),  # +X | Right
+				(1, 0, 4, 5),  # -Z | Back
+				(7, 6, 2, 3),  # +Z | Front
+				(6, 7, 5, 4)   # +Y | Top
 			]
 
+			CUBE_TEXTURE_DATA = [TEXTURES[0], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[1], TEXTURES[2]]
+
+			#Iterate through each of the 6 faces
+			for FACE_INDEX, TEX_COORDS in enumerate(CUBE_TEXTURE_DATA):
+				NORMAL = OBJECT.NORMALS[FACE_INDEX]
+				FACE_INDICES = FACE_ORDER[FACE_INDEX]
+				INDICES_OFFSET = [INDEX_OFFSET + I for I in range(4)]
+
+				NEW_INDICES[FACE_INDEX * 6:FACE_INDEX * 6 + 6] = [
+					INDICES_OFFSET[0], INDICES_OFFSET[1], INDICES_OFFSET[2],
+					INDICES_OFFSET[2], INDICES_OFFSET[3], INDICES_OFFSET[0]
+				]
+
+				#Iterate through the indices for this face.
+				for I, INDEX in enumerate(FACE_INDICES):
+					X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
+					TEX_COORD = TEX_COORDS[I]
+					U, V = TEX_COORD.X, TEX_COORD.Y
+					NEW_VERTICES[FACE_INDEX * 4 + I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+
+				INDEX_OFFSET += 4
+
+		elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY): #Quad-like objects.
+			FACE_ORDER = (0, 1, 2, 3)
+			NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
+
 			#Iterate through the indices for this face.
-			for I, INDEX in enumerate(FACE_INDICES):
-				X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
-				TEX_COORD = TEX_COORDS[I]
+			for I, INDEX in enumerate(FACE_ORDER):
+				TEX_COORD = TEXTURES[I]
+				X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
 				U, V = TEX_COORD.X, TEX_COORD.Y
-				NEW_VERTICES[FACE_INDEX * 4 + I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+				NORMAL = OBJECT.NORMALS[I // 2]  # Assuming the normal is consistent across the quad
+				NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
 
-			INDEX_OFFSET += 4
+		elif CLASS_TYPE in (TRI, RAY,):  # Triangles
+			FACE_ORDER = (0, 1, 2)
+			NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
+			NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
 
-	elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY): #Quad-like objects.
-		FACE_ORDER = (0, 1, 2, 3)
-		NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
-
-		#Iterate through the indices for this face.
-		for I, INDEX in enumerate(FACE_ORDER):
-			TEX_COORD = TEXTURES[I]
-			X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
-			U, V = TEX_COORD.X, TEX_COORD.Y
-			NORMAL = OBJECT.NORMALS[I // 2]  # Assuming the normal is consistent across the quad
-			NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
-
-	elif CLASS_TYPE == TRI:  # Triangles
-		FACE_ORDER = (0, 1, 2)
-		NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
-		NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
-
-		#Iterate through the indices for the triangle.
-		for I, INDEX in enumerate(FACE_ORDER):
-			TEX_COORD = TEXTURES[I]
-			X, Y, Z = OBJECT.POINTS[INDEX].X, OBJECT.POINTS[INDEX].Y, OBJECT.POINTS[INDEX].Z
-			U, V = TEX_COORD.X, TEX_COORD.Y
-			NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
+			#Iterate through the indices for the triangle.
+			for I, INDEX in enumerate(FACE_ORDER):
+				TEX_COORD = TEXTURES[I]
+				X, Y, Z = POINTS[INDEX].X, POINTS[INDEX].Y, POINTS[INDEX].Z
+				U, V = TEX_COORD.X, TEX_COORD.Y
+				NEW_VERTICES[I] = [X, Y, Z, U, V, NORMAL.X, NORMAL.Y, NORMAL.Z]
 
 
-	#Concatenate the new vertices and indices to the existing VAO_DATA arrays.
-	VAO_VERTICES = NP.concatenate((VAO_VERTICES, NEW_VERTICES))
-	VAO_INDICES = NP.concatenate((VAO_INDICES, NEW_INDICES))
+		#Concatenate the new vertices and indices to the existing VAO_DATA arrays.
+		VAO_VERTICES = NP.concatenate((VAO_VERTICES, NEW_VERTICES))
+		VAO_INDICES = NP.concatenate((VAO_INDICES, NEW_INDICES))
 
-	return (VAO_VERTICES, VAO_INDICES)
+		return (VAO_VERTICES, VAO_INDICES)
 
+	except Exception as E:
+		log.ERROR("render.OBJECT_VAO_MANAGER", E)
 
 
 #Shader loading functions
@@ -839,24 +849,15 @@ def UPDATE_BUFFERS(UNPROCESSED_VERTS, UNPROCESSED_INDICES, VBO, EBO):
 
 	#Assign data to the VBO first (Vertices)
 	glBindBuffer(GL_ARRAY_BUFFER, VBO)
-	VERTEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE)
-	
-	if VERTEX_BUFFER_SIZE < VERTICES.nbytes: #Resize the buffer if neccessary
-		print(f"Vertex buffer size is too small. Resizing buffer from {VERTEX_BUFFER_SIZE} to {VERTICES.nbytes}")
-		VERTEX_BUFFER_SIZE = VERTICES.nbytes
-	
+	VERTEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE)	
 	glBufferData(GL_ARRAY_BUFFER, VERTICES.nbytes, VERTICES, GL_DYNAMIC_DRAW)
 	glBindBuffer(GL_ARRAY_BUFFER, 0)
 
 
 	#Assign data to the EBO afterward (Indices)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
-	INDEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE)
-	if INDEX_BUFFER_SIZE < INDICES.nbytes: #Resize the buffer if neccessary
-		print(f"Index buffer size is too small. Resizing buffer from {INDEX_BUFFER_SIZE} to {INDICES.nbytes}")
-		INDEX_BUFFER_SIZE = INDICES.nbytes
-	
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER_SIZE, INDICES, GL_DYNAMIC_DRAW)
+	INDEX_BUFFER_SIZE = glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE)	
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, INDICES.nbytes, INDICES, GL_DYNAMIC_DRAW)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
 

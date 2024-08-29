@@ -78,43 +78,53 @@ def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 def HUD(PLAYER, FPS):
 	#Draws the heads-up display (HUD) user-interface (UI) onto a PyGame surface, which is then returned as an OpenGL texture.
 	#Uses data about the player, such as Health and Energy.
+	try:
+		#Fill the UI surface with transparent pixels first.
+		UI_SURFACE.fill([0, 0, 0, 0])
 
-	#Fill the UI surface with transparent pixels first.
-	UI_SURFACE.fill([0, 0, 0, 0])
+		#Draw the "Crosshair" cross.
+		PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (320, 177), (320, 183.5), 3)
+		PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (317, 180), (323.5, 180), 3)
+		PG.draw.line(UI_SURFACE, UI_COLOURS["SILVER"], (320, 177.5), (320, 183.5), 1)
+		PG.draw.line(UI_SURFACE, UI_COLOURS["SILVER"], (317.5, 180), (323.5, 180), 1)
 
-	#Draw the "Crosshair" cross.
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (320, 177), (320, 183.5), 3)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SMOKY_BLACK"], (317, 180), (323.5, 180), 3)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SILVER"], (320, 177.5), (320, 183.5), 1)
-	PG.draw.line(UI_SURFACE, UI_COLOURS["SILVER"], (317.5, 180), (323.5, 180), 1)
+		#Draw the lower-left info panel.
+		DRAW_TEXT(UI_SURFACE, str(PLAYER.ENERGY).zfill(3), (105, 322), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
+		DRAW_TEXT(UI_SURFACE, str(PLAYER.HEALTH).zfill(3), (105, 343), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
+		DRAW_IMG(UI_SURFACE, "ENERGY.png", (5, 322), (94, 16))
+		DRAW_IMG(UI_SURFACE, "HEALTH.png", (5, 343), (88, 16))
 
-	#Draw the lower-left info panel.
-	DRAW_TEXT(UI_SURFACE, str(PLAYER.ENERGY).zfill(3), (105, 322), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
-	DRAW_TEXT(UI_SURFACE, str(PLAYER.HEALTH).zfill(3), (105, 343), 16, COLOUR=UI_COLOURS["GOLD_TIPS"])
-	DRAW_IMG(UI_SURFACE, "ENERGY.png", (5, 322), (94, 16))
-	DRAW_IMG(UI_SURFACE, "HEALTH.png", (5, 343), (88, 16))
+		#Top-Right corner's FPS counter.
+		DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 
-	#Top-Right corner's FPS counter.
-	DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
+		#Top-Left debug notices.
+		DEBUG_TYPES = {
+			"DEBUG_MAPS": PREFERENCES["DEBUG_MAPS"],
+			"DEBUG_UI": PREFERENCES["DEBUG_UI"],
+			"DEBUG_NORMALS": PREFERENCES["DEBUG_NORMALS"],
+			"DEBUG_PROFILER": PREFERENCES["DEBUG_PROFILER"],
+			"DEBUG_RAYS": PREFERENCES["DEBUG_RAYS"],
+			"DEV_TEST": PREFERENCES["DEV_TEST"],
+		}
+		SHOWN_DEBUG_TYPES = []
+		for DEBUG_TYPE, ENABLED in DEBUG_TYPES.items():
+			if ENABLED:
+				SHOWN_DEBUG_TYPES.append(DEBUG_TYPE)
 
-	#Top-Left debug notices.
-	DEBUG_TYPES = {
-		"DEBUG_MAPS": PREFERENCES["DEBUG_MAPS"],
-		"DEBUG_UI": PREFERENCES["DEBUG_UI"],
-		"DEBUG_NORMALS": PREFERENCES["DEBUG_NORMALS"],
-		"DEBUG_PROFILER": PREFERENCES["DEBUG_PROFILER"],
-		"DEV_TEST": PREFERENCES["DEV_TEST"]
-	}
-	SHOWN_DEBUG_TYPES = []
-	for DEBUG_TYPE, ENABLED in DEBUG_TYPES.items():
-		if ENABLED:
-			SHOWN_DEBUG_TYPES.append(DEBUG_TYPE)
+		for I, DEBUG_TYPE in enumerate(SHOWN_DEBUG_TYPES):
+			DRAW_TEXT(UI_SURFACE, DEBUG_TYPE, (5, (10*I) + 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 
-	for I, DEBUG_TYPE in enumerate(SHOWN_DEBUG_TYPES):
-		DRAW_TEXT(UI_SURFACE, DEBUG_TYPE, (5, (10*I) + 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
-		
+		if PREFERENCES["DEV_TEST"]:
+			PLAYER_POS_TEXT = f"({round(PLAYER.POSITION.X, 2)}, {round(PLAYER.POSITION.Y, 2)}, {round(PLAYER.POSITION.X, 2)})"
+			PLAYER_ROT_TEXT = f"({round(PLAYER.ROTATION.X, 2)}, {round(PLAYER.ROTATION.Y, 2)})"
+			DRAW_TEXT(UI_SURFACE, PLAYER_POS_TEXT, (320-(8*(len(PLAYER_POS_TEXT)/2)), 5), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
+			DRAW_TEXT(UI_SURFACE, PLAYER_ROT_TEXT, (320-(8*(len(PLAYER_ROT_TEXT)/2)), 15), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
+			
 
-	#Convert to an OpenGL texture.
-	UI_SURFACE_ID = render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
+		#Convert to an OpenGL texture.
+		UI_SURFACE_ID = render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
 
-	return UI_SURFACE_ID
+		return UI_SURFACE_ID
+
+	except Exception as E:
+		log.ERROR("ui.HUD", E)

@@ -4,7 +4,7 @@
 /User Preference
 FOV = 75
 FPS_LIMIT = 60
-FPS_LOW = 60
+FPS_LOW = 15
 PLAYER_SPEED_TURN_MOUSE = 0.1
 PLAYER_SPEED_TURN_PAD = 2.5
 
@@ -23,13 +23,9 @@ DEBUG_MAPS = False
 DEBUG_UI = False
 DEBUG_NORMALS = False
 DEBUG_PROFILER = False
-
-
-
-/Broken/Other/Strange
+DEBUG_RAYS = False
 DEV_TEST = False
-/^^ Doesn't acctually do anything anymore, feel free to try I suppose.
-/Don't expect much to happen. L_TRIGGER/RETURN shows normals data though.
 
-DYNAMIC_SHADOWS = False
-/^^ Be advised; VERY broken, and if not causes you a LOT of lag, and screen issues. Use at own risk.
+
+
+/Other

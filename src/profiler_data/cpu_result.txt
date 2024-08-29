@@ -1,0 +1,52 @@
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 12:02:11 PM Samples:  2266752
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 2910.003  CPU time: 3026.109
+/   _/                      v4.6.2
+
+Program: C:\Python310\Scripts\pyinstrument main.py
+
+2909.990 <module>  main.py:1
+└─ 2909.194 MAIN  main.py:70
+   ├─ 1491.815 UPDATE_PHYSICS  exct\physics.py:129
+   │  ├─ 731.999 COLLISION_CHECK  exct\physics.py:271
+   │  │  ├─ 668.377 AABB_TRI_COLLISION_RESPONSE  exct\physics.py:347
+   │  │  │  ├─ 327.834 VECTOR_3D.PROJECT  exct\utils.py:1353
+   │  │  │  │  ├─ 191.725 [self]  exct\utils.py
+   │  │  │  │  └─ 136.108 VECTOR_3D.DOT  exct\utils.py:1344
+   │  │  │  ├─ 148.584 VECTOR_3D.NORMALISE  exct\utils.py:1335
+   │  │  │  │  ├─ 56.660 VECTOR_3D.__truediv__  exct\utils.py:1284
+   │  │  │  │  │  └─ 32.067 [self]  exct\utils.py
+   │  │  │  │  ├─ 43.740 VECTOR_3D.__abs__  exct\utils.py:1302
+   │  │  │  │  └─ 39.330 [self]  exct\utils.py
+   │  │  │  ├─ 104.106 [self]  exct\physics.py
+   │  │  │  └─ 58.514 VECTOR_3D.__sub__  exct\utils.py:1269
+   │  │  │     └─ 34.550 [self]  exct\utils.py
+   │  │  └─ 35.624 [self]  exct\physics.py
+   │  ├─ 301.751 BOUNDING_BOX.UPDATE  exct\utils.py:477
+   │  │  └─ 299.237 BOUNDING_BOX.__init__  exct\utils.py:460
+   │  │     ├─ 153.097 FIND_CUBOID_POINTS  exct\utils.py:70
+   │  │     │  ├─ 44.217 VECTOR_3D.__sub__  exct\utils.py:1269
+   │  │     │  ├─ 44.142 VECTOR_3D.__add__  exct\utils.py:1263
+   │  │     │  └─ 42.609 [self]  exct\utils.py
+   │  │     ├─ 60.086 FIND_CUBOID_NORMALS  exct\utils.py:93
+   │  │     └─ 51.070 [self]  exct\utils.py
+   │  ├─ 184.349 ROTATE_POINTS  exct\utils.py:133
+   │  │  └─ 153.455 VECTOR_3D.ROTATE_BY  exct\utils.py:1406
+   │  │     └─ 87.365 [self]  exct\utils.py
+   │  ├─ 176.677 FIND_CUBOID_POINTS  exct\utils.py:70
+   │  │  ├─ 52.851 VECTOR_3D.__sub__  exct\utils.py:1269
+   │  │  │  └─ 31.123 [self]  exct\utils.py
+   │  │  ├─ 50.617 VECTOR_3D.__add__  exct\utils.py:1263
+   │  │  │  └─ 29.886 [self]  exct\utils.py
+   │  │  └─ 49.563 [self]  exct\utils.py
+   │  └─ 49.704 [self]  exct\physics.py
+   ├─ 757.588 Clock.tick_busy_loop  <built-in>
+   ├─ 424.298 HUD  exct\ui.py:78
+   │  ├─ 253.565 DRAW_TEXT  exct\ui.py:62
+   │  │  ├─ 179.516 Font.render  <built-in>
+   │  │  └─ 70.674 [self]  exct\ui.py
+   │  └─ 133.372 SURFACE_TO_TEXTURE  exct\render.py:303
+   │     └─ 119.137 tostring  <built-in>
+   ├─ 71.792 glGetUniformLocation.__call__  OpenGL\latebind.py:61
+   │  └─ 45.982 glGetUniformLocation  OpenGL\GL\VERSION\GL_2_0.py:422
+   │     └─ 33.608 [self]  OpenGL\GL\VERSION\GL_2_0.py
+   └─ 65.693 _ErrorChecker.glCheckError  OpenGL\error.py:208

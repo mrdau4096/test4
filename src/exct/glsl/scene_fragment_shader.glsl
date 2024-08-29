@@ -8,9 +8,13 @@ out vec4 fragColour;
 
 uniform sampler2D TRI_TEXTURE;
 uniform vec3 CAMERA_POSITION;
+uniform vec3 CAMERA_LOOK_AT;
 uniform vec4 VOID_COLOUR;
 uniform float VIEW_MAX_DIST;
+uniform bool HEADLAMP_ENABLED;
 uniform bool NORMAL_DEBUG;
+
+
 
 //Mirrors the python equivalent class, bar a few unneccessary attributes.
 struct LIGHT {
@@ -22,6 +26,7 @@ struct LIGHT {
 	float MAX_DIST;
 	mat4 LIGHT_SPACE_MATRIX;
 	sampler2D SHADOW_MAP;
+	bool ENABLED;
 };
 
 //Maximum of 64 lights in a scene.
@@ -74,9 +79,12 @@ void main() {
 	vec4 TEXTURE_COLOUR = texture(TRI_TEXTURE, fragTexCoords);
 	vec3 FINAL_COLOUR = vec3(0.05);
 	
-	if (TEXTURE_COLOUR.a <= 0.25) {
+	if (TEXTURE_COLOUR.a < 0.25) {
 		//If the texture colour's alpha is under 0.25, discard this fragment; these are not rendered.
 		discard;
+	} else if (fragNormal == vec3(0.0)) {
+		fragColour = vec4(1.0, 1.0, 0.0, 1.0);
+		return;
 	}
 
 	//Assorted other fragment data.
@@ -86,6 +94,10 @@ void main() {
 
 	//Iterate through each light and check if the fragment is within the light's FOV, then calculate brightness and colour impact of said light.
 	for (int I = 0; I < LIGHT_COUNT; I++) {
+		if (!LIGHTS[I].ENABLED) {
+			continue;
+		}
+
 		float FRAG_LIGHT_DISTANCE = length(LIGHTS[I].POSITION - fragPos);
 		vec3 LIGHT_DIRECTION = normalize(LIGHTS[I].LOOK_AT - fragPos); // Direction to the light
 		vec3 LIGHT_FORWARD = normalize(LIGHTS[I].POSITION - LIGHTS[I].LOOK_AT); // Light's forward direction
@@ -117,6 +129,48 @@ void main() {
 		FINAL_COLOUR += vec3(TEXTURE_COLOUR.rgb * BRIGHTNESS);
 	}
 
+
+
+	if (HEADLAMP_ENABLED) {
+		//If the player's headlamp is turned on, cast a light from the camera with fixed FOV/max dist, and no shadows
+		//(Any shadows would simply be hidden from the player's view anyhow, and this saves performance.)
+		vec4 HEADLAMP_COLOUR = vec4(1.0, 1.0, 1.0, 1.0); //R, G, B, Intensity.
+		vec3 HEADLAMP_OFFSET = vec3(0.0, 0.0, 0.0);
+		float HEADLAMP_MAX_DIST = 10.0;
+		float HEADLAMP_FOV = 45.0;
+
+		vec3 HEADLAMP_POSITION = CAMERA_POSITION + HEADLAMP_OFFSET; //Allows for an offset, if needed (Unlikely, but supported.)
+
+
+
+		float FRAG_CAMERA_DISTANCE = length(HEADLAMP_POSITION - fragPos);
+		vec3 FRAG_HEADLAMP_DIRECTION = normalize(HEADLAMP_POSITION - fragPos); // Direction to the light
+		vec3 HEADLAMP_FORWARD = normalize(HEADLAMP_POSITION - CAMERA_LOOK_AT); // Light's forward direction
+
+		//Calculate the angle between the light direction and the light's forward direction
+		float FOV_COS = dot(FRAG_HEADLAMP_DIRECTION, HEADLAMP_FORWARD); //Dot product of normalized vectors
+
+		if (degrees(acos(FOV_COS)) <= (HEADLAMP_FOV * 0.5)) {
+			//Calculate the angle between the light's directional vector and the view's surface normal
+			float NORMAL_LIGHT_ANGLE = clamp(dot(NORMAL, FRAG_HEADLAMP_DIRECTION), 0.0, 1.0);
+
+			//Prevent excessive FOV values from messing with the rest of the light calculations (negative values, 0 values)
+			if (NORMAL_LIGHT_ANGLE > 0.01) {
+				//Brightness component calculations.
+				float ATTENUATION = max(0.0, 1.0 - (FRAG_CAMERA_DISTANCE / HEADLAMP_MAX_DIST)); //"Distance fade from light".
+				float DIFFUSE =  2.0 * FOV_COS * FOV_COS - 1.0; //Dimmer as you go further from the "centre" of the light's direction.
+				float BRIGHTNESS = clamp(ATTENUATION * HEADLAMP_COLOUR.w * DIFFUSE, 0.05, 1.0) * abs(NORMAL_LIGHT_ANGLE); //Combine all the rest into one.
+
+				//Add this light's influence to the final colour.
+				FINAL_COLOUR += vec3(TEXTURE_COLOUR.rgb * BRIGHTNESS);
+			}
+		}
+
+
+	}
+
+
+
 	if (!NORMAL_DEBUG) {
 		//Display final colour
 		fragColour = vec4(FINAL_COLOUR * DISTANCE_FADE, TEXTURE_COLOUR.a);
@@ -125,7 +179,3 @@ void main() {
 		fragColour = vec4((NORMAL.xyz * 0.5) + vec3(0.5), 1.0);
 	}
 }
-
-
-
-

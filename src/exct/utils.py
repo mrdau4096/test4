@@ -32,6 +32,7 @@ try:
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
 	from pyrr import Matrix44, Vector3, Vector4
+	import multiprocess as MP
 
 except ImportError:
 	log.ERROR("ui.py", "Initial imports failed.")
@@ -189,6 +190,26 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 #Other functions
 
 
+def DIVIDE_DICTS(DICT_A, DICT_B, N):
+	def SPLIT_DICT(DICT, N):
+		ITEMS = list(DICT.items())
+		SEGMENT_SIZE = len(ITEMS) // N
+		LEFTOVER = len(ITEMS) % N
+		
+		START = 0
+		for i in range(N):
+			END = START + SEGMENT_SIZE + (1 if i < LEFTOVER else 0)
+			yield dict(ITEMS[START:END])
+			START = END
+
+
+	A = SPLIT_DICT(DICT_A, N)
+	B = SPLIT_DICT(DICT_B, N)
+
+	return [list(zip(A_SEGMENT, B_SEGMENT)) for A_SEGMENT, B_SEGMENT in zip(A, B)]
+	
+
+
 def PRINT_GRID(GRID):
 	#Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
 	for ENTRY in GRID:
@@ -306,6 +327,9 @@ def GET_CONFIGS():
 	except FileNotFoundError as E:
 		#If file is not found, log error.
 		log.ERROR("utils.py", E)
+
+
+	CONSTANTS["MAX_THREADS"] = CLAMP(CONSTANTS["MAX_THREADS"], 1, MP.cpu_count())
 
 
 	return PREFERENCES, CONSTANTS
@@ -481,16 +505,20 @@ class BOUNDING_BOX:
 
 class RAY:
 	#Ray for raycasting calculations
-	def __init__(self, START_POINT, RAY_TYPE, DIRECTION_VECTOR=None, ANGLE=None, ADVANCE_DISTANCE=0.5):
+	def __init__(self, START_POINT, RAY_TYPE, RENDER_START_POINT=None, DIRECTION_VECTOR=None, ANGLE=None, MAX_DISTANCE=64.0):
 		#Optionally direction vector or angle.
 		self.START_POINT = START_POINT
 		self.RAY_TYPE = RAY_TYPE
+		self.LIFETIME = 0 #Ray gets removed after a certain number of frames, if rendered.
+
 
 		if ANGLE is not None:
+			#Invert Y (pitch)
+			#Subtract [πDIV2 // 90*] from X (yaw)
 			DIRECTION_VECTOR = VECTOR_3D(
-				-sin(ANGLE.X),
-				cos(ANGLE.X) * sin(ANGLE.Y),
-				-cos(ANGLE.X) * cos(ANGLE.Y)
+				maths.cos(-ANGLE.Y) * maths.sin(ANGLE.X - πDIV2),
+				maths.sin(-ANGLE.Y),
+				-maths.cos(-ANGLE.Y) * maths.cos(ANGLE.X - πDIV2)
 			)
 
 		elif DIRECTION_VECTOR is None:
@@ -498,41 +526,152 @@ class RAY:
 			#If handled, set end point to start point.
 			DIRECTION_VECTOR = VECTOR_3D(0.0, 0.0, 0.0)
 
-		self.ADVANCE_VECTOR = DIRECTION_VECTOR * ADVANCE_DISTANCE
-		self.END_POINT = START_POINT + ADVANCE_VECTOR
+		self.ANGLE = ANGLE
+		self.DIRECTION_VECTOR = DIRECTION_VECTOR.NORMALISE()
+
+		self.RENDER_START_POINT = RENDER_START_POINT if RENDER_START_POINT is not None else START_POINT
+
+
+
+		self.MAX_DISTANCE = MAX_DISTANCE
+		self.END_POINT = START_POINT + (MAX_DISTANCE * DIRECTION_VECTOR)
 
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(FIND_CENTROID((self.START_POINT, self.END_POINT)), (self.START_POINT, self.END_POINT))
 		self.BOUNDING_BOX = BOUNDING_BOX_OBJ
 
 
-	def ADVANCE(self):
-		#Advances the ray by a certain amount, and updates the bounding box.
-		self.START_POINT += self.ADVANCE_VECTOR
-		self.END_POINT += self.ADVANCE_VECTOR
-
-		BOUNDING_BOX_OBJ = BOUNDING_BOX(FIND_CENTROID((self.START_POINT, self.END_POINT)), (self.START_POINT, self.END_POINT))
-		self.BOUNDING_BOX = BOUNDING_BOX_OBJ
+	def __repr__(self):
+		return f"<RAY [RAY_TYPE: {self.RAY_TYPE} // START_POINT: {self.START_POINT} // END_POINT: {self.END_POINT} // MAX_DISTANCE: {self.MAX_DISTANCE}]"
 
 
-	def RAY_VISUAL(self, WIDTH=0.1):
+	def CHECK_COLLISION(self, OTHER, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION):
+		#Checks if a ray and another object are colliding.
+		STATIC_TYPE = type(OTHER)
+		VERTICES = OTHER.POINTS
+
+
+		if BOUNDING_BOX_COLLISION(self.BOUNDING_BOX, OTHER.BOUNDING_BOX):
+			if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH): #Cube-like objects
+				for FACE in OTHER.FACES:
+					TRIANGLES = (
+						(VERTICES[FACE[0]], VERTICES[FACE[1]], VERTICES[FACE[2]]),
+						(VERTICES[FACE[0]], VERTICES[FACE[3]], VERTICES[FACE[2]])
+					)
+
+					for TRIANGLE in TRIANGLES:
+						COLLISION = RAY_TRI_INTERSECTION(self, TRIANGLE)
+						if COLLISION is not None:
+							return COLLISION
+			
+
+			elif STATIC_TYPE in (QUAD, INTERACTABLE,): #Quad-like Objects
+				TRIANGLES = (
+					(VERTICES[0], VERTICES[1], VERTICES[2]),
+					(VERTICES[0], VERTICES[3], VERTICES[2])
+				)
+
+				for I, TRIANGLE in enumerate(TRIANGLES):
+					COLLISION = RAY_TRI_INTERSECTION(self, TRIANGLE)
+					if COLLISION is not None:
+						return COLLISION
+			
+
+			elif STATIC_TYPE == TRI: #Only Tris are singular triangles.
+				TRIANGLE = (VERTICES[0], VERTICES[1], VERTICES[2])
+				return RAY_TRI_INTERSECTION(self, TRIANGLE)
+		
+
+		#If no collision found, return False.
+		return float("inf")
+
+
+
+
+
+	def CHECK_FOR_INTERSECTS(self, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION, PHYS_DATA):
+		def THREAD_RAY_CHECK(RAY, OBJECT_DATASET, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION):
+			KINETICS, STATICS = OBJECT_DATASET
+			RAY_COLLISION_DISTANCES = []
+			COLLIDED_OBJECTS = {}
+			for STATIC_ID, STATIC in STATICS.items():
+				COLLISION_DATA = RAY.CHECK_COLLISION(STATIC, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION)
+				
+				if COLLISION_DATA is not None:
+					RAY_COLLISION_DISTANCES.append(COLLISION_DATA)
+					COLLIDED_OBJECTS[COLLISION_DATA] = STATIC
+			
+			for KINETIC_ID, KINETIC in KINETICS.items():
+				COLLISION_DATA = RAY.CHECK_COLLISION(KINETIC, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION)
+				
+				if COLLISION_DATA is not None:
+					RAY_COLLISION_DISTANCES.append(COLLISION_DATA)
+					COLLIDED_OBJECTS[COLLISION_DATA] = KINETIC
+
+
+			SHORTEST_DISTANCE = min(RAY_COLLISION_DISTANCES)
+			if SHORTEST_DISTANCE is not None:
+				CLOSEST_OBJECT = COLLIDED_OBJECTS[SHORTEST_DISTANCE] if (SHORTEST_DISTANCE <= self.MAX_DISTANCE) else None
+
+				return CLOSEST_OBJECT, SHORTEST_DISTANCE
+
+			else:
+				return None, float('inf')
+
+
+
+		KINETICS, STATICS = PHYS_DATA
+
+
+		"""
+		DATA_SET = DIVIDE_DICTS(KINETICS, STATICS[0], CONSTANTS["MAX_THREADS"])
+
+		with MP.Manager() as MANAGER:
+			RESULTING_COLLISIONS = MANAGER.dict()
+			RESULTING_DISTANCES = MANAGER.list()
+
+			with MP.Pool(processes=CONSTANTS["MAX_THREADS"]) as POOL:
+				POOL.starmap(THREAD_RAY_CHECK, (self, DATA_SET, RESULTING_DISTANCES, RAY_TRI_INTERSECTION))
+		"""
+
+
+		RESULTING_COLLISION, RESULTING_DISTANCE = THREAD_RAY_CHECK(self, (KINETICS, STATICS[0]), BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION)
+
+		if RESULTING_DISTANCE <= self.MAX_DISTANCE:
+			self.END_POINT = self.START_POINT + (self.DIRECTION_VECTOR * RESULTING_DISTANCE)
+			return RESULTING_COLLISION
+
+		else:
+			return None
+
+
+
+	def RAY_VISUAL(self, WIDTH=0.025):
 		#Creates a ray visual, when called.
-		#Looks like a long triangle between its start point and end point.
+		#Looks like 2 long triangles between their widest end at the start location and final point at the end point.
+
 		VERTICAL_OFFSET = VECTOR_3D(0.0, WIDTH, 0.0)
-		HORIZONTAL_OFFSETS = CALC_SPRITE_POINTS(self.START_POINT, self.END_POINT, VECTOR_2D(WIDTH, 0.0))
+		HORIZONTAL_OFFSET = VECTOR_3D(
+			1 * maths.sin(self.ANGLE.X),
+			0,
+			-1 * maths.cos(self.ANGLE.X)
+		) * WIDTH
 
-		TRI_A = (
+		TRIANGLE_A = (
 			self.END_POINT,
-			self.START_POINT + VERTICAL_OFFSET,
-			self.START_POINT - VERTICAL_OFFSET
+			self.RENDER_START_POINT + VERTICAL_OFFSET,
+			self.RENDER_START_POINT - VERTICAL_OFFSET
 		)
 
-		TRI_B = (
+		TRIANGLE_B = (
 			self.END_POINT,
-			self.START_POINT + HORIZONTAL_OFFSET,
-			self.START_POINT - HORIZONTAL_OFFSET
+			self.RENDER_START_POINT + HORIZONTAL_OFFSET,
+			self.RENDER_START_POINT - HORIZONTAL_OFFSET
 		)
 
-		return TRI_A, TRI_B
+		NORMAL = VECTOR_3D(0.0, 0.0, 0.0)
+		self.NORMALS = (NORMAL, NORMAL)
+
+		return (TRIANGLE_A, TRIANGLE_B)
 
 
 
@@ -601,6 +740,11 @@ class LOGIC:
 
 		FLAG_STATES[self.OUTPUT_FLAG] = RESULT
 		return FLAG_STATES
+
+	def __repr__(self):
+		LOGIC_TYPE = f"{self.INPUT_A} {self.GATE_TYPE} {self.INPUT_B}" if self.INPUT_B is not None else f"{self.GATE_TYPE} {self.INPUT_A}"
+		return f"<LOGIC [{LOGIC_TYPE} -> {self.OUTPUT_FLAG})]>"
+
 
 
 class SCENE():
@@ -704,15 +848,18 @@ class SPRITE_STATIC(WORLD_OBJECT):
 class CUBE_PATH(WORLD_OBJECT):
 	#Used for moving doors/walls.
 	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG, MAX_DISTANCE):
-		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
-		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
-		NORMALS = FIND_CUBOID_NORMALS(POINTS)
+		self.POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
+		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, self.POINTS)
+		NORMALS = FIND_CUBOID_NORMALS(self.POINTS)
 		super().__init__(ID, POSITION, True, TEXTURE_INFO=TEXTURE_DATA, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
+		
+		FACES = GET_CUBOID_FACE_INDICES()
+		self.FACES = FACES
 		
 		self.DIMENTIONS = DIMENTIONS
 		self.MAX_DISTANCE = MAX_DISTANCE
 		self.MOVEMENT = MOVEMENT_VECTOR
-		self.SPEED = CLAMP(SPEED, 0.0, MAX_DISTANCE)
+		self.SPEED = CLAMP(SPEED, 0.0, MAX_DISTANCE) / CONSTANTS["PHYSICS_ITERATIONS"]
 		self.FLAG = FLAG
 		self.TRIGGERED = False
 		self.CURRENT_DISTANCE = 0.0
@@ -722,18 +869,29 @@ class CUBE_PATH(WORLD_OBJECT):
 		#Moves the cube forward by its speed in a frame, if that doesnt go past its max distance.
 		STATE = FLAG_STATES[self.FLAG]
 
+
 		if STATE and self.CURRENT_DISTANCE < self.MAX_DISTANCE:
-			self.CURRENT_DISTANCE += self.SPEED
-			self.POSITION += self.MOVEMENT * self.SPEED
+			#If moving forward and not at max distance
+			MOVE_DIST = min(self.SPEED, self.MAX_DISTANCE - self.CURRENT_DISTANCE)
 
 		elif not STATE and self.CURRENT_DISTANCE > 0:
-			self.CURRENT_DISTANCE -= self.SPEED
-			self.POSITION -= self.MOVEMENT * self.SPEED
+			#if Moving backward and not at 0 distance
+			MOVE_DIST = -min(self.SPEED, self.CURRENT_DISTANCE)
+
+		else:
+			MOVE_DIST = 0.0
+
+
+
+		self.CURRENT_DISTANCE = CLAMP(self.CURRENT_DISTANCE + MOVE_DIST, 0.0, self.MAX_DISTANCE)
+		self.POSITION += self.MOVEMENT * MOVE_DIST
+
 
 		POINTS = FIND_CUBOID_POINTS(self.DIMENTIONS, self.POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(self.POSITION, POINTS)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
-		super().__init__(self.ID, self.POSITION, True, TEXTURE_INFO=self.TEXTURE_DATA, NORMALS=self.NORMALS, BOUNDING_BOX=self.BOUNDING_BOX_OBJ)
+		super().__init__(self.ID, self.POSITION, True, TEXTURE_INFO=self.TEXTURE_INFO, NORMALS=self.NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
+		return self
 
 
 	def __repr__(self):
@@ -747,6 +905,12 @@ class TRIGGER(WORLD_OBJECT):
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		super().__init__(ID, POSITION, True, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 		
+		FACES = GET_CUBOID_FACE_INDICES()
+		self.FACES = FACES
+		
+
+		self.DIMENTIONS = DIMENTIONS
+		self.POINTS = tuple(POINTS)
 		self.FLAG = FLAG
 		self.TRIGGERED = False
 
@@ -759,7 +923,11 @@ class INTERACTABLE(WORLD_OBJECT):
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES, FLAG):
 		CENTROID = FIND_CENTROID(VERTICES)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
-		NORMALS = (VERTICES[0].CROSS(VERTICES[1]), VERTICES[2].CROSS(VERTICES[3]))
+		SIDE_A = VERTICES[1] - VERTICES[0]
+		SIDE_B = VERTICES[2] - VERTICES[0]
+		SIDE_C = VERTICES[1] - VERTICES[3]
+		SIDE_D = VERTICES[2] - VERTICES[3]
+		NORMALS = (SIDE_A.CROSS(SIDE_B), SIDE_C.CROSS(SIDE_D))
 		super().__init__(ID, CENTROID, COLLISION, TEXTURE_INFO=TEXTURE_COORDINATES, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 
 		self.POINTS = VERTICES
@@ -925,6 +1093,9 @@ class ENEMY(PHYSICS_OBJECT):
 		self.HELD_ITEM = TYPE_DATA[4]
 		self.LOOT = TYPE_DATA[5]
 		self.ALIVE = True
+		self.ATTACK_TYPE = 0
+		self.ATTACK_STRENGTH = 1
+
 
 	def __repr__(self):
 		return f"<ENEMY: [POSITION: {self.POSITION} // ENEMY_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ATTACK_TYPE: {self.ATTACK_TYPE} // ATTACK_STRENGTH: {self.ATTACK_STRENGTH} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
@@ -984,7 +1155,7 @@ class PLAYER(PHYSICS_OBJECT):
 
 
 	def __repr__(self):
-		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {self.ITEMS} // AMMUNITION: {self.AMMO} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
+		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {self.ITEMS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 
 	def HURT(self, DAMAGE):
@@ -1159,16 +1330,16 @@ class VECTOR_2D:
 		return (self.X ** 2 + self.Y ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return len(self) < len(OTHER)
+		return abs(self) < abs(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return len(self) <= len(OTHER)
+		return abs(self) <= abs(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return self.__abs() > len(OTHER)
+		return abs(self) > abs(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return self.__abs__ >= len(OTHER)
+		return abs(self) >= abs(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y
@@ -1303,16 +1474,16 @@ class VECTOR_3D:
 		return (self.X ** 2 + self.Y ** 2 + self.Z ** 2) ** 0.5
 
 	def __lt__(self, OTHER): #self Less Than OTHER // {self} < {OTHER}
-		return len(self) < len(OTHER)
+		return abs(self) < abs(OTHER)
 
 	def __le__(self, OTHER): #self Less Than or Equal To OTHER // {self} <= {OTHER}
-		return len(self) <= len(OTHER)
+		return abs(self) <= abs(OTHER)
 
 	def __gt__(self, OTHER): #self Greater Than OTHER // {self} > {OTHER}
-		return len(self) > len(OTHER)
+		return abs(self) > abs(OTHER)
 
 	def __ge__(self, OTHER): #self Greater Than or Equal To OTHER // {self} >= {OTHER}
-		return len(self) >= len(OTHER)
+		return abs(self) >= abs(OTHER)
 
 	def __eq__(self, OTHER): #self perfectly equal to OTHER // {self} == {OTHER}
 		return self.X == OTHER.X and self.Y == OTHER.Y and self.Z == OTHER.Z
@@ -1331,6 +1502,12 @@ class VECTOR_3D:
 		Y = 1.0 if self.Y > 0.0 else -1.0 if self.Y < 0.0 else 0.0
 		Z = 1.0 if self.Z > 0.0 else -1.0 if self.Z < 0.0 else 0.0
 		return VECTOR_3D(X, Y, Z)
+
+	def RECIPROCAL(self):
+		INV_X = 1/self.X if self.X != 0 else 0.0
+		INV_Y = 1/self.Y if self.Y != 0 else 0.0
+		INV_Z = 1/self.Z if self.Z != 0 else 0.0
+		return VECTOR_3D(INV_X, INV_Y, INV_Z)
 
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()if PREFERENCES["PROFILER_DEBUG"]: ##@profile
 		MAGNITUDE = abs(self)

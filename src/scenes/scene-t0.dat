@@ -22,13 +22,14 @@
 /4, TRI // TL coordinate, BL coordinate, BR coordinate, Collide-able, texture.
 /5, SPRITE_STATIC, decoration // Centre location, texture.
 /6, ITEM, gives something and disappears // Centre location, "what to give" (health, ammo), "how much" (amount), texture.
-/7, TRIGGER, Do "thing" when player touches (01 is prev. scene, 02 is next scene, etc.) // Centre location, Dimensions, Trigger-flag, bottom/side/top textures.
+/7, TRIGGER, Do "thing" when player touches (01 is prev. scene, 02 is next scene, etc.) // Centre location, Dimensions, Trigger-flag.
 /8, INTERACTABLE, Like a button for player to use // TL coordinate, BL coordinate, BR coordinate, TR coordinate, Trigger-flag, texture.
-/9, CUBE_PATH, Moving boxes for doors or similar // Position, Dimentions, Movement vector, bottom/side/top textures.
+/9, CUBE_PATH, Moving boxes for doors or similar // Position, Dimentions, Movement vector, Movement speed, Trigger-flag, bottom/side/top textures.
 /A, ENEMY, fights back // Start location, Facing direction, type.
 /B, CUBE_PHYSICS, Such as a box // Position, Dimentions, bottom/side/top textures.
 /C, LIGHT, Creates light at a point with intensity and colour. Can be toggled with the flag. // Location, Look-at position, Colour, Intensity, FOV, Max-distance, Toggle-flag.
-/D, NPC_PATH_NODE, Used for Enemy pathfinding with Dijkstra. // Location, Hex-ID, Connections (To other Hex-IDs).
+/D, NPC_PATH_NODE, Used for Enemy pathfinding with Dijkstra's Algorithm. // Location, Hex-ID, Connections (To other Hex-IDs).
+/E, LOGIC, Logic gate for flag logic. // flagA TYPE flagB, outputFlag.
 
 /Types of object (Unusable in file);
 /{16}, PROJECTILE, Not supported in file, only used by player/hostiles // NO_FILE_DATA.
@@ -55,7 +56,7 @@
 /Holds all of the quads, tris, interactables, enemies, etc for the scene to place about as specified.
 /This section may get rather long; Feel free to split it up into smaller sections as I have here.
 /I do not reccomend trying to edit large scenes by hand this way, I expect it would get rather tedious after some time.
-/Actual scene contents;
+/Actual scene contents; (Testing environment geometry)
 3 | 20, -1, -10 | -10, -1, -10 | -10, -1, 10 | 20, -1, 10 | T | 02
 2 | 0, 0.25, -2 | 1, 1, 1 | T | 01/01/01
 2 | 5, 2, -2 | 1, 3, 1 | T | 01/01/01
@@ -65,14 +66,53 @@
 3 | -5.0, -1.0, 7.5 | -2.5, -1.0, 7.5 | -2.5, 1.0, 7.5 | -5.0, 1.0, 7.5 | T | 01
 3 | -5, 3, -5 | -5, 2, -2.5 | -2.5, 2, -2.5 | -2.5, 3, -5 | T | 01
 3 | -5, 0, -5 | -5, 0, -2.5 | -2.5, 0, -2.5 | -2.5, 0, -5 | T | 02
-/4 | 6, 0, -4 | 5, 0, -5 | 5.5, 1, -4.5 | F | 07
+
+
+/Triangle Testing.
+4 | 6, 0, -4 | 5, 0, -5 | 5.5, 1, -4.5 | F | 07
+
+
+/Shallow slope testing (Physics).
 3 | 10, -1, 10 | 9, -1, 10 | 9, 100, 10000 | 10, 100, 10000 | T | 07
-C | -5, 10, 0 | 0, 0, 0 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 90.0 | 25.0 | testung
 
-/3 | -15, -1, 1 | 10, -1, 1 | 10, 15, 1 | -15, 15, 1 | F | FF
-/3 | -5, 7.5, -5 | 0, 7.5, -5 | 0, 7.5, 0 | -5, 7.5, 0 | F | FF
 
+/Light testing.
+C | -5, 10, 0 | 0, 0, 0 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 90.0 | 25.0 | CONST_ON
+
+
+
+/TRIGGER testing.
+7 | 15, -0.25, 5 | 1, 1, 1 | triggerTest
+2 | 15, -0.25, 5 | 1, 1, 1 | F | 18/18/18
+C | 13, 2, 5 | 15, 0.25, 5 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 7.5 | triggerTest
+
+
+/Physics Object testing.
 A | -5, 1, 4 | 0, -1, 2 | test | 11/12/13/14/15/16
 5 | -5, -1, 3 | 1, 1, 1 | 05
 B | -5, 1, 5 | 0.35, 1.5, 0.35 | 10.0 | 17/17/17
 B | -5, 1, 5.5 | 0.35, 0.75, 0.35 | 10.0 | 17/17/17
+
+
+/Button testing
+8 | 15, -1, -7.5 | 15, -1, -6.5 | 15, 0, -6.5 | 15, 0, -7.5 | flag2 | 09
+8 | 15, -1, -6 | 15, -1, -5 | 15, 0, -5 | 15, 0, -6 | flag3 | 0A
+C | 14, 5, -7 | 15, 0, -7 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | flag2
+C | 14, 5, -5.5 | 15, 0, -5.5 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | flag3
+
+
+/Logic gate testing
+E | flag2 AND flag3 | flag4
+C | 14, 5, -1 | 15, 0, -1 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | flag4
+
+E | NOT flag2 | flag5
+C | 14, 5, 1 | 15, 0, 1 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | flag5
+
+
+/CUBE_PATH testing
+8 | 15, -1, -10 | 15, -1, -8.5 | 15, .5, -8.5 | 15, .5, -10 | doorTest | 0B
+C | 10, 15, -9.25 | 15, 0, -9.25 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 90.0 | 25.0 | CONST_ON
+C | 14, 5, -9.25 | 15, 0, -9.25 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | doorTest
+3 | 15, .5, -7.5 | 15, 0, -7.5 | 15, 0, -6.5 | 15, .5, -6.5 | T | 02
+3 | 15, .5, -10 | 15, 1, -10 | 15, 1, -6.5 | 15, .5, -6.5 | T | 02
+9 | 15.51, -0.25, -8 | 1, 1.5, 1 | 0, 0, -1 | 0.05 | doorTest | 17/17/17

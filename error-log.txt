@@ -50,3 +50,16 @@
 07:42:08, 13-08-2024 / ERROR in main.py / Initial imports failed.
 08:15:51, 13-08-2024 / ERROR in Mainloop / name 'quit' is not defined
 08:23:05, 13-08-2024 / ERROR in Mainloop / exception: access violation reading 0x0000010AD236F000
+20:45:39, 14-08-2024 / ERROR in Mainloop / name 'sin' is not defined
+21:39:07, 14-08-2024 / ERROR in main.py / IsNotMain
+20:15:46, 17-08-2024 / ERROR in Mainloop / too many values to unpack (expected 4)
+14:49:22, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'TEXTURE_DATA'
+14:50:08, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'BOUNDING_BOX_OBJ'
+14:50:22, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'ROTATION'
+11:53:02, 29-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'tuple' object has no attribute 'PROJECT'
+13:12:19, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:14:10, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:16:20, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:18:39, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:34:44, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:35:17, 29-08-2024 / ERROR in main.py / Initial imports failed.
