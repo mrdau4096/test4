@@ -1,3 +1,5 @@
+pip3.10 install pyrr
+
 cd C:\Users\User\Documents\GitHub\test4
 
 REM Run PyInstaller with the specified options
@@ -21,3 +23,5 @@ REM Remove the build directories and spec file
 RMDIR /S /Q "dist"
 RMDIR /S /Q "build"
 DEL /Q "main.spec"
+
+echo Y | pip3.10 uninstall pyrr

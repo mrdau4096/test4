@@ -79,10 +79,7 @@ void main() {
 	vec4 TEXTURE_COLOUR = texture(TRI_TEXTURE, fragTexCoords);
 	vec3 FINAL_COLOUR = vec3(0.05);
 	
-	if (TEXTURE_COLOUR.a < 0.25) {
-		//If the texture colour's alpha is under 0.25, discard this fragment; these are not rendered.
-		discard;
-	} else if (fragNormal == vec3(0.0)) {
+	if (fragNormal == vec3(0.0)) {
 		fragColour = vec4(1.0, 1.0, 0.0, 1.0);
 		return;
 	}

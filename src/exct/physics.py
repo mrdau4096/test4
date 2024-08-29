@@ -13,6 +13,7 @@ Importing other sub-files;
 -utils.py
 """
 
+from exct import log
 try:
 	#Importing base python modules
 	import sys, os
@@ -21,6 +22,7 @@ try:
 	import io
 	import copy
 	import numpy as NP
+	from pyrr import Matrix44, Vector3, Vector4
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
@@ -34,7 +36,6 @@ try:
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from exct import log, utils, render

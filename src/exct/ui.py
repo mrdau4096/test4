@@ -29,18 +29,18 @@ try:
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	from pyrr import Matrix44, Vector3, Vector4
+	#from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from imgs import texture_load
 	from exct import log, utils, render
 	from exct.utils import *
 
-except ImportError:
-	log.ERROR("ui.py", "Initial imports failed.")
+except Exception as E:
+	log.ERROR("ui.py", E)
 
 
-log.REPORT_IMPORT("ui.py")
+#log.REPORT_IMPORT("ui.py")
 
 
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS

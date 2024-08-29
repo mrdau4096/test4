@@ -51,8 +51,8 @@ try:
 	from scenes import scene
 	from exct.utils import *
 	
-except ImportError:
-	log.ERROR("main.py", "Initial imports failed.")
+except Exception as E:
+	log.ERROR("main.py", E)
 
 #Formatting for the terminal output.
 print("--\n")

@@ -18,6 +18,7 @@ try:
 	import io
 	import copy
 	import numpy as NP
+	from pyrr import Matrix44, Vector3, Vector4
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
@@ -31,11 +32,10 @@ try:
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	from pyrr import Matrix44, Vector3, Vector4
 	import multiprocess as MP
 
 except ImportError:
-	log.ERROR("ui.py", "Initial imports failed.")
+	log.ERROR("utils.py", "Initial imports failed.")
 
 
 log.REPORT_IMPORT("utils.py")

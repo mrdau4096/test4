@@ -17,6 +17,7 @@ try:
 	import io
 	import copy
 	import numpy as NP
+	#import pyrr
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
@@ -30,15 +31,14 @@ try:
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from exct import ui, utils
 	from imgs import texture_load
 	from exct.utils import *
 
-except ImportError:
-	log.ERROR("render.py", "Initial imports failed.")
+except Exception as E:
+	log.ERROR("render.py", E)
 
 log.REPORT_IMPORT("render.py")
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS

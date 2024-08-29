@@ -30,14 +30,14 @@ try:
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	from pyrr import Matrix44, Vector3, Vector4
+	#from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from exct import utils, render
 	from exct.utils import *
 
-except ImportError:
-	log.ERROR("texture_load.py", "Initial imports failed.")
+except Exception as E:
+	log.ERROR("texture_load.py", E)
 
 log.REPORT_IMPORT("texture_load.py")
 

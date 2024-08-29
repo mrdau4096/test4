@@ -63,3 +63,25 @@
 13:18:39, 29-08-2024 / ERROR in main.py / Initial imports failed.
 13:34:44, 29-08-2024 / ERROR in main.py / Initial imports failed.
 13:35:17, 29-08-2024 / ERROR in main.py / Initial imports failed.
+14:46:50, 29-08-2024 / ERROR in texture_load.py / Initial imports failed.
+14:48:49, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:49:56, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:51:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:52:50, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:54:35, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:57:28, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:00:19, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:02:48, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:04:05, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:05:23, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:07:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:09:26, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:10:52, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:14:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:15:45, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:16:55, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:18:23, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:21:12, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:22:29, 29-08-2024 / ERROR in Main.py Value initialisation / name 'Matrix44' is not defined
+15:23:48, 29-08-2024 / ERROR in utils.py / Initial imports failed.
+15:34:28, 29-08-2024 / ERROR in main.py / name 'log' is not defined
