@@ -22,8 +22,6 @@ try:
 	#Importing base python modules
 	import sys, os
 	import math as maths
-	import zipfile
-	import io
 	import copy
 	import numpy as NP
 
@@ -31,19 +29,13 @@ try:
 	os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 
-	#Load modules stored in \src\modules\
-	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm
-	import glfw
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
+	import glm, glfw
 	import pygame as PG
 	from pygame import time, joystick, display, image
 	from OpenGL.GL import *
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
-	from PIL import Image
-	#import pyrr #Removed because the executable has issues with it.
-	from multiprocess import Pool
-
 
 	#Import other sub-files.
 	from imgs import texture_load
@@ -51,6 +43,7 @@ try:
 	from scenes import scene
 	from exct.utils import *
 	
+
 except Exception as E:
 	log.ERROR("main.py", E)
 
@@ -71,7 +64,7 @@ except ImportError:
 
 
 def MAIN():
-	try:
+	#try:
 		"""
 		[if main:]
 		Preparing the game:
@@ -183,10 +176,10 @@ def MAIN():
 		for I, LIGHT in enumerate(LIGHTS):
 			LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
 
-	except Exception as E:
-		log.ERROR("Main.py Value initialisation", E)
+	#except Exception as E:
+		#log.ERROR("Main.py Value initialisation", E)
 
-	try:
+	#try:
 		if True:
 			RUN = True
 			PREVIOUS_FRAME, WINDOW_FOCUS = None, 0
@@ -592,8 +585,8 @@ def MAIN():
 			PG.quit()
 			sys.exit()
 
-	except Exception as E:
-		log.ERROR("Mainloop", E)
+	#except Exception as E:
+		#log.ERROR("Mainloop", E)
 
 
 

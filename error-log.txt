@@ -85,3 +85,18 @@
 15:22:29, 29-08-2024 / ERROR in Main.py Value initialisation / name 'Matrix44' is not defined
 15:23:48, 29-08-2024 / ERROR in utils.py / Initial imports failed.
 15:34:28, 29-08-2024 / ERROR in main.py / name 'log' is not defined
+18:58:00, 05-09-2024 / ERROR in main.py / No module named 'imgs'
+18:58:21, 05-09-2024 / ERROR in texture_load.py / expected ':' (utils.py, line 189)
+18:58:54, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:30, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:37, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:53, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:00:15, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:00:49, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:02:17, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:02:35, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:03:12, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:08:17, 05-09-2024 / ERROR in utils.py / [Errno 2] No such file or directory: 'config.dat'
+19:08:35, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
+19:08:58, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
+19:24:10, 05-09-2024 / ERROR in physics.UPDATE_PHYSICS / name 'PG' is not defined

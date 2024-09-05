@@ -12,24 +12,15 @@ try:
 	#Importing base python modules
 	import sys, os
 	import math as maths
-	import zipfile
-	import io
-	import copy
 	import numpy as NP
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-	#Load modules stored in \src\modules\
-	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm, glfw
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
 	import pygame as PG
 	from pygame import time, joystick, display, image
-	from OpenGL.GL import *
-	from OpenGL.GLU import *
-	from OpenGL.GL.shaders import compileProgram, compileShader
 	from PIL import Image
-	#from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from imgs import texture_load
@@ -44,6 +35,7 @@ except Exception as E:
 
 
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
+print(CONSTANTS["UI_RESOLUTION"])
 UI_SURFACE = PG.Surface(CONSTANTS["UI_RESOLUTION"].TO_LIST(), PG.SRCALPHA)
 #Dictionary of "standard" UI colours.
 UI_COLOURS = {
@@ -65,6 +57,7 @@ def DRAW_TEXT(SCREEN, TEXT, POSITION, FONT_SIZE, COLOUR=(255, 255, 255)):
 	text_surface = FONT.render(str(TEXT), True, COLOUR)
 	SCREEN.blit(text_surface, POSITION)
 
+
 def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 	#Draws an image loaded from the file structure (in \src\imgs\) to a position and with scale.
 	IMAGE = PG.image.load(f"src\\imgs\\{IMG_NAME}")
@@ -72,7 +65,9 @@ def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 	SCREEN.blit(SCALED_IMAGE, POSITION)
 
 
-#Per-Frame HUD
+
+#UI screens & HUD
+
 
 
 def HUD(PLAYER, FPS):
@@ -128,3 +123,33 @@ def HUD(PLAYER, FPS):
 
 	except Exception as E:
 		log.ERROR("ui.HUD", E)
+
+
+def PROCESS_UI_STATE(SCREEN, UI_TYPE):
+	while UI_ACTIVE:
+		for EVENT in PG.event.get():
+			match EVENT.type:
+				case PG.QUIT:
+					UI_ACTIVE = False
+					RUN = False
+
+		#add mouse pos collection.
+		UI_TYPE() #Call one of the following UI screen functions;
+
+	return RUN
+
+
+def PAUSE_MENU():
+	BUTTONS = ()
+	pass
+
+
+def MAIN_MENU():
+	BUTTONS = ()
+	pass
+
+
+def OPTIONS_MENU():
+	BUTTONS = ()
+	pass
+	#utils.SAVE_CONFIGS(PREFERENCES, CONSTANTS)

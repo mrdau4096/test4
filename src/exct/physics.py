@@ -18,24 +18,14 @@ try:
 	#Importing base python modules
 	import sys, os
 	import math as maths
-	import zipfile
-	import io
-	import copy
 	import numpy as NP
 	from pyrr import Matrix44, Vector3, Vector4
-
-	#Stop PyGame from giving that annoying welcome message
+	
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-	#Load modules stored in \src\modules\
-	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm, glfw
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
 	import pygame as PG
 	from pygame import time, joystick, display, image
-	from OpenGL.GL import *
-	from OpenGL.GLU import *
-	from OpenGL.GL.shaders import compileProgram, compileShader
-	from PIL import Image
 
 	#Import other sub-files.
 	from exct import log, utils, render

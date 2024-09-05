@@ -10,28 +10,18 @@ Imports Modules;
 """
 
 from exct import log
-try:
+try: #Module Imports
 	#Importing base python modules
 	import sys, os
 	import math as maths
-	import zipfile
-	import io
-	import copy
 	import numpy as NP
 	from pyrr import Matrix44, Vector3, Vector4
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-	#Load modules stored in \src\modules\
-	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm, glfw
-	import pygame as PG
-	from pygame import time, joystick, display, image
-	from OpenGL.GL import *
-	from OpenGL.GLU import *
-	from OpenGL.GL.shaders import compileProgram, compileShader
-	from PIL import Image
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
+	import glm
 	import multiprocess as MP
 
 except ImportError:
@@ -67,7 +57,6 @@ def JOYSTICK_DEADZONE(JOYSTICK):
 	return [JOYSTICK[0], L_STICK, R_STICK]
 
 
-
 def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE):
 	#Returns the points for any axis-aligned cuboid. Mostly helpful for initialising, due to physics rotation not allowing for axis-aligned objects often.
 	HALF_DIMENTIONS = DIMENTIONS / 2
@@ -90,7 +79,6 @@ def FIND_CUBOID_POINTS(DIMENTIONS, CENTRE):
 		]
 
 
-
 def FIND_CUBOID_NORMALS(POINTS):
 	#Find the normals of a cuboid, via its 8 points.
 	#This allows the cuboid to be rotated along any axis, and still give the normals.
@@ -108,14 +96,12 @@ def FIND_CUBOID_NORMALS(POINTS):
 	return [NORMAL_BOTTOM, NORMAL_SIDE_A, NORMAL_SIDE_B, NORMAL_SIDE_C, NORMAL_SIDE_D, NORMAL_TOP]
 
 
-
 def FIND_CENTROID(POINTS):
 	#Finds the centroid of any number of vertices (Mostly used on quads and tris)
 	SUM = VECTOR_3D(0.0, 0.0, 0.0)
 	for PT in POINTS:
 		SUM += PT
 	return SUM / len(POINTS)
-
 
 
 def CALC_2D_VECTOR_ANGLE(V1, V2):
@@ -128,7 +114,6 @@ def CALC_2D_VECTOR_ANGLE(V1, V2):
 	DET = NP.sign(V1_2D.DET(V2_2D))
 
 	return maths.degrees(DOT * DET)
-
 
 
 def ROTATE_POINTS(POINTS, CENTRE, ANGLE):
@@ -190,6 +175,12 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 #Other functions
 
 
+def POINT_IN_RECTANGLE(POINT, RECTANGLE_POSITION, RECTANGLE_DIMENTIONS):
+	if (POINT.X < RECTANGLE_POSITION.X and POINT.X > RECTANGLE_POSITION.X+RECTANGLE_DIMENTIONS.X) and (POINT.Y < RECTANGLE_POSITION.Y and POINT.Y > RECTANGLE_POSITION.Y+RECTANGLE_DIMENTIONS.Y):
+		return False
+	return True
+
+
 def DIVIDE_DICTS(DICT_A, DICT_B, N):
 	def SPLIT_DICT(DICT, N):
 		ITEMS = list(DICT.items())
@@ -208,7 +199,6 @@ def DIVIDE_DICTS(DICT_A, DICT_B, N):
 
 	return [list(zip(A_SEGMENT, B_SEGMENT)) for A_SEGMENT, B_SEGMENT in zip(A, B)]
 	
-
 
 def PRINT_GRID(GRID):
 	#Prints the contents of any array, list, grid, dictionary etc in helpful lines. Used for debugging.
@@ -232,108 +222,151 @@ def GET_CUBOID_FACE_INDICES():
 	)
 
 
-
 def GET_DATA_PATH():
 	#Path for the ..\\test4.2.2\\exct\\data\\.. data files.
 	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
+
+def SAVE_CONFIGS(PREFERENCES, CONSTANTS):
+	try:
+		# Handle Prefs.txt
+		with open("Prefs.txt", "r") as PREFERENCE_FILE:
+			PREFERENCE_DATA = PREFERENCE_FILE.readlines()
+
+		with open("Prefs.txt", "w") as PREFERENCE_FILE:
+			for LINE in PREFERENCE_DATA:
+				STRIPPED_LINE = LINE.strip()
+				if STRIPPED_LINE and STRIPPED_LINE[0] != "/":  # If not a comment or empty line
+					KEY, _ = STRIPPED_LINE.split(' = ')
+					KEY = KEY.strip()
+					if KEY in PREFERENCES:
+						# Replace the line with updated value from the dictionary
+						NEW_VALUE = PREFERENCES[KEY]
+						if isinstance(NEW_VALUE, bool):
+							NEW_VALUE = "True" if NEW_VALUE else "False"
+						LINE = f"{KEY} = {NEW_VALUE}\n"
+				PREFERENCE_FILE.write(LINE)
+
+	except Exception as E:
+		log.ERROR("utils.py", E)
+
+
+	try:
+		# Handle config.dat
+		DATA_PATH = GET_DATA_PATH()
+		CONFIG_FILE_PATH = f"{DATA_PATH}\\config.dat"
+
+		with open(CONFIG_FILE_PATH, "r") as CONFIG_FILE:
+			CONFIG_DATA = CONFIG_FILE.readlines()
+
+		with open(CONFIG_FILE_PATH, "w") as CONFIG_FILE:
+			for LINE in CONFIG_DATA:
+				STRIPPED_LINE = LINE.strip()
+				if STRIPPED_LINE and STRIPPED_LINE[0] != "/":  # If not a comment or empty line
+					KEY, _ = STRIPPED_LINE.split(' = ')
+					KEY = KEY.strip()
+					if KEY in CONSTANTS:
+						# Replace the line with updated value from the dictionary
+						NEW_VALUE = CONSTANTS[KEY]
+						if isinstance(NEW_VALUE, bool):
+							NEW_VALUE = "True" if NEW_VALUE else "False"
+						LINE = f"{KEY} = {NEW_VALUE}\n"
+				CONFIG_FILE.write(LINE)
+
+	except Exception as E:
+		log.ERROR("utils.py", E)
 
 
 def GET_CONFIGS():
 	#Gets the user-defined config files (prefs.txt and config.dat) and their data.
 	try:
 		#prefs.txt
-		PREFERENCE_FILE = open("Prefs.txt", "r")
-		PREFERENCE_DATA = PREFERENCE_FILE.readlines()
-		PREFERENCES = {}
-		
-		for LINE in PREFERENCE_DATA:
-			if LINE[0].strip() not in ("/", ""):
-				P_LINE_DATA = (LINE.strip()).split(' = ')
-				USER_CHOICE = P_LINE_DATA[1]
-				
-				try:
+		with open("Prefs.txt", "r") as PREFERENCE_FILE:
+			PREFERENCE_DATA = PREFERENCE_FILE.readlines()
+			PREFERENCES = {}
+			
+			for LINE in PREFERENCE_DATA:
+				if LINE[0].strip() not in ("/", ""):
+					P_LINE_DATA = (LINE.strip()).split(' = ')
+					USER_CHOICE = P_LINE_DATA[1]
+					
 					try:
-						CHOSEN_DATA = int(USER_CHOICE)
+						try:
+							CHOSEN_DATA = int(USER_CHOICE)
+							
+							if P_LINE_DATA[0] == "FPS_LIMIT":
+								USER_CHOICE = CLAMP(USER_CHOICE, 1, 10000)
 						
-						if P_LINE_DATA[0] == "FPS_LIMIT":
-							USER_CHOICE = CLAMP(USER_CHOICE, 1, 10000)
+						except:
+							CHOSEN_DATA = float(USER_CHOICE)
 					
-					except:
-						CHOSEN_DATA = float(USER_CHOICE)
-				
-				except ValueError:
-					if USER_CHOICE == "True":
-						CHOSEN_DATA = True
-					
-					elif USER_CHOICE == "False":
-						CHOSEN_DATA = False
-					
-					else:
-						CHOSEN_DATA = USER_CHOICE
+					except ValueError:
+						if USER_CHOICE == "True":
+							CHOSEN_DATA = True
+						
+						elif USER_CHOICE == "False":
+							CHOSEN_DATA = False
+						
+						else:
+							CHOSEN_DATA = USER_CHOICE
 
-				PREFERENCES[P_LINE_DATA[0]] = CHOSEN_DATA
+					PREFERENCES[P_LINE_DATA[0]] = CHOSEN_DATA
+
+
 
 	except FileNotFoundError as E:
 		#If file is not found, log error.
 		log.ERROR("utils.py", E)
+
 
 	try:
-		#config.dat
-		DATA_PATH = GET_DATA_PATH()
-		CONFIG_FILE = open(f"{DATA_PATH}\\config.dat", "r")
-		CONFIG_DATA = CONFIG_FILE.readlines()
-		global CONSTANTS
-		CONSTANTS = {}
-		
-		for LINE in CONFIG_DATA:
-			if LINE[0].strip() not in ("/", ""):
-				C_LINE_DATA = (LINE.strip()).split(' = ')
-				LISTED_CONSTANT = C_LINE_DATA[1]
-				FILE_VECTOR = LISTED_CONSTANT[4:].split(', ')
-				match LISTED_CONSTANT[:3]:
-					case "rgba:":
-						OUTPUT_CONSTANT = RGBA(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2], FILE_VECTOR[3])
+		#prefs.txt
+		with open(f"{GET_DATA_PATH()}\\config.dat", "r") as CONSTANTS_FILE:
+			CONSTANTS_DATA = CONSTANTS_FILE.readlines()
+			CONSTANTS = {}
+			
+			for LINE in CONSTANTS_DATA:
+				if LINE[0].strip() not in ("/", ""):
+					C_LINE_DATA = (LINE.strip()).split(' = ')
+					USER_CHOICE = C_LINE_DATA[1]
 
-					case "v3:":
-						OUTPUT_CONSTANT = VECTOR_3D(FILE_VECTOR[0], FILE_VECTOR[1], FILE_VECTOR[2])
+					if USER_CHOICE.startswith("v2: "):
+						DATA = USER_CHOICE.replace("v2: ", "").split(", ")
+						CHOSEN_DATA = VECTOR_2D(DATA[0], DATA[1])
 
-					case "v2:":
-						OUTPUT_CONSTANT = VECTOR_2D(FILE_VECTOR[0], FILE_VECTOR[1])
-					
-					case _:
+					elif USER_CHOICE.startswith("v3: "):
+						DATA = USER_CHOICE.replace("v3: ", "").split(", ")
+						CHOSEN_DATA = VECTOR_3D(DATA[0], DATA[1], DATA[2])
+
+					else:					
 						try:
 							try:
-								OUTPUT_CONSTANT = int(LISTED_CONSTANT)
-								
-								if C_LINE_DATA[0] == "FPS_LIMIT":
-									LISTED_CONSTANT = CLAMP(LISTED_CONSTANT, 1, 10000)
+								CHOSEN_DATA = int(USER_CHOICE)
 							
 							except:
-								OUTPUT_CONSTANT = float(LISTED_CONSTANT)
+								CHOSEN_DATA = float(USER_CHOICE)
 						
 						except ValueError:
-							if LISTED_CONSTANT == "True":
-								OUTPUT_CONSTANT = True
+							if USER_CHOICE == "True":
+								CHOSEN_DATA = True
 							
-							elif LISTED_CONSTANT == "False":
-								OUTPUT_CONSTANT = False
+							elif USER_CHOICE == "False":
+								CHOSEN_DATA = False
 							
 							else:
-								OUTPUT_CONSTANT = LISTED_CONSTANT
+								CHOSEN_DATA = USER_CHOICE
 
-				CONSTANTS[C_LINE_DATA[0]] = OUTPUT_CONSTANT
-	
+					CONSTANTS[C_LINE_DATA[0]] = CHOSEN_DATA
+
+
+
 	except FileNotFoundError as E:
 		#If file is not found, log error.
 		log.ERROR("utils.py", E)
-
-
-	CONSTANTS["MAX_THREADS"] = CLAMP(CONSTANTS["MAX_THREADS"], 1, MP.cpu_count())
+	
 
 
 	return PREFERENCES, CONSTANTS
-
 
 
 def GET_GAME_DATA():
@@ -370,7 +403,6 @@ def GET_GAME_DATA():
 	PROJECTILES_FILE.close()
 
 	return HOSTILES, SUPPLIES, PROJECTILES
-
 
 
 def PROCESS_LINE(LINE, FORMATTING):
@@ -459,7 +491,6 @@ class WORLD_OBJECT:
 		if COLLISION: self.BOUNDING_BOX = BOUNDING_BOX
 
 
-
 class PHYSICS_OBJECT:
 	#Objects with physics calculations (Gravity etc)
 	def __init__(self, OBJECT_ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX, MASS, TEXTURE_INFO, LATERAL_VELOCITY=None):
@@ -476,7 +507,6 @@ class PHYSICS_OBJECT:
 		self.TEXTURE_INFO = tuple(TEXTURE_INFO) if TEXTURE_INFO is not None else None
 		if ROTATION is None: self.ROTATION = VECTOR_3D(0.0, 0.0, 0.0)
 		else: self.ROTATION = ROTATION.RADIANS()
-
 
 
 class BOUNDING_BOX:
@@ -674,7 +704,6 @@ class RAY:
 		return (TRIANGLE_A, TRIANGLE_B)
 
 
-
 class LOGIC:
 	#Logic gates for manipulating the values of flag-states.
 	def __init__(self, INPUT_A, INPUT_B, TYPE, OUTPUT_FLAG):
@@ -746,7 +775,6 @@ class LOGIC:
 		return f"<LOGIC [{LOGIC_TYPE} -> {self.OUTPUT_FLAG})]>"
 
 
-
 class SCENE():
 	#Scene object for scene-wide data like gravity values. (Likely deprecated.)
 	def __init__(self, VOID_COLOUR, GRAVITY, AIR_RES_MULT):
@@ -757,6 +785,44 @@ class SCENE():
 	def __repr__(self):
 		return f"<SCENE: [VOID_COLOUR: {self.VOID} // GRAVITY: {self.GRAVITY} // AIR_RES_MULT: {AIR_RES_MULT}]>"
 
+
+class BUTTON():
+	def __init__(self, POSITION, DIMENTIONS, FUNCTION, OFF_COLOUR, ON_COLOUR, OFF_TEXT, ON_TEXT, FUNCTION_VALUES=None, TOGGLE=False):
+		self.TL_POSITION = POSITION
+		self.BR_POSITION = POSITION + DIMENTIONS
+		self.DIMENTIONS = DIMENTIONS
+		self.FUNCTION = FUNCTION
+		self.FUNCTION_VALUES = FUNCTION_VALUES
+		self.TOGGLE = TOGGLE
+		self.STATE = False
+		self.PRESSED_PREV_FRAME = False
+		self.OFF_COLOUR, self.ON_COLOUR = OFF_COLOUR, ON_COLOUR
+		self.OFF_TEXT, self.ON_TEXT = OFF_TEXT, ON_TEXT
+
+
+	def __repr__():
+		return f"<BUTTON [POSITION: {self.POSITION}, DIMENTIONS: {self.DIMENTIONS}, FUNCTION: {self.FUNCTION}, TOGGLE: {self.TOGGLE}]>"
+
+
+	def EVALUATE_STATE(self, MOUSE_POSITION):
+		if POINT_IN_RECTANGLE(MOUSE_POSITION, self.POSITION, self.DIMENTIONS):
+			if self.TOGGLE and not self.PRESSED_PREV_FRAME:
+				self.PRESSED_PREV_FRAME = True
+				self.STATE = not self.STATE
+			
+			elif not self.TOGGLE:
+				self.STATE = True
+
+		elif not self.TOGGLE:
+			self.STATE = False
+
+
+		if self.STATE:
+			RESULT = self.FUNCTION() if self.FUNCTION_VALUES is None else self.FUNCTION(self.FUNCTION_VALUES)
+			if RESULT is not None:
+				return RESULT
+
+		return None
 
 
 
@@ -1131,7 +1197,6 @@ class PROJECTILE(PHYSICS_OBJECT):
 
 	def __repr__(self):
 		return f"<PROJECTILE: [POSITION: {self.POSITION} // PROJECTILE_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // DAMAGE_TYPE: {self.DAMAGE_TYPE} // DAMAGE_STRENGTH: {self.DAMAGE_STRENGTH} // CREATE_EXPLOSION: {self.CREATE_EXPLOSION}]>"
-
 
 
 class PLAYER(PHYSICS_OBJECT):

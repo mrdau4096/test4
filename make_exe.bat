@@ -1,4 +1,4 @@
-pip3.10 install pyrr
+REM pip3.10 install pyrr
 
 cd C:\Users\User\Documents\GitHub\test4
 
@@ -24,4 +24,4 @@ RMDIR /S /Q "dist"
 RMDIR /S /Q "build"
 DEL /Q "main.spec"
 
-echo Y | pip3.10 uninstall pyrr
+REM echo Y | pip3.10 uninstall pyrr

@@ -13,24 +13,17 @@ try:
 	#Importing base python modules
 	import sys, os
 	import math as maths
-	import zipfile
-	import io
-	import copy
 	import numpy as NP
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-	#Load modules stored in \src\modules\
-	sys.path.extend(("src", r"src\modules", r"src\exct\data", r"src\exct\glsl"))
-	import glm, glfw
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
 	import pygame as PG
 	from pygame import time, joystick, display, image
 	from OpenGL.GL import *
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
-	from PIL import Image
-	#from pyrr import Matrix44, Vector3, Vector4
 
 	#Import other sub-files.
 	from exct import utils, render
@@ -65,7 +58,7 @@ SHEET_CACHE = {}
 def TEXTURE_CACHE_MANAGER(HEX_ID):
 	#Loads a set texture based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
 	#If already in the texture cache, give that data to prevent re-loading of information
-	try:
+	#try:
 		if HEX_ID in TEXTURE_CACHE:
 			return TEXTURE_CACHE[HEX_ID]
 
@@ -95,14 +88,14 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 
 			return TEXTURE_COORDINATES
 
-	except Exception as E:
-		log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
+	#except Exception as E:
+		#log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
 
 
 
 def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET_LIST=SHEET_CACHE):
 	#Loads a texture sheet or other image file.
-	try:
+	#try:
 		if FILE_NAME in SHEET_LIST:
 			SHEET_ID = SHEET_LIST[FILE_NAME]
 
@@ -137,5 +130,5 @@ def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET_LIST=SHEET_CACHE):
 		return SHEET_ID
 
 		
-	except Exception as E:
-		log.ERROR("texture_load.LOAD_SHEET", E)
+	#except Exception as E:
+		#log.ERROR("texture_load.LOAD_SHEET", E)
