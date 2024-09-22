@@ -93,7 +93,7 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 
 
 
-def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET_LIST=SHEET_CACHE):
+def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE):
 	#Loads a texture sheet or other image file.
 	#try:
 		if FILE_NAME in SHEET_LIST:
@@ -102,7 +102,7 @@ def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET_LIST=SHEET_CACHE):
 		else:
 			if SUBFOLDER is None:
 				MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-				TEXTURE_PATH = os.path.join(MAIN_DIR, f"sheet-{FILE_NAME}.png")
+				TEXTURE_PATH = os.path.join(MAIN_DIR, f"{'sheet-' if SHEET else ''}{FILE_NAME}.png")
 
 			else:
 				#Loads from a specified sub-folder rather than \src\imgs\ by default.

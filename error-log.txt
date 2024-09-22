@@ -100,3 +100,24 @@
 19:08:35, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
 19:08:58, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
 19:24:10, 05-09-2024 / ERROR in physics.UPDATE_PHYSICS / name 'PG' is not defined
+20:24:51, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+20:25:48, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+20:26:32, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:08:48, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:10:44, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:12:01, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:16:02, 05-09-2024 / ERROR in utils.py / Initial imports failed.
+21:29:48, 05-09-2024 / ERROR in ui.py / No module named 'PIL'
+22:14:53, 05-09-2024 / ERROR in ui.py / No module named 'PIL'
+17:07:27, 14-09-2024 / ERROR in texture_load.py / unmatched ')' (utils.py, line 834)
+18:09:36, 14-09-2024 / ERROR in render.py / cannot import name 'Image' from 'pygame' (C:\Python310\lib\site-packages\pygame\__init__.py)
+18:20:15, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+18:20:23, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+18:20:56, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+20:31:45, 14-09-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 104)
+11:30:09, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 238)
+17:54:10, 15-09-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 259)
+19:41:38, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+19:42:04, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+19:42:23, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+14:45:15, 22-09-2024 / ERROR in render.py / No module named 'PIL'

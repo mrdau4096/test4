@@ -13,6 +13,7 @@ uniform vec4 VOID_COLOUR;
 uniform float VIEW_MAX_DIST;
 uniform bool HEADLAMP_ENABLED;
 uniform bool NORMAL_DEBUG;
+uniform bool WIREFRAME_DEBUG;
 
 
 
@@ -68,6 +69,11 @@ float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_
 
 
 void main() {
+	if (WIREFRAME_DEBUG) {
+		fragColour = vec4(1.0, 1.0, 1.0, 1.0);
+		return;
+	}
+
 	//Actual fragment depth.
 	float FRAG_DEPTH = length(CAMERA_POSITION - fragPos);
 	if (FRAG_DEPTH >= VIEW_MAX_DIST) {

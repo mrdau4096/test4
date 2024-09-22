@@ -1,13 +1,16 @@
-REM pip3.10 install pyrr
-
 cd C:\Users\User\Documents\GitHub\test4
 
 REM Run PyInstaller with the specified options
 pyinstaller --onefile ^
     --add-data "C:\Users\User\Documents\GitHub\test4\src;src" ^
-    --add-data "C:\Users\User\Documents\GitHub\test4\src\modules;modules" ^
     --hidden-import numpy ^
     --hidden-import pyrr ^
+    --hidden-import glfw ^
+    --hidden-import pyopengl ^
+    --hidden-import pyglm ^
+    --hidden-import pillow ^
+    --hidden-import multiprocess ^
+    --add-binary "C:\Python310\Lib\site-packages\glfw\glfw3.dll;." ^
     main.py
 
 REM Check if the build was successful
@@ -23,5 +26,3 @@ REM Remove the build directories and spec file
 RMDIR /S /Q "dist"
 RMDIR /S /Q "build"
 DEL /Q "main.spec"
-
-REM echo Y | pip3.10 uninstall pyrr

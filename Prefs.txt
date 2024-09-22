@@ -24,6 +24,7 @@ DEBUG_UI = False
 DEBUG_NORMALS = False
 DEBUG_PROFILER = False
 DEBUG_RAYS = False
+DEBUG_WIREFRAME = False
 DEV_TEST = False
 
 

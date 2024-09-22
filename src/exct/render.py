@@ -24,6 +24,7 @@ try:
 	import glm, glfw
 	import pygame as PG
 	from pygame import time, joystick, display, image
+	from PIL import Image
 	from OpenGL.GL import *
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
@@ -234,7 +235,6 @@ def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
 def SET_PYGAME_CONTEXT(SHEET_NAME):
 	#Sets the PG context to the current PG display. Takes a sheet for the texture to render, which will inevitably be retrieved from texture_load.SHEET_CACHE.
 	DISPLAY_RESOLUTION = CONSTANTS["DISPLAY_RESOLUTION"]
-	RENDER_RESOLUTION = CONSTANTS["RENDER_RESOLUTION"]
 
 	PG.display.gl_set_attribute(PG.GL_CONTEXT_MAJOR_VERSION, 3)
 	PG.display.gl_set_attribute(PG.GL_CONTEXT_MINOR_VERSION, 3)
@@ -244,7 +244,7 @@ def SET_PYGAME_CONTEXT(SHEET_NAME):
 
 	#Reload all of the VAO/FBO data surrounding the UI quad and the scene data to be within this PG context.		
 	SCENE_SHADER, QUAD_SHADER = SHADER_INIT(SCENE=True, QUAD=True)
-	VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE = FBO_QUAD_INIT(RENDER_RESOLUTION)
+	VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE = FBO_QUAD_INIT(DISPLAY_RESOLUTION)
 
 	CURRENT_SHEET_ID = texture_load.LOAD_SHEET(SHEET_NAME, SHEET_LIST={})
 
@@ -332,7 +332,6 @@ def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANC
 			
 			IMAGE = Image.fromarray((NORMALISED_DATA * 255).astype(NP.uint8), mode='L')
 
-			del NORMALISED_DATA, DEPTH_MIN, DEPTH_MAX
 			
 
 		case "NORMAL":
@@ -350,7 +349,6 @@ def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANC
 				raise ValueError("[WARNING] // NaN values found in normal data; Issues may ensue.")
 
 			IMAGE = Image.fromarray(NORMAL_DATA_VIS, mode='RGB')
-			del NORMAL_DATA_VIS
 		
 
 		case "COLOUR":
