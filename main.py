@@ -64,7 +64,7 @@ except ImportError:
 
 
 def MAIN():
-	#try:
+	try:
 		"""
 		[if main:]
 		Preparing the game:
@@ -161,7 +161,7 @@ def MAIN():
 
 
 		#Set the context back as the main PG window, and convert any shadow map data.
-		PG.display.set_caption("test4.2.5//main.py")
+		PG.display.set_caption("test4.2.6//main.py")
 		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
 		
@@ -170,10 +170,10 @@ def MAIN():
 		for I, LIGHT in enumerate(LIGHTS):
 			LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
 
-	#except Exception as E:
-		#log.ERROR("Main.py Value initialisation", E)
+	except Exception as E:
+		log.ERROR("Main.py Value initialisation", E)
 
-	#try:
+	try:
 		OPTIONS_DATA = (SCREEN, ui.OPTIONS_MENU, KEY_STATES, (VAO_QUAD, VAO_UI), QUAD_SHADER)
 		RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(SCREEN, ui.MAIN_MENU, KEY_STATES, (VAO_QUAD, VAO_UI), QUAD_SHADER, BACKGROUND=texture_load.LOAD_SHEET("menu_background", SHEET=False), BACKGROUND_SHADE=False, UI_DATA=OPTIONS_DATA)
 		DISPLAY_RESOLUTION = utils.CONSTANTS["DISPLAY_RESOLUTION"]
@@ -221,14 +221,6 @@ def MAIN():
 							KEY_STATES[EVENT.key] = True
 						
 						match EVENT.key:
-							case PG.K_q:
-								#Q is the screenshot key.
-								if PREVIOUS_FRAME != None:
-									RAW_TIME = log.GET_TIME()
-									CURRENT_TIME = f"{RAW_TIME[:8]}.{RAW_TIME[10:]}".replace(":", "-")
-									render.SAVE_MAP(RENDER_RESOLUTION, PREVIOUS_FRAME, f"screenshots\\{CURRENT_TIME}.png", "COLOUR")
-									print(f"Saved screenshot as [{CURRENT_TIME}.png]")
-
 							case PG.K_BACKSPACE:
 								PG.mouse.set_visible(True)
 								PG.quit()
@@ -304,6 +296,7 @@ def MAIN():
 
 				if (WINDOW_FOCUS == 1):
 					#Mouse inputs for player view rotation only apply when window is focussed.
+					ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0 #Zoom changes sensitivity
 					if EVENT.type == PG.MOUSEMOTION:
 						MOUSE_MOVE = (EVENT.pos[0] - (DISPLAY_RESOLUTION.X // 2), EVENT.pos[1] - (DISPLAY_RESOLUTION.Y // 2))
 						PLAYER.ROTATION.X += MOUSE_MOVE[0] * PREFERENCES["PLAYER_SPEED_TURN_MOUSE"] * (FPS/PREFERENCES["FPS_LIMIT"]) * ZOOM_MULT
@@ -330,7 +323,7 @@ def MAIN():
 			if WINDOW_FOCUS == 0:
 				#If window is not in focus, set the FPS to the "idle", lower value and show the mouse.
 				PG.mouse.set_visible(True)
-				FPS_CAP = PREFERENCES["FPS_LOW"]
+				FPS_CAP = CONSTANTS["FPS_LOW"] if PREFERENCES["FPS_DEFOCUS"] else PREFERENCES["FPS_LIMIT"]
 			else:
 				#Otherwise move mouse to centre of screen (hidden) and use the "active", higher FPS.
 				PG.mouse.set_pos(DISPLAY_CENTRE.TO_LIST())
@@ -364,7 +357,7 @@ def MAIN():
 			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
 			if PREFERENCES["DEBUG_UI"]:
 				#Save map if DEBUG_UI is enabled.
-				render.SAVE_MAP(CONSTANTS["UI_RESOLUTION"], UI_TEXTURE_ID, f"screenshots\\debug_maps\\colour_map_ui.png", "COLOUR")
+				render.SAVE_MAP(CONSTANTS["UI_RESOLUTION"], UI_TEXTURE_ID, f"src\\debug_maps\\colour_map_ui.png", "COLOUR")
 
 
 			#Rendering the main scene.
@@ -507,8 +500,8 @@ def MAIN():
 		PG.quit()
 		sys.exit()
 
-	#except Exception as E:
-		#log.ERROR("Mainloop", E)
+	except Exception as E:
+		log.ERROR("Mainloop", E)
 
 
 

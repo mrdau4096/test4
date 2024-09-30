@@ -24,7 +24,7 @@ try:
 	import glm, glfw
 	import pygame as PG
 	from pygame import time, joystick, display, image
-	from PIL import Image
+	#from PIL import Image
 	from OpenGL.GL import *
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
@@ -956,7 +956,7 @@ def CREATE_SHADOW_MAPS(SURFACE, I, LIGHT, VAO_DATA, SHEET_DATA):
 
 
 	if PREFERENCES["DEBUG_MAPS"]:
-		SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], DTB_SHADOW, f"screenshots\\debug_maps\\depth_map_{I}.png", "COLOUR_RGBA", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)
+		SAVE_MAP(CONSTANTS["SHADOW_MAP_RESOLUTION"], DTB_SHADOW, f"src\\debug_maps\\depth_map_{I}.png", "COLOUR_RGBA", MIN_DISTANCE=LIGHT.MIN_DISTANCE, MAX_DISTANCE=LIGHT.MAX_DISTANCE)
 
 
 	#Assign data to the Light instance, including the data from the DTB to pass accross the contexts again.

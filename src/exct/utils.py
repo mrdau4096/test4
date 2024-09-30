@@ -229,7 +229,8 @@ def GET_DATA_PATH():
 	return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 
-def SAVE_CONFIGS(PREFERENCES, CONSTANTS):
+def SAVE_CONFIGS(DATA):
+	PREFERENCES, CONSTANTS = DATA
 	try:
 		# Handle Prefs.txt
 		with open("Prefs.txt", "r") as PREFERENCE_FILE:
@@ -264,11 +265,11 @@ def SAVE_CONFIGS(PREFERENCES, CONSTANTS):
 		with open(CONFIG_FILE_PATH, "w") as CONFIG_FILE:
 			for LINE in CONFIG_DATA:
 				STRIPPED_LINE = LINE.strip()
-				if STRIPPED_LINE and STRIPPED_LINE[0] != "/":  # If not a comment or empty line
+				if STRIPPED_LINE and not STRIPPED_LINE.startswith("//"):  #If not a comment or empty line
 					KEY, _ = STRIPPED_LINE.split(' = ')
 					KEY = KEY.strip()
 					if KEY in CONSTANTS:
-						# Replace the line with updated value from the dictionary
+						#Replace the line with updated value from the dictionary
 						NEW_VALUE = CONSTANTS[KEY]
 						if isinstance(NEW_VALUE, bool):
 							NEW_VALUE = "True" if NEW_VALUE else "False"
@@ -288,7 +289,7 @@ def GET_CONFIGS():
 			PREFERENCES = {}
 			
 			for LINE in PREFERENCE_DATA:
-				if LINE[0].strip() not in ("/", ""):
+				if LINE[0].strip() != "" and not LINE.startswith("//"):
 					P_LINE_DATA = (LINE.strip()).split(' = ')
 					USER_CHOICE = P_LINE_DATA[1]
 					
@@ -297,7 +298,7 @@ def GET_CONFIGS():
 							CHOSEN_DATA = int(USER_CHOICE)
 							
 							if P_LINE_DATA[0] == "FPS_LIMIT":
-								USER_CHOICE = CLAMP(USER_CHOICE, 1, 10000)
+								CHOSEN_DATA = int(CLAMP(CHOSEN_DATA, 1, 250))
 						
 						except:
 							CHOSEN_DATA = float(USER_CHOICE)
@@ -332,12 +333,12 @@ def GET_CONFIGS():
 					C_LINE_DATA = (LINE.strip()).split(' = ')
 					USER_CHOICE = C_LINE_DATA[1]
 
-					if USER_CHOICE.startswith("v2: "):
-						DATA = USER_CHOICE.replace("v2: ", "").split(", ")
+					if USER_CHOICE.startswith("<VECTOR_2D: [") and USER_CHOICE.endswith("]>"):
+						DATA = USER_CHOICE.replace("<VECTOR_2D: [", "").replace("]>","").split(", ")
 						CHOSEN_DATA = VECTOR_2D(DATA[0], DATA[1])
 
-					elif USER_CHOICE.startswith("v3: "):
-						DATA = USER_CHOICE.replace("v3: ", "").split(", ")
+					elif USER_CHOICE.startswith("<VECTOR_3D: [") and USER_CHOICE.endswith("]>"):
+						DATA = USER_CHOICE.replace("<VECTOR_3D: [", "").replace("]>", "").split(", ")
 						CHOSEN_DATA = VECTOR_3D(DATA[0], DATA[1], DATA[2])
 
 					else:					
@@ -790,13 +791,13 @@ class SCENE():
 
 
 class UI_ELEMENT():
-	def __init__(self, POSITION, DIMENTIONS, OFF_COLOUR, ON_COLOUR, OFF_TEXT=None, ON_TEXT=None, TEXT_COLOUR=None):
+	def __init__(self, POSITION, DIMENTIONS, OFF_COLOUR, ON_COLOUR, OFF_TEXT=None, ON_TEXT=None, TEXT_COLOUR=None, START_STATE=None):
 		self.TL_POSITION = POSITION
 		self.BR_POSITION = POSITION + DIMENTIONS
 		self.DIMENTIONS = DIMENTIONS
 		self.OFF_COLOUR, self.ON_COLOUR = OFF_COLOUR, ON_COLOUR
 		self.OFF_TEXT, self.ON_TEXT = OFF_TEXT, ON_TEXT
-		self.STATE = False
+		self.STATE = False if START_STATE is None else START_STATE
 		self.PRESSED_PREV_FRAME = False
 		self.TEXT_COLOUR = TEXT_COLOUR if TEXT_COLOUR is not None else RGBA(255, 255, 255, 255)
 
@@ -815,54 +816,73 @@ class UI_ELEMENT():
 		UI_SURFACE.blit(TEXT_SURFACE, POSITION)
 
 
+class SLIDER:
+	def __init__(self, POSITION, DIMENTIONS, MAX_SLIDE, COLOUR, ATTACHED_OBJECTS=None, VERTICAL=False):
+		self.START_POSITION = POSITION
+		self.CURRENT_SLIDER_POS = POSITION
+		self.DIMENTIONS = DIMENTIONS
+		self.MAX_SLIDE = MAX_SLIDE
+		self.CURRENT_SLIDE = 0
+		self.COLOUR = COLOUR
+		self.VERTICAL = VERTICAL #If False, then Horizontal.
+		self.SLIDE_RATIO = 0
+		self.ATTACHED_OBJECTS = ATTACHED_OBJECTS
 
-class SLIDER(UI_ELEMENT):
-	def __init__(self, POSITION, DIMENTIONS, COLOUR, MAX_DISTANCE):
-		super().__init__(self, POSITION, DIMENTIONS, COLOUR, COLOUR)
+	def SLIDE_CHECK(self, MOUSE_POS, MOUSE_MOVE, KEY_STATES):
+		if POINT_IN_RECTANGLE(MOUSE_POS, self.CURRENT_SLIDER_POS, self.DIMENTIONS) and KEY_STATES[1]:
+			self.CURRENT_SLIDE += MOUSE_MOVE[1] if self.VERTICAL else MOUSE_MOVE[0]
+			self.CURRENT_SLIDE = max(0, min(self.CURRENT_SLIDE, self.MAX_SLIDE))
+			
+			if self.CURRENT_SLIDE > 0 and self.CURRENT_SLIDE < self.MAX_SLIDE:
+				if self.VERTICAL:
+					self.CURRENT_SLIDER_POS = (self.CURRENT_SLIDER_POS[0], self.START_POSITION[1] + self.CURRENT_SLIDE)
+				else:
+					(self.START_POSITION[0] + self.CURRENT_SLIDE, self.CURRENT_SLIDER_POS[1])
 
-		self.SLIDER_DISTANCE = 0
-		self.SLIDER_MAX_DIST = MAX_DISTANCE
+				self.SLIDE_RATIO = self.CURRENT_SLIDE/self.MAX_SLIDE
 
-	def __repr__():
-		return f"<SLIDER: [START_POSITION: {self.TL_POSITION}, DIMENTIONS: {self.DIMENTIONS}, MAX_DISTANCE: {self.SLIDER_MAX_DIST}, CUR_DISTANCE: {self.SLIDER_DISTANCE}]>"
-
-	def EVALUATE_STATE(self, MOUSE_POSITION, KEY_STATES, MOUSEBUTTONUP):
-		if KEY_STATES[1] and POINT_IN_RECTANGLE(MOUSE_POSITION, self.TL_POSITION, self.DIMENTIONS):
-			self.SLIDER_DISTANCE += MOUSE_MOVE[0]
-			self.SLIDER_DISTANCE = CLAMP(self.SLIDER_DISTANCE, 0, self.SLIDER_MAX_DIST)
-			if self.SLIDER_DISTANCE > 0 and self.SLIDER_DISTANCE < SLIDER_MAX_DIST:
-				self.CURRENT_SLIDER_POS = (SLIDER_POS.X + SLIDER_DISTANCE, SLIDER_POS.Y)
+	def DRAW(self):
+		SLIDER_RECT = PG.Rect(self.CURRENT_SLIDER_POS, self.DIMENTIONS)
+		PG.draw.rect(SCREEN, self.COLOUR, SLIDER_RECT)
 
 
 
 class BUTTON(UI_ELEMENT):
-	def __init__(self, POSITION, DIMENTIONS, FUNCTION, OFF_COLOUR, ON_COLOUR, OFF_TEXT, ON_TEXT, FUNCTION_VALUES=None, TOGGLE=False, TEXT_COLOUR=None):
-		super().__init__(POSITION, DIMENTIONS, OFF_COLOUR, ON_COLOUR, OFF_TEXT=OFF_TEXT, ON_TEXT=ON_TEXT, TEXT_COLOUR=TEXT_COLOUR)
+	def __init__(self, POSITION, DIMENTIONS, FUNCTION, OFF_COLOUR, ON_COLOUR, OFF_TEXT, ON_TEXT, FUNCTION_VALUES=None, TOGGLE=False, TEXT_COLOUR=None, START_STATE=None):
+		super().__init__(POSITION, DIMENTIONS, OFF_COLOUR, ON_COLOUR, OFF_TEXT=OFF_TEXT, ON_TEXT=ON_TEXT, TEXT_COLOUR=TEXT_COLOUR, START_STATE=START_STATE)
 
 		self.FUNCTION = FUNCTION
 		self.FUNCTION_VALUES = FUNCTION_VALUES
 		self.TOGGLE = TOGGLE
 
 
-	def __repr__():
+	def __repr__(self):
 		return f"<BUTTON [POSITION: {self.TL_POSITION}, DIMENTIONS: {self.DIMENTIONS}, FUNCTION: {self.FUNCTION}, TOGGLE: {self.TOGGLE}]>"
 
 
 	def EVALUATE_STATE(self, MOUSE_POSITION, KEY_STATES, MOUSEBUTTONUP):
 		if KEY_STATES[1] and POINT_IN_RECTANGLE(MOUSE_POSITION, self.TL_POSITION, self.DIMENTIONS):
+			
 			if self.TOGGLE and not self.PRESSED_PREV_FRAME:
 				self.PRESSED_PREV_FRAME = True
 				self.STATE = not self.STATE
 			
-			else:
+			elif not self.TOGGLE:
 				self.STATE = True
+
 
 		elif not self.TOGGLE:
 			self.STATE = False
 
+		elif self.PRESSED_PREV_FRAME:
+			self.PRESSED_PREV_FRAME = False
+
+
 		if self.STATE and MOUSEBUTTONUP or (self.TOGGLE == False and MOUSEBUTTONUP and POINT_IN_RECTANGLE(MOUSE_POSITION, self.TL_POSITION, self.DIMENTIONS)):
 			if "PROCESS_UI_STATE" in str(self.FUNCTION): #For recursive UI pages in menus (Such as options)
 				RESULT = self.FUNCTION(self.FUNCTION_VALUES[0], self.FUNCTION_VALUES[1], self.FUNCTION_VALUES[2], self.FUNCTION_VALUES[3], self.FUNCTION_VALUES[4])
+			elif "UPDATE_CONFIG" in str(self.FUNCTION): #For editing values
+				RESULT = self.FUNCTION(self.FUNCTION_VALUES[0], self.FUNCTION_VALUES[1], self)
 			else:
 				RESULT = self.FUNCTION() if self.FUNCTION_VALUES is None else self.FUNCTION(self.FUNCTION_VALUES)
 			if RESULT is not None:

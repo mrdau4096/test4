@@ -1,24 +1,20 @@
-/All preferences, configs and other options are in this file. (/ marks a comment, and will not be read. Blank lines will also be skipped.)
-/The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
+//All preferences, configs and other options are in this file. (// marks a comment, and will not be read. Blank lines will also be skipped.)
+//The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
 
-/User Preference
+//User Preference
 FOV = 75
 FPS_LIMIT = 60
-FPS_LOW = 15
+FPS_DEFOCUS = True
 PLAYER_SPEED_TURN_MOUSE = 0.1
-PLAYER_SPEED_TURN_PAD = 2.5
+HARDER_HOSTILES = False
+INF_AMMO = False
 
-/Gamepad "trim"
-AXIS_0_OFFSET = 0.0
-AXIS_1_OFFSET = 0.0
-AXIS_2_OFFSET = 0.0
-AXIS_3_OFFSET = 0.0
 SCENE = t0
-/^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
+//^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
 
-/Debug
+//Debug
 DEBUG_MAPS = False
 DEBUG_UI = False
 DEBUG_NORMALS = False
@@ -29,4 +25,4 @@ DEV_TEST = False
 
 
 
-/Other
+//Other

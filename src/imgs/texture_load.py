@@ -50,6 +50,7 @@ PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
 global TEXTURE_CACHE, SHEET_CACHE
 TEXTURE_CACHE = {}
 SHEET_CACHE = {}
+FALLBACK_TEXTURE = "fallback"
 
 
 #Texture loading functions
@@ -58,7 +59,7 @@ SHEET_CACHE = {}
 def TEXTURE_CACHE_MANAGER(HEX_ID):
 	#Loads a set texture based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
 	#If already in the texture cache, give that data to prevent re-loading of information
-	#try:
+	try:
 		if HEX_ID in TEXTURE_CACHE:
 			return TEXTURE_CACHE[HEX_ID]
 
@@ -88,14 +89,14 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 
 			return TEXTURE_COORDINATES
 
-	#except Exception as E:
-		#log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
+	except Exception as E:
+		log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
 
 
 
-def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE):
+def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE, FALLBACK=False):
 	#Loads a texture sheet or other image file.
-	#try:
+	try:
 		if FILE_NAME in SHEET_LIST:
 			SHEET_ID = SHEET_LIST[FILE_NAME]
 
@@ -130,5 +131,11 @@ def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE):
 		return SHEET_ID
 
 		
-	#except Exception as E:
-		#log.ERROR("texture_load.LOAD_SHEET", E)
+	except FileNotFoundError:
+                if not FALLBACK:
+                        PREFIX = 'sheet-' if SHEET else ''
+                        return LOAD_SHEET(FALLBACK_TEXTURE, SHEET=False, FALLBACK=True)
+                else:
+                        log.ERROR("texture_load.py // LOAD_SHEET", f"Neither {PREFIX}{FILE_NAME}.png nor the fallback texture were found.")
+	except Exception as E:
+		log.ERROR("texture_load.py // LOAD_SHEET", E)

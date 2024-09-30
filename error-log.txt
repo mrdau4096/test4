@@ -121,3 +121,56 @@
 19:42:04, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
 19:42:23, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
 14:45:15, 22-09-2024 / ERROR in render.py / No module named 'PIL'
+16:35:19, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:36:27, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:42:53, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:43:23, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:44:14, 30-09-2024 / ERROR in render.py / No module named 'pil'
+16:44:20, 30-09-2024 / ERROR in render.py / No module named 'pil'
+16:46:31, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:47:31, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:51:20, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+19:04:33, 30-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 399)
+19:06:19, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / invalid destination position for blit
+19:10:39, 30-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 57)
+20:07:34, 30-09-2024 / ERROR in render.py / name 'DRAW_TEXT' is not defined
+20:07:59, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'OPTIONS_MENU_BUTTONS' is not defined
+20:08:04, 30-09-2024 / ERROR in render.py / name 'DRAW_TEXT' is not defined
+20:08:28, 30-09-2024 / ERROR in render.py / font not initialized
+20:08:44, 30-09-2024 / ERROR in render.py / font not initialized
+20:09:31, 30-09-2024 / ERROR in render.py / name 'BUTTONS' is not defined
+20:10:02, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'OPTIONS_BUTTONS' is not defined
+20:10:50, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:11:21, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:11:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:33:52, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'NoneType' object has no attribute 'append'
+20:43:25, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'UI_SURFACE' referenced before assignment
+20:44:19, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'UI_SURFACE' referenced before assignment
+20:47:04, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / not enough values to unpack (expected 4, got 1)
+20:47:35, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / not enough values to unpack (expected 4, got 1)
+20:50:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'NoneType' object is not iterable
+20:50:55, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:53:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:55:07, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:55:46, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'BUTTON' referenced before assignment
+20:55:59, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:16, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:31, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:57:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:58:06, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:59:29, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:00:23, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:02:22, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:06:37, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:06:51, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:18, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:53, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:20:12, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:21:03, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:21:35, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:22:25, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:22:40, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:23:06, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:23:26, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
