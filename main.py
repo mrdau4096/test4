@@ -15,59 +15,59 @@ Importing other files;
 """
 print("--")
 
+#try:
+import sys, os
+import math as maths
+print("Imported Module(s) // sys, math, os") #Successfully imported said modules.
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1" #Hides the Pygame default welcome message in console.
+sys.path.append("src") #Access the source subfolder in the path, for the data.
+from exct import log
+
+
+#All sub-files for the program - think of main.py as a hub for these other files to interface within.
+
+
+
+from imgs import texture_load
+from exct import render, physics, utils, ui
+from scenes import scene
+from exct.utils import *
+
+#Import the memory-profiler I used in testing.
 try:
-	import sys, os
-	import math as maths
-	print("Imported Module(s) // sys, math, os") #Successfully imported said modules.
-	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1" #Hides the Pygame default welcome message in console.
-	sys.path.append("src") #Access the source subfolder in the path, for the data.
-	from exct import log
+	from memory_profiler import profile
+
+except ImportError:
+	pass #If it fails, then this is not an issue - It is only used for the sake of testing anyhow, and is non-essential in actual operation.
 
 
-	#All sub-files for the program - think of main.py as a hub for these other files to interface within.
+"""
+Importing external modules from "modules"
+-PyGame
+-PyOpenGL
+-GLM
+-Pyrr
+-NumPy
+"""
+sys.path.append("modules.zip")
+import pygame as PG
+from pygame.locals import *
+from pygame import *
+print("Imported Module(s) // PyGame")
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL.shaders import compileShader, compileProgram
+print("Imported Module(s) // PyOpenGL")
+import glm
+print("Imported Module(s) // PyGLM")
+from pyrr import Matrix44, Vector3
+print("Imported Module(s) // Pyrr")
+import numpy as NP
+print("Imported Module(s) // NumPy\n--\n")
 
-
-
-	from imgs import texture_load
-	from exct import render, physics, utils, ui
-	from scenes import scene
-	from exct.utils import *
-
-	#Import the memory-profiler I used in testing.
-	try:
-		from memory_profiler import profile
-
-	except ImportError:
-		pass #If it fails, then this is not an issue - It is only used for the sake of testing anyhow, and is non-essential in actual operation.
-
-
-	"""
-	Importing external modules from "modules"
-	-PyGame
-	-PyOpenGL
-	-GLM
-	-Pyrr
-	-NumPy
-	"""
-	sys.path.append("modules.zip")
-	import pygame as PG
-	from pygame.locals import *
-	from pygame import *
-	print("Imported Module(s) // PyGame")
-	from OpenGL.GL import *
-	from OpenGL.GLU import *
-	from OpenGL.GL.shaders import compileShader, compileProgram
-	print("Imported Module(s) // PyOpenGL")
-	import glm
-	print("Imported Module(s) // PyGLM")
-	from pyrr import Matrix44, Vector3
-	print("Imported Module(s) // Pyrr")
-	import numpy as NP
-	print("Imported Module(s) // NumPy\n--\n")
-
-except Exception as E:
-	log.ERROR("main.py, init()", E)
-	quit()
+#except Exception as E:
+#	log.ERROR("main.py, init()", E)
+#	quit()
 
 
 
@@ -108,7 +108,7 @@ def MAIN():
 
 		#PyOpenGL setup.
 		SCENE_SHADER, QUAD_SHADER, SHADOW_SHADER = render.SHADER_INIT()
-		VAO_QUAD, VAO_UI, SCENE_FBO, SCENE_TCB = render.FBO_QUAD_INIT(RENDER_RESOLUTION)
+		VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE = render.FBO_QUAD_INIT(RENDER_RESOLUTION)
 
 		VOID_COLOUR = RGBA(0, 0, 0, 0).TO_DECIMAL()#RGBA(47, 121, 221, 255).TO_DECIMAL()
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
@@ -133,14 +133,14 @@ def MAIN():
 
 
 		
-		RENDER_DATA, PHYS_DATA, CURRENT_SHEET_ID, PLAYER_ID = scene.PREPARE_SCENE(PREFERENCES["SCENE"])
+		RENDER_DATA, PHYS_DATA, PLAYER_ID = scene.PREPARE_SCENE(PREFERENCES["SCENE"])
 		BLANK_TEXTURE = texture_load.LOAD_SHEET("_")
-		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
+		VAO_DATA, LIGHTS = RENDER_DATA
 
 		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
 
 		for I, LIGHT in enumerate(LIGHTS):
-			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"], CURRENT_SHEET_ID)
+			SHADOW_MAP, LIGHTS[I] = render.CREATE_LIGHT_MAPS(LIGHT, VAO_DATA, SHADOW_SHADER, CONSTANTS["SHADOW_MAP_RESOLUTION"])
 			LIGHT.SHADOW_MAP = SHADOW_MAP
 			
 			if PREFERENCES["DEBUG_MAPS"]:
@@ -243,7 +243,7 @@ def MAIN():
 						RENDER_RESOLUTION = DISPLAY_RESOLUTION / CONSTANTS["RENDER_SCALING_FACTOR"]  #Set render resolution to be half of the screen resolution
 						utils.CONSTANTS["DISPLAY_RESOLUTION"] = DISPLAY_RESOLUTION
 						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), DOUBLEBUF | OPENGL | RESIZABLE)
-						SCENE_FBO, SCENE_TCB, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
+						FBO_SCENE, TCB_SCENE, _, _, _ = render.CREATE_FBO(RENDER_RESOLUTION)
 						glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
@@ -349,8 +349,8 @@ def MAIN():
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			CAMERA_POSITION = PLAYER.POSITION + CAMERA_OFFSET
 
-			COPIED_VAO_VERTICES, COPIED_VAO_INDICES = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
-			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
+			COPIED_VAO_DATA = render.SCENE(PHYS_DATA, RENDER_DATA[0], PLAYER)
+			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_DATA[0], COPIED_VAO_DATA[1], VBO_SCENE, EBO_SCENE)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT_VECTOR = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
 
 
@@ -373,24 +373,22 @@ def MAIN():
 			#Rendering the main scene.
 
 
-			glBindFramebuffer(GL_FRAMEBUFFER, SCENE_FBO)
+			glBindFramebuffer(GL_FRAMEBUFFER, FBO_SCENE)
 			glViewport(0, 0, int(RENDER_RESOLUTION.X), int(RENDER_RESOLUTION.Y))
 			glClearColor(VOID_COLOUR.R, VOID_COLOUR.G, VOID_COLOUR.B, VOID_COLOUR.A)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 			glClearDepth(1.0)
 			glUseProgram(SCENE_SHADER)
-			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
 
 			MODEL_LOC = glGetUniformLocation(SCENE_SHADER, 'MODEL_MATRIX')
 			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MATRIX')
 			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, 'PROJ_MATRIX')
-			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, 'TRI_TEXTURE')
 			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, 'VIEW_MAX_DIST')
 			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, 'CAMERA_POSITION')
 			VOID_COLOUR_LOC = glGetUniformLocation(SCENE_SHADER, 'VOID_COLOUR')
 			LIGHT_COUNT_LOC = glGetUniformLocation(SCENE_SHADER, "LIGHT_COUNT")
 			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
+			SHEETS_LOC = glGetUniformLocation(SCENE_SHADER, "sheets")
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
 			glUniformMatrix4fv(PROJECTION_LOC, 1, GL_FALSE, PROJECTION_MATRIX)
@@ -399,7 +397,12 @@ def MAIN():
 			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["NORMALS_DEBUG"])
 			glUniform1f(VIEW_DIST_LOC, CONSTANTS["MAX_VIEW_DIST"])
 			glUniform3fv(CAMERA_POS_LOC, 1, glm.value_ptr(CAMERA_POSITION.CONVERT_TO_GLM_VEC3()))
-			glUniform1i(TEXTURE_LOC, 0)
+			
+			for SHEET_NAME, SHEET_ID in texture_load.SHEET_CACHE.items():
+				TEXTURE_ITR = texture_load.SHEET_INDEX_LIST.index(SHEET_NAME)
+				glActiveTexture(GL_TEXTURE0 + TEXTURE_ITR)
+				glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+			glBindTexture(GL_TEXTURE_2D, 0)
 
 
 			for I, LIGHT in enumerate(LIGHTS):
@@ -425,17 +428,15 @@ def MAIN():
 				glActiveTexture(GL_TEXTURE1 + I)
 				glBindTexture(GL_TEXTURE_2D, LIGHT.SHADOW_MAP)
 				glUniform1i(SHADOW_MAP_LOC, I + 1)
+				
 
-
-			glActiveTexture(GL_TEXTURE0)
 			glBindVertexArray(VAO_SCENE)
-			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
-			glDrawElements(GL_TRIANGLES, len(COPIED_VAO_INDICES), GL_UNSIGNED_INT, None)
+			glDrawElements(GL_TRIANGLES, len(COPIED_VAO_DATA[1]//3), GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
+				
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0)
-
 
 			glViewport(0, 0, int(DISPLAY_RESOLUTION.X), int(DISPLAY_RESOLUTION.Y))
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -453,11 +454,11 @@ def MAIN():
 
 			#Draw the current frame to a quad in the camera's view
 			
-			PREVIOUS_FRAME = SCENE_TCB
+			PREVIOUS_FRAME = TCB_SCENE
 
 			glBindVertexArray(VAO_QUAD)
 			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, SCENE_TCB)
+			glBindTexture(GL_TEXTURE_2D, TCB_SCENE)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
@@ -467,17 +468,21 @@ def MAIN():
 			if PREFERENCES["DEBUG_UI"]:
 				render.SAVE_MAP(CONSTANTS["UI_RESOLUTION"], UI_TEXTURE_ID, f"screenshots\\debug_maps\\colour_map_ui.png", "COLOUR")
 
+			glUniform2f(RESOLUTION_LOC, DISPLAY_RESOLUTION.X, DISPLAY_RESOLUTION.Y)
+			glUniform1f(SCALING_FACTOR_LOC, 1)
+			glUniform1i(SCREEN_TEXTURE_LOC, 0)
+
 			
 			glBindVertexArray(VAO_UI)
 			glActiveTexture(GL_TEXTURE0)
 			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
 			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
-			glDeleteTextures([UI_TEXTURE_ID])
 			PG.display.flip()
+			
 
 		# Quitting all that needs to be done, when RUN == False
 		PG.mouse.set_visible(True)

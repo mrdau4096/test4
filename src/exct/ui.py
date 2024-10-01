@@ -45,7 +45,6 @@ def DRAW_IMG(SCREEN, IMG_NAME, POSITION, SCALE):
 
 
 def HUD(PLAYER, FPS):
-	#UI Draws ~8px too low, due to the area being 640x352 rather than 640x360 (accounting for 1080p -> 1057p with windows)
 	UI_COLOURS = {
 		"SMOKY_BLACK": (20, 17, 15),
 		"DAVYS_GRAY": (72, 71, 74),

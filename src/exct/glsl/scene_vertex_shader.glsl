@@ -1,22 +1,25 @@
 #version 330 core
 
-layout(location = 0) in vec3 Position;
-layout(location = 1) in vec2 TexCoords;
-layout(location = 2) in vec3 Normal;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aTexCoords;
+layout(location = 2) in vec3 aNormal;
+layout(location = 3) in float aTexIndex;
 
 out vec2 fragTexCoords;
 out vec3 fragNormal;
 out vec3 fragPos;
+flat out int fragTexIndex;
 
-uniform mat4 MODEL_MATRIX;
-uniform mat4 VIEW_MATRIX;
-uniform mat4 PROJ_MATRIX;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main()
 {
-    fragTexCoords = TexCoords;
-    fragNormal = mat3(transpose(inverse(MODEL_MATRIX))) * Normal;
-    fragPos = vec3(MODEL_MATRIX * vec4(Position, 1.0)); // Transform position to world space
+    fragTexCoords = aTexCoords;
+    fragTexIndex = int(aTexIndex);
+    fragNormal = mat3(transpose(inverse(model))) * aNormal; // Transform normal to world space
+    fragPos = vec3(model * vec4(aPos, 1.0)); // Transform position to world space
 
-    gl_Position = PROJ_MATRIX * VIEW_MATRIX * vec4(fragPos, 1.0);
+    gl_Position = projection * view * vec4(fragPos, 1.0);
 }

@@ -34,3 +34,5 @@
 16:19:19, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
 16:29:53, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 231)
 17:02:03, 22-07-2024 / ERROR in main.py, init() / inconsistent use of tabs and spaces in indentation (physics.py, line 275)
+15:21:52, 24-07-2024 / ERROR in main.py, init() / invalid syntax (render.py, line 263)
+15:22:01, 24-07-2024 / ERROR in main.py, init() / invalid syntax (render.py, line 263)
