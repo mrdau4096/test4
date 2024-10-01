@@ -1,9 +1,16 @@
-cd C:\Users\User\Documents\GitHub\test-4.2.3b
+cd C:\Users\User\Documents\GitHub\test4
 
 REM Run PyInstaller with the specified options
 pyinstaller --onefile ^
-    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src;src" ^
-    --add-data "C:\Users\User\Documents\GitHub\test-4.2.3b\src\modules.zip;modules.zip" ^
+    --add-data "C:\Users\User\Documents\GitHub\test4\src;src" ^
+    --hidden-import numpy ^
+    --hidden-import pyrr ^
+    --hidden-import glfw ^
+    --hidden-import pyopengl ^
+    --hidden-import pyglm ^
+    --hidden-import pillow ^
+    --hidden-import multiprocess ^
+    --add-binary "C:\Python310\Lib\site-packages\glfw\glfw3.dll;." ^
     main.py
 
 REM Check if the build was successful

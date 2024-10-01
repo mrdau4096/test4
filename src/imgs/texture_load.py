@@ -7,102 +7,135 @@ ______________________
 Importing other files;
 -log.py
 """
-#Import Internal modules
-from exct import log, utils, render
-from exct.utils import *
 
+from exct import log
+try:
+	#Importing base python modules
+	import sys, os
+	import math as maths
+	import numpy as NP
 
-#Import External modules
-import os, sys
+	#Stop PyGame from giving that annoying welcome message
+	os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
-CURRENT_DIR = os.path.dirname(__file__)
-PARENT_DIR = os.path.dirname(CURRENT_DIR)
-sys.path.append(PARENT_DIR)
-sys.path.append("modules")
+	sys.path.extend(("src", r"src\exct\data", r"src\exct\glsl"))
+	import pygame as PG
+	from pygame import time, joystick, display, image
+	from OpenGL.GL import *
+	from OpenGL.GLU import *
+	from OpenGL.GL.shaders import compileProgram, compileShader
 
-import pygame as PG
-from pygame.locals import *
-from pygame import image
-from OpenGL.GL import *
-from OpenGL.GLU import *
+	#Import other sub-files.
+	from exct import utils, render
+	from exct.utils import *
 
-print("Imported Sub-file // texture_load.py")
+except Exception as E:
+	log.ERROR("texture_load.py", E)
+
+log.REPORT_IMPORT("texture_load.py")
+
 
 """
 Texture cache;
-> stores all previously loaded textures
+> stores all previously loaded textures and their UV coordinates
 > if a texture is called to be loaded, it is checked for duplicates in here first
 > if duplicate found, return duplicate
 > otherwise, load texture, add to cache and return data
+
+Sheet cache;
+> same as Texture cache, but for OpenGL sheet IDs
+> no need to re-load a texture.
 """
-global SHEET_CACHE, UV_CACHE, SHEET_INDEX_LIST
-SHEET_CACHE, UV_CACHE, SHEET_INDEX_LIST = {}, {}, []
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
+global TEXTURE_CACHE, SHEET_CACHE
+TEXTURE_CACHE = {}
+SHEET_CACHE = {}
+FALLBACK_TEXTURE = "fallback"
 
 
 #Texture loading functions
 
 
-def TEXTURE_CACHE_MANAGER(TEXTURE_NAME):
-	SPLIT_DATA = TEXTURE_NAME.split("-")
-	SHEET_NAME = ("").join(SPLIT_DATA[:-1]) if len(SPLIT_DATA) > 1 else "base"
-	UV_COORDS = SPLIT_DATA[-1]
+def TEXTURE_CACHE_MANAGER(HEX_ID):
+	#Loads a set texture based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
+	#If already in the texture cache, give that data to prevent re-loading of information
+	try:
+		if HEX_ID in TEXTURE_CACHE:
+			return TEXTURE_CACHE[HEX_ID]
 
-	if SHEET_NAME in SHEET_CACHE:
-		SHEET_ID = SHEET_CACHE[SHEET_NAME]
-	else:
-		try:
-			SHEET_ID = LOAD_SHEET(SHEET_NAME)
-		except FileNotFoundError:
-			try:
-				SHEET_ID = LOAD_SHEET("base")
-			except FileNotFoundError:
-				#Raise a more descriptive error for the logging system to handle.
-				raise FileNotFoundError(f"Neither sheet-{ATTEMPTED_SHEET_NAME}.png nor sheet-base.png could be found in \\src\\imgs\\")
+		else:
+			Y_ID = int(HEX_ID[0], 16)
+			X_ID = int(HEX_ID[1], 16)
 
-		SHEET_CACHE[SHEET_NAME] = SHEET_ID
-		SHEET_INDEX_LIST.append(SHEET_NAME)
+			PIXELS_PER_TILE = 128
 
+			LEFT_X_PIXELS = X_ID * PIXELS_PER_TILE
+			RIGHT_X_PIXELS = ((X_ID + 1) * PIXELS_PER_TILE) - 5
+			TOP_Y_PIXELS = Y_ID * PIXELS_PER_TILE
+			BOTTOM_Y_PIXELS = ((Y_ID + 1) * PIXELS_PER_TILE) - 5
 
-	if UV_COORDS in UV_CACHE:
-		COORDINATES = UV_CACHE[UV_COORDS]
-	else:
-		Y_ID = int(UV_COORDS[0], 16)
-		X_ID = int(UV_COORDS[1], 16)
+			LEFT_X = LEFT_X_PIXELS / 2048.0
+			RIGHT_X = RIGHT_X_PIXELS / 2048.0
+			TOP_Y = 1.0 - (TOP_Y_PIXELS / 2048.0)
+			BOTTOM_Y = 1.0 - (BOTTOM_Y_PIXELS / 2048.0)
 
-		LEFT_X = round((X_ID / 16), 8)
-		RIGHT_X = round(((X_ID + 1) / 16), 8)
-		TOP_Y = round(1 - (Y_ID / 16), 8)
-		BOTTOM_Y = round((1 - (Y_ID + 1) / 16) , 8)
+			BL = VECTOR_2D(LEFT_X, BOTTOM_Y)	#Bottom-Left
+			BR = VECTOR_2D(RIGHT_X, BOTTOM_Y)	#Bottom-Right
+			TR = VECTOR_2D(RIGHT_X, TOP_Y)		#Top-Right
+			TL = VECTOR_2D(LEFT_X, TOP_Y)		#Top-Left
 
-		BL = VECTOR_2D(LEFT_X, BOTTOM_Y)	#Bottom-Left Texture Coordinate
-		BR = VECTOR_2D(RIGHT_X, BOTTOM_Y)	#Bottom-Right Texture Coordinate
-		TR = VECTOR_2D(RIGHT_X, TOP_Y)		#Top-Right Texture Coordinate
-		TL = VECTOR_2D(LEFT_X, TOP_Y)		#Top-Left Texture Coordinate
+			TEXTURE_COORDINATES = (BL, BR, TR, TL)
+			TEXTURE_CACHE[HEX_ID] = TEXTURE_COORDINATES
 
-		COORDINATES = render.CLIP_EDGES([BL, BR, TR, TL])
-		UV_CACHE[UV_COORDS] = COORDINATES
+			return TEXTURE_COORDINATES
 
-	
-	return SHEET_NAME, COORDINATES
+	except Exception as E:
+		log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
 
 
 
-def LOAD_SHEET(FILE_NAME):
-	MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-	TEXTURE_PATH = os.path.join(MAIN_DIR, f"sheet-{FILE_NAME}.png")
+def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE, FALLBACK=False):
+	#Loads a texture sheet or other image file.
+	try:
+		if FILE_NAME in SHEET_LIST:
+			SHEET_ID = SHEET_LIST[FILE_NAME]
 
-	SURFACE = PG.image.load(TEXTURE_PATH)
-	DATA = PG.image.tostring(SURFACE, 'RGBA', 1)
-	WIDTH, HEIGHT = SURFACE.get_width(), SURFACE.get_height()
+		else:
+			if SUBFOLDER is None:
+				MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
+				TEXTURE_PATH = os.path.join(MAIN_DIR, f"{'sheet-' if SHEET else ''}{FILE_NAME}.png")
 
-	SHEET_ID = glGenTextures(1)
-	glBindTexture(GL_TEXTURE_2D, SHEET_ID)
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA)
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+			else:
+				#Loads from a specified sub-folder rather than \src\imgs\ by default.
+				MAIN_DIR = os.path.dirname(os.path.abspath(__file__)).replace(r"\src\imgs", SUBFOLDER)
+				TEXTURE_PATH = os.path.join(MAIN_DIR, f"{FILE_NAME}.png")
 
-	return SHEET_ID
+
+			SURFACE = PG.image.load(TEXTURE_PATH)
+			DATA = PG.image.tostring(SURFACE, 'RGBA', 1)
+			WIDTH, HEIGHT = SURFACE.get_width(), SURFACE.get_height()
+
+			SHEET_ID = glGenTextures(1)
+			glBindTexture(GL_TEXTURE_2D, SHEET_ID)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA)
+			
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+			#Write to sheet cache to prevent re-generating if required again
+			SHEET_LIST[FILE_NAME] = SHEET_ID
+
+		SHEET_CACHE = SHEET_LIST
+		return SHEET_ID
+
+		
+	except FileNotFoundError:
+                if not FALLBACK:
+                        PREFIX = 'sheet-' if SHEET else ''
+                        return LOAD_SHEET(FALLBACK_TEXTURE, SHEET=False, FALLBACK=True)
+                else:
+                        log.ERROR("texture_load.py // LOAD_SHEET", f"Neither {PREFIX}{FILE_NAME}.png nor the fallback texture were found.")
+	except Exception as E:
+		log.ERROR("texture_load.py // LOAD_SHEET", E)

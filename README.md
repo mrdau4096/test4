@@ -21,12 +21,10 @@ _They will change, in due time._
 
 ## Planned;
 - Obligatory bugfixes.
-- Screenshotting functionality.
 - Items for the player to hold/use.
 - Proper menus to interact with, rather than ESC = quit()
 - Projectile and Hitscan weapons.
 - Scene editing program within the filepath.
-- Physics optemisations.
 
 
 ## Known Bugs;

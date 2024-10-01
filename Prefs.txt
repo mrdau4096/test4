@@ -1,35 +1,28 @@
-/All preferences, configs and other options are in this file. (/ marks a comment, and will not be read. Blank lines will also be skipped.)
-/The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
+//All preferences, configs and other options are in this file. (// marks a comment, and will not be read. Blank lines will also be skipped.)
+//The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
 
-/User Preference
+//User Preference
 FOV = 75
 FPS_LIMIT = 60
-FPS_LOW = 15
-FPS_LOW = 60
+FPS_DEFOCUS = True
 PLAYER_SPEED_TURN_MOUSE = 0.1
-PLAYER_SPEED_TURN_PAD = 2.5
+HARDER_HOSTILES = False
+INF_AMMO = False
 
-/Gamepad "trim"
-AXIS_0_OFFSET = 0.0
-AXIS_1_OFFSET = 0.0
-AXIS_2_OFFSET = 0.0
-AXIS_3_OFFSET = 0.0
 SCENE = t0
-/^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
+//^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
 
-/Debug
+//Debug
 DEBUG_MAPS = False
 DEBUG_UI = False
-NORMALS_DEBUG = False
-PROFILER_DEBUG = False
+DEBUG_NORMALS = False
+DEBUG_PROFILER = False
+DEBUG_RAYS = False
+DEBUG_WIREFRAME = False
+DEV_TEST = False
 
 
 
-/Broken/Other/Strange
-DEV_TEST = True
-/^^ Doesn't acctually do anything anymore, feel free to try I suppose.
-/Don't expect much to happen. L_TRIGGER/RETURN shows normals data though.
-DYNAMIC_SHADOWS = False
-/^^ Warning; VERY broken, and if not causes you a LOT of lag. Use at own risk.
+//Other

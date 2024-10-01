@@ -34,5 +34,143 @@
 16:19:19, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 276)
 16:29:53, 22-07-2024 / ERROR in main.py, init() / invalid syntax (physics.py, line 231)
 17:02:03, 22-07-2024 / ERROR in main.py, init() / inconsistent use of tabs and spaces in indentation (physics.py, line 275)
-15:21:52, 24-07-2024 / ERROR in main.py, init() / invalid syntax (render.py, line 263)
-15:22:01, 24-07-2024 / ERROR in main.py, init() / invalid syntax (render.py, line 263)
+22:07:37, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'
+22:07:45, 25-07-2024 / ERROR in main.py, init() / No module named 'pyrr'
+20:24:00, 12-08-2024 / ERROR in Mainloop / ('Shader compile failure (0): b\'0(10) : error C1503: undefined variable "texCoords"\\n\'', [b'#version 330 core\nlayout(location = 0) in vec3 Position;\nlayout(location = 1) in vec2 TexCoords;\n\nout vec2 fragTexCoords;\n\nvoid main()\n{\n\t//Basic vertex shader for the UI quads.\n\tfragTexCoords = texCoords;\n\tgl_Position = vec4(Position, 1.0);\n}'], GL_VERTEX_SHADER)
+20:25:28, 12-08-2024 / ERROR in Mainloop / ('Shader compile failure (0): b\'0(10) : error C1503: undefined variable "texCoords"\\n\'', [b'#version 330 core\nlayout(location = 0) in vec3 Position;\nlayout(location = 1) in vec2 TexCoords;\n\nout vec2 fragTexCoords;\n\nvoid main()\n{\n\t//Basic vertex shader for the UI quads.\n\tfragTexCoords = texCoords;\n\tgl_Position = vec4(Position, 1.0);\n}'], GL_VERTEX_SHADER)
+20:26:05, 12-08-2024 / ERROR in Mainloop / exception: access violation reading 0x0000018EE9794000
+07:21:13, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:27:23, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:29:03, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:31:01, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:32:41, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:34:21, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:38:45, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:40:24, 13-08-2024 / ERROR in main.py / Initial imports failed.
+07:42:08, 13-08-2024 / ERROR in main.py / Initial imports failed.
+08:15:51, 13-08-2024 / ERROR in Mainloop / name 'quit' is not defined
+08:23:05, 13-08-2024 / ERROR in Mainloop / exception: access violation reading 0x0000010AD236F000
+20:45:39, 14-08-2024 / ERROR in Mainloop / name 'sin' is not defined
+21:39:07, 14-08-2024 / ERROR in main.py / IsNotMain
+20:15:46, 17-08-2024 / ERROR in Mainloop / too many values to unpack (expected 4)
+14:49:22, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'TEXTURE_DATA'
+14:50:08, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'BOUNDING_BOX_OBJ'
+14:50:22, 27-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'CUBE_PATH' object has no attribute 'ROTATION'
+11:53:02, 29-08-2024 / ERROR in physics.UPDATE_PHYSICS / 'tuple' object has no attribute 'PROJECT'
+13:12:19, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:14:10, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:16:20, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:18:39, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:34:44, 29-08-2024 / ERROR in main.py / Initial imports failed.
+13:35:17, 29-08-2024 / ERROR in main.py / Initial imports failed.
+14:46:50, 29-08-2024 / ERROR in texture_load.py / Initial imports failed.
+14:48:49, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:49:56, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:51:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:52:50, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:54:35, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+14:57:28, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:00:19, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:02:48, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:04:05, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:05:23, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:07:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:09:26, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:10:52, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:14:31, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:15:45, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:16:55, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:18:23, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:21:12, 29-08-2024 / ERROR in ui.py / Initial imports failed.
+15:22:29, 29-08-2024 / ERROR in Main.py Value initialisation / name 'Matrix44' is not defined
+15:23:48, 29-08-2024 / ERROR in utils.py / Initial imports failed.
+15:34:28, 29-08-2024 / ERROR in main.py / name 'log' is not defined
+18:58:00, 05-09-2024 / ERROR in main.py / No module named 'imgs'
+18:58:21, 05-09-2024 / ERROR in texture_load.py / expected ':' (utils.py, line 189)
+18:58:54, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:30, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:37, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+18:59:53, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:00:15, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:00:49, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:02:17, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:02:35, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:03:12, 05-09-2024 / ERROR in texture_load.py / too many values to unpack (expected 2)
+19:08:17, 05-09-2024 / ERROR in utils.py / [Errno 2] No such file or directory: 'config.dat'
+19:08:35, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
+19:08:58, 05-09-2024 / ERROR in render.py / 'str' object has no attribute 'TO_LIST'
+19:24:10, 05-09-2024 / ERROR in physics.UPDATE_PHYSICS / name 'PG' is not defined
+20:24:51, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+20:25:48, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+20:26:32, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:08:48, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:10:44, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:12:01, 05-09-2024 / ERROR in main.py / Failed to load GLFW3 shared library.
+21:16:02, 05-09-2024 / ERROR in utils.py / Initial imports failed.
+21:29:48, 05-09-2024 / ERROR in ui.py / No module named 'PIL'
+22:14:53, 05-09-2024 / ERROR in ui.py / No module named 'PIL'
+17:07:27, 14-09-2024 / ERROR in texture_load.py / unmatched ')' (utils.py, line 834)
+18:09:36, 14-09-2024 / ERROR in render.py / cannot import name 'Image' from 'pygame' (C:\Python310\lib\site-packages\pygame\__init__.py)
+18:20:15, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+18:20:23, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+18:20:56, 14-09-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 835)
+20:31:45, 14-09-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 104)
+11:30:09, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 238)
+17:54:10, 15-09-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 259)
+19:41:38, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+19:42:04, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+19:42:23, 15-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 139)
+14:45:15, 22-09-2024 / ERROR in render.py / No module named 'PIL'
+16:35:19, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:36:27, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:42:53, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:43:23, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:44:14, 30-09-2024 / ERROR in render.py / No module named 'pil'
+16:44:20, 30-09-2024 / ERROR in render.py / No module named 'pil'
+16:46:31, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:47:31, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+16:51:20, 30-09-2024 / ERROR in render.py / No module named 'PIL'
+19:04:33, 30-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 399)
+19:06:19, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / invalid destination position for blit
+19:10:39, 30-09-2024 / ERROR in render.py / invalid syntax (ui.py, line 57)
+20:07:34, 30-09-2024 / ERROR in render.py / name 'DRAW_TEXT' is not defined
+20:07:59, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'OPTIONS_MENU_BUTTONS' is not defined
+20:08:04, 30-09-2024 / ERROR in render.py / name 'DRAW_TEXT' is not defined
+20:08:28, 30-09-2024 / ERROR in render.py / font not initialized
+20:08:44, 30-09-2024 / ERROR in render.py / font not initialized
+20:09:31, 30-09-2024 / ERROR in render.py / name 'BUTTONS' is not defined
+20:10:02, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'OPTIONS_BUTTONS' is not defined
+20:10:50, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:11:21, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:11:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'BACK'
+20:33:52, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'NoneType' object has no attribute 'append'
+20:43:25, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'UI_SURFACE' referenced before assignment
+20:44:19, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'UI_SURFACE' referenced before assignment
+20:47:04, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / not enough values to unpack (expected 4, got 1)
+20:47:35, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / not enough values to unpack (expected 4, got 1)
+20:50:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'NoneType' object is not iterable
+20:50:55, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:53:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:55:07, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / object of type 'NoneType' has no len()
+20:55:46, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / local variable 'BUTTON' referenced before assignment
+20:55:59, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:16, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:31, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:56:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:57:38, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:58:06, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+20:59:29, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:00:23, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:02:22, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'str' object has no attribute 'EVALUATE_STATE'
+21:06:37, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:06:51, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:18, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:44, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:07:53, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / 'list' object has no attribute 'EVALUATE_STATE'
+21:20:12, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:21:03, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:21:35, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:22:25, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:22:40, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:23:06, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
+21:23:26, 30-09-2024 / ERROR in ui.py // PROCESS_UI_STATE / string indices must be integers
