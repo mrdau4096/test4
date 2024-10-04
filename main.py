@@ -39,6 +39,7 @@ try:
 
 	#Import other sub-files.
 	from imgs import texture_load
+	from audio import sounds
 	from exct import render, physics, utils, ui
 	from scenes import scene
 	from exct.utils import *
