@@ -32,8 +32,9 @@ struct LIGHT {
 
 //Maximum of 64 lights in a scene.
 uniform int LIGHT_COUNT;
-uniform LIGHT LIGHTS[64];
-
+layout(std140) uniform LIGHT_LIST {
+	uniform LIGHT LIGHTS[64];
+}
 
 float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_POSITION_LIGHT_SPACE, vec3 fragPos) {
 	//Finds whether or not a fragPos should be in shadow or not, utilising the shadow map, and PCF.

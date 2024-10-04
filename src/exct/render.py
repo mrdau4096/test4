@@ -718,9 +718,9 @@ def FBO_QUAD_INIT(RENDER_RES):
 
 
 	#Create the Scene Framebuffer-object (FBO) and Texture-colour-buffer (TCB)
-	FBO, TCB, _, _, _ = CREATE_FBO(RENDER_RES)
+	FBO, TCB, _, _, _, UBO = CREATE_FBO(RENDER_RES)
 
-	return VAO_QUAD, VAO_UI, FBO, TCB
+	return VAO_QUAD, VAO_UI, FBO, TCB, UBO
 
 
 
@@ -728,6 +728,10 @@ def CREATE_FBO(SIZE, DEPTH=False, NORMALS=False):
 	#Creates an FBO based on what data has been requested (A base FBO with colour/render buffers if nothing is specified)
 	FBO = glGenFramebuffers(1)
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO)
+	UBO = glGenBuffers(1)
+	glBindBuffer(GL_UNIFORM_BUFFER, UBO)
+	glBufferData(GL_UNIFORM_BUFFER, 8192, None, GL_STATIC_DRAW)
+	glBindBuffer(GL_UNIFORM_BUFFER, 0)
 
 	DTB, TCB, RBO, GBO = None, None, None, None
 	if DEPTH:
@@ -776,7 +780,7 @@ def CREATE_FBO(SIZE, DEPTH=False, NORMALS=False):
 
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0)
-	return FBO, TCB, DTB, RBO, GBO
+	return FBO, TCB, DTB, RBO, GBO, UBO
 
 
 
