@@ -1,5 +1,5 @@
 """
-[py]
+[utils.py]
 Short for "Utilities.py", this file contains custom maths functions that are used for mostly working with vectors in a more code-oriented method, along with a few general-purpose functions for debugging and other purposes.
 Most useful for collision calculations, gravity force application, rendering, debugging and so on.
 
@@ -35,10 +35,8 @@ log.REPORT_IMPORT("utils.py")
 
 #Assorted mathematical values for use elsewhere.
 e = maths.e
-π = maths.pi
-πDIV2 = π / 2
-πMUL2 = π * 2
-πPOW2 = π ** 2
+pi = maths.pi
+piDIV2 = pi / 2
 
 
 #Mathematical functions
@@ -372,7 +370,7 @@ def GET_CONFIGS():
 	return PREFERENCES, CONSTANTS
 
 
-def GET_GAME_DATA():
+def GET_GAME_DATA(SHEETS_USED):
 	#Gets the hostiles.dat, supplies.dat and projectiles.dat file data for use elsewhere.
 	DATA_PATH = GET_DATA_PATH()
 	HOSTILES, SUPPLIES, PROJECTILES = {}, {}, {}
@@ -385,15 +383,15 @@ def GET_GAME_DATA():
 	SUPPLIES_DATA = SUPPLIES_FILE.readlines()
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
 
-	H_FORMATTING = ("float", "float", "hex", "list", "list")	#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
-	S_FORMATTING = ("hex", "int")								#What-to-give, Quantity,
-	P_FORMATTING = ("bool", "float")							#Create-explosion, Strength
+	H_FORMATTING = ("float", "float", "hex", "list", "list",)	#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+	S_FORMATTING = ("hex", "int",)								#What-to-give, Quantity,
+	P_FORMATTING = ("bool", "float",)							#Create-explosion, Strength
 
 	for H_DATA, S_DATA, P_DATA in zip(HOSTILES_DATA, SUPPLIES_DATA, PROJECTILES_DATA):
 		#Process each type.
-		PROCESSED_H = PROCESS_LINE(H_DATA, H_FORMATTING)
-		PROCESSED_S = PROCESS_LINE(S_DATA, S_FORMATTING)
-		PROCESSED_P = PROCESS_LINE(P_DATA, P_FORMATTING)
+		PROCESSED_H, SHEETS_USED = PROCESS_LINE(H_DATA, H_FORMATTING, SHEETS_USED)
+		PROCESSED_S, SHEETS_USED = PROCESS_LINE(S_DATA, S_FORMATTING, SHEETS_USED)
+		PROCESSED_P, SHEETS_USED = PROCESS_LINE(P_DATA, P_FORMATTING, SHEETS_USED)
 
 		if PROCESSED_H is not None: HOSTILES[PROCESSED_H[0]] = PROCESSED_H[1:]
 		if PROCESSED_S is not None: SUPPLIES[PROCESSED_S[0]] = PROCESSED_S[1:]
@@ -405,22 +403,33 @@ def GET_GAME_DATA():
 	SUPPLIES_FILE.close()
 	PROJECTILES_FILE.close()
 
-	return HOSTILES, SUPPLIES, PROJECTILES
+	return HOSTILES, SUPPLIES, PROJECTILES, SHEETS_USED
 
 
-def PROCESS_LINE(LINE, FORMATTING):
+def PROCESS_LINE(LINE, FORMATTING, SHEETS_USED):
 	#Process a line of a .dat file.
 	if LINE != "":
-		if LINE[0] != "/":
+		if LINE[0] != "//":
 			DATA = LINE.split(" | ")
 			TYPE = DATA[0]
 			MASS = DATA[2]
 			TEXTURES = list(DATA[-1].split("/"))
+
+			TEXTURE_LIST = []
+			for TEXTURE in TEXTURES:
+				TEXTURE_PARTS = TEXTURE.split(">")
+				if len(TEXTURE_PARTS) == 2:
+					SHEET_NAME, TEXTURE_UV = TEXTURE_PARTS
+				else:
+					SHEET_NAME, TEXTURE_UV = "base", TEXTURE_PARTS[0]
+				TEXTURE_LIST.append((SHEET_NAME, TEXTURE_UV))
+
 			SIZE_RAW = DATA[1].split(", ")
 			COLLISION_SIZE = VECTOR_3D(SIZE_RAW[0], SIZE_RAW[1], SIZE_RAW[2])
-			OUT = [TYPE, COLLISION_SIZE, MASS, []]
+			OUT = [TYPE, COLLISION_SIZE, MASS, TEXTURE_LIST,]
+			#print(OUT)
 
-			for FORM, INFO in zip(FORMATTING, DATA[3:-1]):
+			for FORM, INFO in zip(FORMATTING, DATA[3:]):
 				#Match the found data's type to the formatting step provided.
 				match FORM:
 					case "vect":
@@ -435,6 +444,21 @@ def PROCESS_LINE(LINE, FORMATTING):
 							elif BOOL == "F":
 								BOOLEAN[I] = False
 						OUT.append(BOOLEAN)
+					
+					case "texture":
+						TEXTURE_IDs = INFO.split("/")
+						TEX_LIST, SHEET_LIST = [], []
+						for TEXTURE in TEXTURE_IDs:
+							TEXTURE_DATA = TEXTURE.split(">")
+							if len(TEXTURE_DATA) == 2:
+								SHEET_NAME, SHEET_HEX = TEXTURE_DATA
+							else:
+								SHEET_NAME, SHEET_HEX = "base", TEXTURE_DATA[0]
+							if SHEET_NAME not in SHEETS_USED: SHEETS_USED.append(SHEET_NAME)
+							TEX_LIST.append(SHEET_HEX)
+							SHEET_LIST.append(SHEET_NAME)
+						OUT.append(TEX_LIST)
+						OUT.append(SHEET_LIST)
 
 					case "rgba":
 						FILE_VECTOR = INFO.split(', ')
@@ -455,7 +479,7 @@ def PROCESS_LINE(LINE, FORMATTING):
 					case "str":
 						OUT.append(INFO)
 
-			return OUT
+			return OUT, SHEETS_USED
 	return None
 
 
@@ -524,7 +548,7 @@ class BOUNDING_BOX:
 		
 		BOX_POINTS = FIND_CUBOID_POINTS(VECTOR_3D(self.MAX_X-self.MIN_X, self.MAX_Y-self.MIN_Y, self.MAX_Z-self.MIN_Z), POSITION)
 
-		self.POSITION = VECTOR_3D(*POSITION.TO_LIST())
+		self.POSITION = VECTOR_3D(*list(POSITION))
 		self.NORMALS = NORMALS = FIND_CUBOID_NORMALS(BOX_POINTS)
 		self.POINTS = BOX_POINTS
 
@@ -549,9 +573,9 @@ class RAY:
 			#Invert Y (pitch)
 			#Subtract [πDIV2 // 90*] from X (yaw)
 			DIRECTION_VECTOR = VECTOR_3D(
-				maths.cos(-ANGLE.Y) * maths.sin(ANGLE.X - πDIV2),
+				maths.cos(-ANGLE.Y) * maths.sin(ANGLE.X - piDIV2),
 				maths.sin(-ANGLE.Y),
-				-maths.cos(-ANGLE.Y) * maths.cos(ANGLE.X - πDIV2)
+				-maths.cos(-ANGLE.Y) * maths.cos(ANGLE.X - piDIV2)
 			)
 
 		elif DIRECTION_VECTOR is None:
@@ -653,19 +677,6 @@ class RAY:
 
 
 		KINETICS, STATICS = PHYS_DATA
-
-
-		"""
-		DATA_SET = DIVIDE_DICTS(KINETICS, STATICS[0], CONSTANTS["MAX_THREADS"])
-
-		with MP.Manager() as MANAGER:
-			RESULTING_COLLISIONS = MANAGER.dict()
-			RESULTING_DISTANCES = MANAGER.list()
-
-			with MP.Pool(processes=CONSTANTS["MAX_THREADS"]) as POOL:
-				POOL.starmap(THREAD_RAY_CHECK, (self, DATA_SET, RESULTING_DISTANCES, RAY_TRI_INTERSECTION))
-		"""
-
 
 		RESULTING_COLLISION, RESULTING_DISTANCE = THREAD_RAY_CHECK(self, (KINETICS, STATICS[0]), BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION)
 
@@ -946,11 +957,12 @@ class QUAD(WORLD_OBJECT):
 
 class CUBE_STATIC(WORLD_OBJECT):
 	#Static cube object.
-	def __init__(self, ID, POSITION, DIMENTIONS, COLLISION, TEXTURE_INFO):
+	def __init__(self, ID, POSITION, DIMENTIONS, COLLISION, TEXTURE_INFO, TEXTURE_SHEETS_USED):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		super().__init__(ID, POSITION, COLLISION, TEXTURE_INFO=TEXTURE_INFO, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
@@ -965,11 +977,12 @@ class CUBE_STATIC(WORLD_OBJECT):
 
 class SPRITE_STATIC(WORLD_OBJECT):
 	#Static decorational sprite
-	def __init__(self, ID, POSITION, COLLISION_DIMENTIONS, TEXTURE_COORDINATES):
+	def __init__(self, ID, POSITION, COLLISION_DIMENTIONS, TEXTURE_COORDINATES, TEXTURE_SHEETS_USED):
 		POINTS = FIND_CUBOID_POINTS(COLLISION_DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		super().__init__(ID, POSITION, False, TEXTURE_INFO=TEXTURE_COORDINATES, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		AVG_X = (COLLISION_DIMENTIONS.X + COLLISION_DIMENTIONS.Z) / 2
 		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, COLLISION_DIMENTIONS.Y)
@@ -980,11 +993,12 @@ class SPRITE_STATIC(WORLD_OBJECT):
 
 class CUBE_PATH(WORLD_OBJECT):
 	#Used for moving doors/walls.
-	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG, MAX_DISTANCE):
+	def __init__(self, ID, POSITION, DIMENTIONS, TEXTURE_DATA, MOVEMENT_VECTOR, SPEED, FLAG, MAX_DISTANCE, TEXTURE_SHEETS_USED):
 		self.POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, self.POINTS)
 		NORMALS = FIND_CUBOID_NORMALS(self.POINTS)
 		super().__init__(ID, POSITION, True, TEXTURE_INFO=TEXTURE_DATA, NORMALS=NORMALS, BOUNDING_BOX=BOUNDING_BOX_OBJ)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 		
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
@@ -1135,12 +1149,13 @@ Physics Objects
 
 class CUBE_PHYSICS(PHYSICS_OBJECT):
 	#Physics cube.
-	def __init__(self, ID, POSITION, DIMENTIONS, MASS, ROTATION, TEXTURE_INFO):
+	def __init__(self, ID, POSITION, DIMENTIONS, MASS, ROTATION, TEXTURE_INFO, TEXTURE_SHEETS_USED):
 		POINTS = FIND_CUBOID_POINTS(DIMENTIONS, POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
@@ -1155,7 +1170,7 @@ class CUBE_PHYSICS(PHYSICS_OBJECT):
 
 class ITEM(PHYSICS_OBJECT):
 	#Item that gives supplies when touched
-	def __init__(self, ID, POSITION, POP, TEXTURE_INFO, TYPE):
+	def __init__(self, ID, POSITION, POP, TEXTURE_INFO, TYPE, TEXTURE_SHEETS_USED):
 		_, SUPPLIES, _ = GET_GAME_DATA()
 		TYPE_DATA = SUPPLIES[TYPE]
 		MASS = TYPE_DATA[1]
@@ -1164,6 +1179,7 @@ class ITEM(PHYSICS_OBJECT):
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 
 		super().__init__(ID, POSITION, None, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		if POP:
 			#Whether or not the item should "pop" (mostly for items dropped by enemies)
@@ -1204,8 +1220,8 @@ class ITEM(PHYSICS_OBJECT):
 
 class ENEMY(PHYSICS_OBJECT):
 	#Hostile enemy towards the player.
-	def __init__(self, ID, POSITION, TYPE, TEXTURES, ROTATION):
-		HOSTILES, _, _ = GET_GAME_DATA()
+	def __init__(self, ID, POSITION, TYPE, TEXTURES, ROTATION, TEXTURE_SHEETS_USED, SCENE_SHEETS_USED):
+		HOSTILES, _, _, _ = GET_GAME_DATA(SCENE_SHEETS_USED)
 		TYPE_DATA = HOSTILES[TYPE]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA[0], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
@@ -1214,6 +1230,7 @@ class ENEMY(PHYSICS_OBJECT):
 		#Textures would be loaded here, but that would mean circular imports to \imgs\texture_load.py\, so have been avoided.
 		#Textures are instead loaded outside of this class, and passed in. (Always defined outside of \utils.py\)
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURES)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.DIMENTIONS = TYPE_DATA[0]
@@ -1243,13 +1260,14 @@ class ENEMY(PHYSICS_OBJECT):
 
 class PROJECTILE(PHYSICS_OBJECT):
 	#Harms ENEMY/PLAYER.
-	def __init__(self, POSITION, MASS, FIRED_VELOCITY, TYPE, TEXTURE_INFO):
+	def __init__(self, POSITION, MASS, FIRED_VELOCITY, TYPE, TEXTURE_INFO, TEXTURE_SHEETS_USED):
 		TYPE_DATA = PROJECTILES[hex(TYPE)]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA["Dimentions"], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 
 		super().__init__(ID, POSITION, None, None, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO, LATERAL_VELOCITY = FIRED_VELOCITY)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
 		AVG_X = (TYPE_DATA["Dimentions"][0] + TYPE_DATA["Dimentions"][2]) / 2
 		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, TYPE_DATA["Dimentions"][1])
@@ -1675,9 +1693,6 @@ class VECTOR_3D:
 				return True
 		return False
 
-	def TO_LIST(self): #Converts to list.
-		return [self.X, self.Y, self.Z]
-
 	def TO_INT(self): #Converts to integers.
 		X = int(self.X)
 		Y = int(self.Y)
@@ -1726,14 +1741,14 @@ class VECTOR_3D:
 		X, Y, Z = NP.dot(MATRIX, self.CONVERT_TO_NP_ARRAY())
 		return VECTOR_3D(X + CENTRE.X, Y + CENTRE.Y, Z + CENTRE.Z)
 
-	def CONVERT_TO_NP_ARRAY(self): #Convert to a NumPy array.
-		return NP.array([self.X, self.Y, self.Z])
+	def CONVERT_TO_NP_ARRAY(self, DTYPE=NP.float64): #Convert to a NumPy array.
+		return NP.array(list(self), dtype=DTYPE)
 
 	def CONVERT_TO_PYRR_VECTOR3(self): #Convert to a pyrr Vector3.
-		return Vector3(self.TO_LIST())
+		return Vector3(list(self))
 
 	def CONVERT_TO_GLM_VEC3(self): #Convert to a GLM vec3.
-		return glm.vec3(self.X, self.Y, self.Z)
+		return glm.vec3(*list(self))
 
 
 

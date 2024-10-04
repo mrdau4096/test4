@@ -1,19 +1,19 @@
-#version 330 core
+#version 460 core
 
 in vec2 fragTexCoords;
 in vec3 fragNormal;
 in vec3 fragPos;
+flat in int fragSheetID;
 
 out vec4 fragColour;
 
-uniform sampler2D TEXTURE;
+uniform sampler2DArray SHEETS;
 uniform vec3 LIGHT_POSITION;
 uniform float MAX_DIST;
 
-void main()
-{
+void main() {
 	//Discard fragments with alpha < 0.5 in shadow mapping.
-	if (texture(TEXTURE, fragTexCoords).a < 0.5) {
+	if (texture(SHEETS, vec3(fragTexCoords, float(fragSheetID))).a < 0.5) {
 		discard;
 	}
 

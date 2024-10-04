@@ -64,7 +64,7 @@ except ImportError:
 
 
 def MAIN():
-	try:
+	#try:
 		"""
 		[if main:]
 		Preparing the game:
@@ -129,16 +129,14 @@ def MAIN():
 
 		#PyOpenGL & VAO/VBO/EBO setup.
 		
-		RENDER_DATA, PHYS_DATA, SHEET_NAME, FLAG_DATA, PLAYER_ID = scene.LOAD_FILE(PREFERENCES["SCENE"])
-		BLANK_TEXTURE = texture_load.LOAD_SHEET("_")
-		CURRENT_SHEET_ID = texture_load.LOAD_SHEET(SHEET_NAME)
+		RENDER_DATA, PHYS_DATA, SHEET_NAME, FLAG_DATA, PLAYER_ID, SHEETS_USED = scene.LOAD_FILE(PREFERENCES["SCENE"])
+		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(scene.SHEETS_USED)
 		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
 		FLAG_STATES, LOGIC_GATES = FLAG_DATA
 
 
 		#Mid-loading Shadow-Mapping
 		SHADOWMAP_RESOLUTION = CONSTANTS["SHADOW_MAP_RESOLUTION"]
-		SHEET_DATA = render.GET_TEXTURE_DATA(CURRENT_SHEET_ID, VECTOR_2D(2048, 2048), "COLOUR")
 		glfw.terminate()
 		for I, LIGHT in enumerate(LIGHTS):
 			"""
@@ -156,7 +154,7 @@ def MAIN():
 				raise Exception("GLFW could not create window.")
 			glfw.make_context_current(SURFACE)
 
-			LIGHTS[I] = render.CREATE_SHADOW_MAPS(SURFACE, I, LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHEET_DATA)
+			LIGHTS[I] = render.CREATE_SHADOW_MAPS(SURFACE, I, LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHEETS_USED)
 
 
 
@@ -164,18 +162,43 @@ def MAIN():
 		PG.display.set_caption("test4.2.6//main.py")
 		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+
 		
-		(SCENE_SHADER, QUAD_SHADER), (VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE), CURRENT_SHEET_ID, (VAO_SCENE, VBO_SCENE, EBO_SCENE), (MODEL_MATRIX, PROJECTION_MATRIX) = render.SET_PYGAME_CONTEXT(SHEET_NAME)
+		(
+			(SCENE_SHADER, QUAD_SHADER),
+			(VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE),
+			(VAO_SCENE, VBO_SCENE, EBO_SCENE),
+			(MODEL_MATRIX, PROJECTION_MATRIX)
+		) = render.SET_PYGAME_CONTEXT(SHEET_NAME)
+
+		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED)
 
 		for I, LIGHT in enumerate(LIGHTS):
 			LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
 
-	except Exception as E:
-		log.ERROR("Main.py Value initialisation", E)
+	#except Exception as E:
+		#log.ERROR("Main.py Value initialisation", E)
 
-	try:
-		OPTIONS_DATA = (SCREEN, ui.OPTIONS_MENU, KEY_STATES, (VAO_QUAD, VAO_UI), QUAD_SHADER)
-		RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(SCREEN, ui.MAIN_MENU, KEY_STATES, (VAO_QUAD, VAO_UI), QUAD_SHADER, BACKGROUND=texture_load.LOAD_SHEET("menu_background", SHEET=False), BACKGROUND_SHADE=False, UI_DATA=OPTIONS_DATA)
+	#try:
+		OPTIONS_DATA = (
+			SCREEN,
+			ui.OPTIONS_MENU,
+			KEY_STATES,
+			(VAO_QUAD, VAO_UI),
+			QUAD_SHADER
+		)
+
+		RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(
+			SCREEN,
+			ui.MAIN_MENU,
+			KEY_STATES,
+			(VAO_QUAD, VAO_UI),
+			QUAD_SHADER,
+			BACKGROUND=texture_load.LOAD_IMG("menu_background", OPENGL=True),
+			BACKGROUND_SHADE=False,
+			UI_DATA=OPTIONS_DATA
+		)
+
 		DISPLAY_RESOLUTION = utils.CONSTANTS["DISPLAY_RESOLUTION"]
 		FBO_SCENE, TCB_SCENE, _, _, _ = render.CREATE_FBO(DISPLAY_RESOLUTION)
 		DISPLAY_CENTRE = DISPLAY_RESOLUTION/2
@@ -348,7 +371,7 @@ def MAIN():
 
 			#Give the VAO/VBO/EBO the data for any "dynamic" objects such as a sprite"s coordinates.
 			#Applied over the top of other, environmental/static objects like Tris.
-			(COPIED_VAO_VERTICES, COPIED_VAO_INDICES), PHYS_DATA = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER)
+			(COPIED_VAO_VERTICES, COPIED_VAO_INDICES), PHYS_DATA = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER, SHEETS_USED)
 			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
 
@@ -370,15 +393,12 @@ def MAIN():
 			glClearColor(VOID_COLOUR.R, VOID_COLOUR.G, VOID_COLOUR.B, VOID_COLOUR.A)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 			glClearDepth(1.0)
-			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
 
 
 			#Get locations for and provide data for the scene shader"s uniforms (such as CAMERA_POSITION).
 			MODEL_LOC = glGetUniformLocation(SCENE_SHADER, "MODEL_MATRIX")
 			VIEW_LOC = glGetUniformLocation(SCENE_SHADER, "VIEW_MATRIX")
 			PROJECTION_LOC = glGetUniformLocation(SCENE_SHADER, "PROJECTION_MATRIX")
-			TEXTURE_LOC = glGetUniformLocation(SCENE_SHADER, "TRI_TEXTURE")
 			VIEW_DIST_LOC = glGetUniformLocation(SCENE_SHADER, "VIEW_MAX_DIST")
 			CAMERA_POS_LOC = glGetUniformLocation(SCENE_SHADER, "CAMERA_POSITION")
 			CAMERA_LA_LOC = glGetUniformLocation(SCENE_SHADER, "CAMERA_LOOK_AT")
@@ -387,6 +407,7 @@ def MAIN():
 			HEADLAMP_ENABLED_LOC = glGetUniformLocation(SCENE_SHADER, "HEADLAMP_ENABLED")
 			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
 			WIREFRAME_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "WIREFRAME_DEBUG")
+			SHEETS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHEETS")
 
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
@@ -399,7 +420,6 @@ def MAIN():
 			glUniform1i(HEADLAMP_ENABLED_LOC, HEADLAMP_ENABLED)
 			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["DEBUG_NORMALS"])
 			glUniform1i(WIREFRAME_DEBUG_LOC, PREFERENCES["DEBUG_WIREFRAME"])
-			glUniform1i(TEXTURE_LOC, 0)
 
 
 			for I, LIGHT in enumerate(LIGHTS):
@@ -432,9 +452,10 @@ def MAIN():
 			if PREFERENCES["DEBUG_WIREFRAME"]: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 			glActiveTexture(GL_TEXTURE0)
 			glBindVertexArray(VAO_SCENE)
-			glBindTexture(GL_TEXTURE_2D, CURRENT_SHEET_ID)
+			glBindTexture(GL_TEXTURE_2D_ARRAY, SHEET_ARRAY)
+			glUniform1i(SHEETS_ARRAY_LOC, 0)
 			glDrawElements(GL_TRIANGLES, len(COPIED_VAO_INDICES), GL_UNSIGNED_INT, None)
-			glBindTexture(GL_TEXTURE_2D, 0)
+			glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 			glBindVertexArray(0)
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -442,7 +463,6 @@ def MAIN():
 
 
 			#Reset values to align with the display size.
-			#glViewport(0, 0, int(DISPLAY_RESOLUTION.X), int(DISPLAY_RESOLUTION.Y))
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 			
 			glUseProgram(QUAD_SHADER)
@@ -491,7 +511,6 @@ def MAIN():
 		glDeleteFramebuffers(len(FRAME_BUFFERS), FRAME_BUFFERS)
 		glDeleteVertexArrays(len(VERTEX_BUFFERS), VERTEX_BUFFERS)
 		glDeleteBuffers(len(DATA_BUFFERS), DATA_BUFFERS)
-		glDeleteTextures([CURRENT_SHEET_ID])
 		if PREVIOUS_FRAME:
 			glDeleteTextures([PREVIOUS_FRAME])
 
@@ -500,8 +519,8 @@ def MAIN():
 		PG.quit()
 		sys.exit()
 
-	except Exception as E:
-		log.ERROR("Mainloop", E)
+	#except Exception as E:
+		#log.ERROR("Mainloop", E)
 
 
 

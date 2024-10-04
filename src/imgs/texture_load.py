@@ -47,21 +47,21 @@ Sheet cache;
 > no need to re-load a texture.
 """
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
-global TEXTURE_CACHE, SHEET_CACHE
-TEXTURE_CACHE = {}
-SHEET_CACHE = {}
+UV_CACHE, SHEET_CACHE, IMG_CACHE = {}, {}, {}
 FALLBACK_TEXTURE = "fallback"
 
 
 #Texture loading functions
 
 
-def TEXTURE_CACHE_MANAGER(HEX_ID):
-	#Loads a set texture based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
-	#If already in the texture cache, give that data to prevent re-loading of information
-	try:
-		if HEX_ID in TEXTURE_CACHE:
-			return TEXTURE_CACHE[HEX_ID]
+def UV_CACHE_MANAGER(HEX_ID):
+		"""
+		Loads a set of UV coordinates based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
+		If already in the UV-cache, give that data to prevent re-loading of information
+		"""
+	#try:
+		if HEX_ID in UV_CACHE:
+			TEXTURE_COORDINATES = UV_CACHE[HEX_ID]
 
 		else:
 			Y_ID = int(HEX_ID[0], 16)
@@ -85,20 +85,20 @@ def TEXTURE_CACHE_MANAGER(HEX_ID):
 			TL = VECTOR_2D(LEFT_X, TOP_Y)		#Top-Left
 
 			TEXTURE_COORDINATES = (BL, BR, TR, TL)
-			TEXTURE_CACHE[HEX_ID] = TEXTURE_COORDINATES
+			UV_CACHE[HEX_ID] = TEXTURE_COORDINATES
 
-			return TEXTURE_COORDINATES
+		return TEXTURE_COORDINATES
 
-	except Exception as E:
-		log.ERROR("texture_load.TEXTURE_CACHE_MANAGER", E)
+	#except Exception as E:
+		#log.ERROR("texture_load.UV_CACHE_MANAGER", E)
 
 
 
-def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE, FALLBACK=False):
+def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_CACHE=SHEET_CACHE, FALLBACK=False):
 	#Loads a texture sheet or other image file.
 	try:
-		if FILE_NAME in SHEET_LIST:
-			SHEET_ID = SHEET_LIST[FILE_NAME]
+		if FILE_NAME in SHEET_CACHE:
+			DATA, (WIDTH, HEIGHT) = SHEET_CACHE[FILE_NAME]
 
 		else:
 			if SUBFOLDER is None:
@@ -112,30 +112,105 @@ def LOAD_SHEET(FILE_NAME, SUBFOLDER=None, SHEET=True, SHEET_LIST=SHEET_CACHE, FA
 
 
 			SURFACE = PG.image.load(TEXTURE_PATH)
-			DATA = PG.image.tostring(SURFACE, 'RGBA', 1)
+			RESIZED_SURFACE = PG.transform.scale(SURFACE, (2048, 2048))
+			BYTES_DATA = PG.image.tostring(RESIZED_SURFACE, 'RGBA', 1)
+			DATA = NP.frombuffer(BYTES_DATA, dtype=NP.uint8).reshape((2048, 2048, 4))
 			WIDTH, HEIGHT = SURFACE.get_width(), SURFACE.get_height()
 
-			SHEET_ID = glGenTextures(1)
-			glBindTexture(GL_TEXTURE_2D, SHEET_ID)
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA)
-			
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-
-			#Write to sheet cache to prevent re-generating if required again
-			SHEET_LIST[FILE_NAME] = SHEET_ID
-
-		SHEET_CACHE = SHEET_LIST
-		return SHEET_ID
+			SHEET_CACHE[FILE_NAME] = (DATA, (WIDTH, HEIGHT))
+		
+		return DATA, (WIDTH, HEIGHT)
 
 		
 	except FileNotFoundError:
-                if not FALLBACK:
-                        PREFIX = 'sheet-' if SHEET else ''
-                        return LOAD_SHEET(FALLBACK_TEXTURE, SHEET=False, FALLBACK=True)
-                else:
-                        log.ERROR("texture_load.py // LOAD_SHEET", f"Neither {PREFIX}{FILE_NAME}.png nor the fallback texture were found.")
+		if not FALLBACK:
+			PREFIX = 'sheet-' if SHEET else ''
+			return LOAD_SHEET(FALLBACK_TEXTURE, SHEET=False, FALLBACK=True)
+		else:
+			log.ERROR("texture_load.py // LOAD_SHEET", f"Neither {PREFIX}{FILE_NAME}.png nor the fallback texture were found.")
 	except Exception as E:
 		log.ERROR("texture_load.py // LOAD_SHEET", E)
+
+
+
+def LOAD_IMG(FILE_NAME, SUBFOLDER=None, OPENGL=False, FALLBACK=False):
+	#Loads a texture sheet or other image file.
+	try:
+		if FILE_NAME in IMG_CACHE:
+			STRING_DATA = IMG_CACHE[FILE_NAME]
+			BYTES_DATA = NP.frombuffer(STRING_DATA, dtype=NP.uint8).reshape((2048, 2048, 4))
+
+			if OPENGL:
+				DATA = render.CREATE_TEXTURE_FROM_DATA(
+					BYTES_DATA,
+					GL_TYPE=GL_RGBA,
+					FILTER=GL_NEAREST,
+					DATA_TYPE=GL_UNSIGNED_BYTE
+				)
+			else:
+				DATA = STRING_DATA
+
+		else:
+			if SUBFOLDER is None:
+				MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
+				TEXTURE_PATH = os.path.join(MAIN_DIR, f"{FILE_NAME}.png")
+
+			else:
+				#Loads from a specified sub-folder rather than \src\imgs\ by default.
+				MAIN_DIR = os.path.dirname(os.path.abspath(__file__)).replace(r"\src\imgs", SUBFOLDER)
+				TEXTURE_PATH = os.path.join(MAIN_DIR, f"{FILE_NAME}.png")
+
+
+			SURFACE = PG.image.load(TEXTURE_PATH)
+			RESIZED_SURFACE = PG.transform.scale(SURFACE, (2048, 2048))
+			STRING_DATA = PG.image.tostring(RESIZED_SURFACE, 'RGBA', 1)
+			BYTES_DATA = NP.frombuffer(STRING_DATA, dtype=NP.uint8).reshape((2048, 2048, 4))
+
+			IMG_CACHE[FILE_NAME] = STRING_DATA
+
+			if OPENGL:
+				DATA = render.CREATE_TEXTURE_FROM_DATA(
+					BYTES_DATA,
+					GL_TYPE=GL_RGBA,
+					FILTER=GL_NEAREST,
+					DATA_TYPE=GL_UNSIGNED_BYTE
+				)
+			else:
+				DATA = STRING_DATA
+		
+		return DATA
+
+		
+	except FileNotFoundError:
+		if not FALLBACK:
+			PREFIX = 'sheet-' if SHEET else ''
+			return LOAD_SHEET(FALLBACK_TEXTURE, SHEET=False, FALLBACK=True)
+		else:
+			log.ERROR("texture_load.py // LOAD_SHEET", f"Neither {PREFIX}{FILE_NAME}.png nor the fallback texture were found.")
+	except Exception as E:
+		log.ERROR("texture_load.py // LOAD_SHEET", E)
+
+
+
+def CREATE_SHEET_ARRAY(SHEETS):
+	DIMS = CONSTANTS["TEXTURE_SHEET_DIMENTIONS"]
+	TEXTURE_WIDTH, TEXTURE_HEIGHT = int(DIMS.X), int(DIMS.Y)
+	SHEETS_DATA = NP.zeros((len(SHEETS), TEXTURE_HEIGHT, TEXTURE_WIDTH, 4), dtype=NP.uint8)
+	for I, SHEET_NAME in enumerate(SHEETS):
+		SHEETS_DATA[I] = (LOAD_SHEET(SHEET_NAME)[0])
+
+	ARRAY_ID = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D_ARRAY, ARRAY_ID)
+
+	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, TEXTURE_HEIGHT, TEXTURE_WIDTH, SHEETS_DATA.shape[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, SHEETS_DATA)
+
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+	glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
+
+	render.GL_ERRORCHECK()
+
+	return ARRAY_ID

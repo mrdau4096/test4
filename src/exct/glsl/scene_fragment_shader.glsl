@@ -1,12 +1,14 @@
-#version 330 core
+#version 460 core
 
 in vec2 fragTexCoords;
 in vec3 fragNormal;
 in vec3 fragPos;
+in float fragSheetID;
 
 out vec4 fragColour;
 
-uniform sampler2D TRI_TEXTURE;
+
+uniform sampler2DArray SHEETS;
 uniform vec3 CAMERA_POSITION;
 uniform vec3 CAMERA_LOOK_AT;
 uniform vec4 VOID_COLOUR;
@@ -14,7 +16,6 @@ uniform float VIEW_MAX_DIST;
 uniform bool HEADLAMP_ENABLED;
 uniform bool NORMAL_DEBUG;
 uniform bool WIREFRAME_DEBUG;
-
 
 
 //Mirrors the python equivalent class, bar a few unneccessary attributes.
@@ -33,6 +34,7 @@ struct LIGHT {
 //Maximum of 64 lights in a scene.
 uniform int LIGHT_COUNT;
 uniform LIGHT LIGHTS[64];
+
 
 
 float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_POSITION_LIGHT_SPACE, vec3 fragPos) {
@@ -82,7 +84,7 @@ void main() {
 	}
 
 	//Initialise colours (texture and default final)
-	vec4 TEXTURE_COLOUR = texture(TRI_TEXTURE, fragTexCoords);
+	vec4 TEXTURE_COLOUR = texture(SHEETS, vec3(fragTexCoords, float(fragSheetID)));
 	vec3 FINAL_COLOUR = vec3(0.05);
 	
 	if (fragNormal == vec3(0.0)) {

@@ -250,8 +250,10 @@ def HUD(PLAYER, FPS):
 
 
 def PROCESS_UI_STATE(SCREEN, UI_TYPE, KEY_STATES, VAOs, QUAD_SHADER, BACKGROUND=None, BACKGROUND_SHADE=True, UI_DATA=None):
-	#Handles the current UI screen (UI_TYPE) and acts as its own loop to control the context.
-	#Swapping the PG screen resolution 
+	"""
+	Handles the current UI screen (UI_TYPE) and acts as its own loop to control the context.
+	Swapping the PG screen resolution
+	"""
 	try:
 		if UI_TYPE == OPTIONS_MENU:
 			UI_DATA = CREATE_CONFIG_MENU()

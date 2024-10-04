@@ -32,29 +32,34 @@ log.REPORT_IMPORT("scene.py")
 
 global CURRENT_ID #Make global, so any other sub-file or function can use a unique object ID.
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
-OVERHANG, CURRENT_ID = 1, 0
+OVERHANG = 1
+SHEETS_USED = ["base",]
 
 #Formatting for each class type's file representation
 FORMATTING = {
-	0:  (SCENE, ("rgba", "int", "int")),			 									#Scene data (skybox, lighting etc)
-	1:  (PLAYER, ("vect", "vect", "list")), 											#Playerdata
-	2:  (CUBE_STATIC, ("vect", "vect", "bool", "texture")), 							#Static cube
-	3:  (QUAD, ("vect", "vect", "vect", "vect", "bool", "texture")), 					#Quad/Plane
-	4:  (TRI, ("vect", "vect", "vect", "bool", "texture")), 							#Triangle
-	5:  (SPRITE_STATIC, ("vect", "vect", "texture")), 									#Static Sprite
-	6:  (ITEM, ("vect", "hex", "str", "texture")), 										#Item/Suppli-Object
-	7:  (TRIGGER, ("vect", "vect", "str")), 											#Trigger Box
-	8:  (INTERACTABLE, ("vect", "vect", "vect", "vect", "str", "texture")), 			#Interactable
-	9:  (CUBE_PATH, ("vect", "vect", "vect", "float", "str", "texture")),				#Moving surface (i.e. door)
-	10: (ENEMY, ("vect", "vect", "str", "texture")),									#Hostile Enemy
-	11: (CUBE_PHYSICS, ("vect", "vect", "float", "texture")), 							#Physics cube
-	12: (LIGHT, ("vect", "vect", "rgba", "float", "float", "float", "str")),			#Light object
-	13: (NPC_PATH_NODE, ("vect", "hex", "list")),  										#NPC Path node
-	14: (LOGIC, ("str", "str")),														#Flag-Logic gate (Not rendered.)
-	15: (None, ()),																		#Unused, Placeholder
-	#Unavailable in file, but here for the sake of completeness.						--------------------
-	16: (PROJECTILE, ("vect", "float", "vect", "str", "texture")),						#Projectile
-	17: (EXPLOSION, ("vect", "vect", "float", "float", "texture")),						#Explosion
+	0:  (SCENE,			("rgba", "int", "int"										)),	#Scene data (Sky colour, Gravity etc.)
+	1:  (PLAYER,		("vect", "vect", "list"										)), #Playerdata
+	2:  (CUBE_STATIC,	("vect", "vect", "bool", "texture"							)), #Static cube
+	3:  (QUAD,			("vect", "vect", "vect", "vect", "bool", "texture"			)), #Quad/Plane
+	4:  (TRI, 			("vect", "vect", "vect", "bool", "texture"					)), #Triangle
+	5:  (SPRITE_STATIC,	("vect", "vect", "texture"									)), #Static Sprite
+	6:  (ITEM,			("vect", "hex", "str", "texture"							)),	#Item/Supplies-Object
+	7:  (TRIGGER,		("vect", "vect", "str"										)), #Trigger Box
+	8:  (INTERACTABLE,	("vect", "vect", "vect", "vect", "str", "texture"			)), #Interactable
+	9:  (CUBE_PATH,		("vect", "vect", "vect", "float", "str", "texture"			)),	#Moving surface (i.e. door)
+	10: (ENEMY,			("vect", "vect", "str", "texture"							)), #Hostile Enemy
+	11: (CUBE_PHYSICS,	("vect", "vect", "float", "texture"							)), #Physics cube
+	12: (LIGHT,			("vect", "vect", "rgba", "float", "float", "float", "str"	)), #Light object
+	13: (NPC_PATH_NODE,	("vect", "hex", "list"										)), #NPC Path node
+	14: (LOGIC,			("str", "str"												)),	#Flag-Logic gate (Not rendered.)
+	15: (None,			(															)), #Unused, Placeholder
+	#-------------------------------------------------------------------------------------------------------------------------
+	#Unavailable in file, but here for the sake of completeness.
+	#Objects with this parameters are still present.
+	#Usually created as required in real-time.
+	#-------------------------------------------------------------------------------------------------------------------------
+	16: (PROJECTILE,	("vect", "float", "vect", "str", "texture"					)),	#Projectile
+	17: (EXPLOSION,		("vect", "vect", "float", "float", "texture"				)),	#Explosion
 }
 
 
@@ -63,11 +68,12 @@ FORMATTING = {
 
 
 def LOAD_FILE(FILE_NAME):
-	"""
-	Loads a file with given name FILE_NAME, returning all data and loading all required textures using load_texture.py
-	This info will get given to render.py via main.py, as it contains info for all of the scene's planes and other shapes.
-	"""
-	try:
+		SHEETS_USED = ["base",]
+		"""
+		Loads a file with given name FILE_NAME, returning all data and loading all required textures using load_texture.py
+		This info will get given to render.py via main.py, as it contains info for all of the scene's planes and other shapes.
+		"""
+	#try:
 		CURRENT_ID = 0
 		PLAYER_ID = None
 
@@ -86,7 +92,7 @@ def LOAD_FILE(FILE_NAME):
 			FILE_CONTENTS.append(LINE_RAW.strip('\n'))#Remove uneccessary auto-formatting from the file
 
 		#Get the game-data for use here.
-		HOSTILES, SUPPLIES, PROJECTILES = utils.GET_GAME_DATA()
+		HOSTILES, SUPPLIES, PROJECTILES, SHEETS_USED = utils.GET_GAME_DATA(SHEETS_USED)
 
 
 		ENV_VAO_DATA = [NP.array([]), NP.array([])]
@@ -119,7 +125,16 @@ def LOAD_FILE(FILE_NAME):
 
 								case "texture":
 									TEXTURE_IDs = DATA.split("/")
-									OBJECT_DATA.append(TEXTURE_IDs)
+									TEX_LIST = []
+									for TEXTURE in TEXTURE_IDs:
+										TEXTURE_DATA = TEXTURE.split(">")
+										if len(TEXTURE_DATA) == 2:
+											SHEET_NAME, SHEET_HEX = TEXTURE_DATA
+										else:
+											SHEET_NAME, SHEET_HEX = "base", TEXTURE_DATA[0]
+										if SHEET_NAME not in SHEETS_USED: SHEETS_USED.append(SHEET_NAME)
+										TEX_LIST.append((SHEET_HEX, SHEET_NAME))
+									OBJECT_DATA.append(TEX_LIST)
 
 								case "bool":
 									BOOLEAN = DATA.split(".")
@@ -198,23 +213,27 @@ def LOAD_FILE(FILE_NAME):
 							POINTS = utils.FIND_CUBOID_POINTS(OBJECT_DATA[1], OBJECT_DATA[0])
 							NORMALS = utils.FIND_CUBOID_NORMALS(POINTS)
 
+							TEXTURE_SHEETS_USED = []
 							for TEXTURE in OBJECT_DATA[3]:
-								TEXTURE_DATA.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
+								TEXTURE_DATA.append(texture_load.UV_CACHE_MANAGER(str(TEXTURE[0])))
+								TEXTURE_SHEETS_USED.append(TEXTURE[1])
 
 
-							FINALISED_OBJECT = CUBE_STATIC(CURRENT_ID, OBJECT_DATA[0], OBJECT_DATA[1], OBJECT_DATA[2], TEXTURE_DATA)
+							FINALISED_OBJECT = CUBE_STATIC(CURRENT_ID, OBJECT_DATA[0], OBJECT_DATA[1], OBJECT_DATA[2], TEXTURE_DATA, TEXTURE_SHEETS_USED)
 
 
 						elif CLASS_TYPE == QUAD:
 							POINTS = OBJECT_DATA[:4]
-							TEXTURE_DATA = texture_load.TEXTURE_CACHE_MANAGER(str(OBJECT_DATA[5][0]))
+							TEXTURE_DATA = texture_load.UV_CACHE_MANAGER(OBJECT_DATA[5][0][0])
+							TEXTURE_SHEETS_USED = OBJECT_DATA[5][0][1]
 
 							FINALISED_OBJECT = QUAD(CURRENT_ID, POINTS, OBJECT_DATA[4], TEXTURE_DATA)
 
 
 						elif CLASS_TYPE == TRI:
 							POINTS = OBJECT_DATA[0:3]
-							TEXTURE_DATA = texture_load.TEXTURE_CACHE_MANAGER(str(OBJECT_DATA[4][0]))
+							TEXTURE_DATA = texture_load.UV_CACHE_MANAGER(str(OBJECT_DATA[4][0][0]))
+							TEXTURE_SHEETS_USED = OBJECT_DATA[4][0][1]
 
 							FINALISED_OBJECT = TRI(CURRENT_ID, POINTS, OBJECT_DATA[3], TEXTURE_DATA)
 
@@ -243,7 +262,8 @@ def LOAD_FILE(FILE_NAME):
 						elif CLASS_TYPE == INTERACTABLE:
 							POINTS = OBJECT_DATA[:4]
 							FLAG = OBJECT_DATA[4]
-							TEXTURE_DATA = texture_load.TEXTURE_CACHE_MANAGER(str(OBJECT_DATA[5][0]))
+							TEXTURE_DATA = texture_load.UV_CACHE_MANAGER(str(OBJECT_DATA[5][0][0]))
+							TEXTURE_SHEETS_USED = OBJECT_DATA[5][0][1]
 
 							FINALISED_OBJECT = INTERACTABLE(CURRENT_ID, POINTS, OBJECT_DATA[4], TEXTURE_DATA, FLAG)
 
@@ -251,9 +271,10 @@ def LOAD_FILE(FILE_NAME):
 						elif CLASS_TYPE == SPRITE_STATIC:
 							CENTRE = OBJECT_DATA[0]
 							DIMENTIONS = OBJECT_DATA[1]
-							TEXTURE_DATA = texture_load.TEXTURE_CACHE_MANAGER(str(OBJECT_DATA[2][0]))
+							TEXTURE_DATA = texture_load.UV_CACHE_MANAGER(str(OBJECT_DATA[2][0][0]))
+							TEXTURE_SHEETS_USED = OBJECT_DATA[2][0][1]
 
-							FINALISED_OBJECT = SPRITE_STATIC(CURRENT_ID, CENTRE, DIMENTIONS, TEXTURE_DATA)
+							FINALISED_OBJECT = SPRITE_STATIC(CURRENT_ID, CENTRE, DIMENTIONS, TEXTURE_DATA, TEXTURE_SHEETS_USED)
 
 
 						elif CLASS_TYPE == TRIGGER:
@@ -267,7 +288,7 @@ def LOAD_FILE(FILE_NAME):
 
 						if TEXTURE_DATA != [] and CLASS_TYPE not in [SPRITE_STATIC,]:
 							#Add to the VAO data, as long as it isnt a dynamic object like a STATIC_SPRITE.
-							ENV_VAO_DATA = render.OBJECT_VAO_MANAGER(FINALISED_OBJECT, ENV_VAO_DATA)
+							ENV_VAO_DATA = render.OBJECT_VAO_MANAGER(FINALISED_OBJECT, ENV_VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED)
 
 
 
@@ -301,21 +322,24 @@ def LOAD_FILE(FILE_NAME):
 						elif CLASS_TYPE == ITEM:
 							CENTRE = OBJECT_DATA[0]
 							ITEM_TYPE = OBJECT_DATA[2]
-							TEXTURE_DATA = texture_load.TEXTURE_CACHE_MANAGER(str(OBJECT_DATA[3][0]))
+							ITEM_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[0][ENEMY_TYPE]
+							#Get data for this hostile type specifically (0 for hostiles, ENEMY_TYPE for specificity.)
+							TEXTURE_SHEETS_USED = [SHEET for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
+							TEXTURES = [texture_load.UV_CACHE_MANAGER(str(TEXTURE)) for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
 
-							FINALISED_OBJECT = ITEM(CURRENT_ID, CENTRE, False, TEXTURE_DATA, ITEM_TYPE)
+							FINALISED_OBJECT = ITEM(CURRENT_ID, CENTRE, False, TEXTURES, ITEM_TYPE, TEXTURE_SHEETS_USED, SHEETS_USED)
 
 
 						elif CLASS_TYPE == ENEMY:
 							CENTRE = OBJECT_DATA[0]
 							ROTATION = OBJECT_DATA[1]
 							ENEMY_TYPE = OBJECT_DATA[2]
-
-							TEXTURES = []
-							for TEXTURE in OBJECT_DATA[3]:
-								TEXTURES.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
-
-							FINALISED_OBJECT = ENEMY(CURRENT_ID, CENTRE, ENEMY_TYPE, TEXTURES, ROTATION)
+							
+							ENEMY_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[0][ENEMY_TYPE]
+							#Get data for this hostile type specifically (0 for hostiles, ENEMY_TYPE for specificity.)
+							TEXTURE_SHEETS_USED = [SHEET for SHEET, TEXTURE in ENEMY_TYPE_DATA[2]]
+							TEXTURES = [texture_load.UV_CACHE_MANAGER(str(TEXTURE)) for SHEET, TEXTURE in ENEMY_TYPE_DATA[2]]
+							FINALISED_OBJECT = ENEMY(CURRENT_ID, CENTRE, ENEMY_TYPE, TEXTURES, ROTATION, TEXTURE_SHEETS_USED, SHEETS_USED)
 
 
 						elif CLASS_TYPE == CUBE_PHYSICS:
@@ -323,10 +347,12 @@ def LOAD_FILE(FILE_NAME):
 							DIMENTIONS = OBJECT_DATA[1]
 							MASS = OBJECT_DATA[2]
 
+							TEXTURE_SHEETS_USED = []
 							for TEXTURE in OBJECT_DATA[3]:
-								CURRENT_TEXTURE_DATA.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
+								CURRENT_TEXTURE_DATA.append(texture_load.UV_CACHE_MANAGER(str(TEXTURE[0])))
+								TEXTURE_SHEETS_USED.append(TEXTURE[1])
 
-							FINALISED_OBJECT = CUBE_PHYSICS(CURRENT_ID, CENTRE, DIMENTIONS, MASS, VECTOR_3D(0, 0, 0), CURRENT_TEXTURE_DATA)
+							FINALISED_OBJECT = CUBE_PHYSICS(CURRENT_ID, CENTRE, DIMENTIONS, MASS, VECTOR_3D(0, 0, 0), CURRENT_TEXTURE_DATA, TEXTURE_SHEETS_USED)
 
 
 						elif CLASS_TYPE == CUBE_PATH:
@@ -344,21 +370,22 @@ def LOAD_FILE(FILE_NAME):
 							MAX_DISTANCE = abs(OBJECT_DATA[2])
 							SPEED = OBJECT_DATA[3]
 							FLAG = OBJECT_DATA[4]
+							TEXTURE_SHEETS_USED = []
 							for TEXTURE in OBJECT_DATA[5]:
-								CURRENT_TEXTURE_DATA.append(texture_load.TEXTURE_CACHE_MANAGER(str(TEXTURE)))
+								CURRENT_TEXTURE_DATA.append(texture_load.UV_CACHE_MANAGER(str(TEXTURE[0])))
+								TEXTURE_SHEETS_USED.append(TEXTURE[1])
 
-							FINALISED_OBJECT = CUBE_PATH(CURRENT_ID, CENTRE, DIMENTIONS, CURRENT_TEXTURE_DATA, MOVEMENT, SPEED, FLAG, MAX_DISTANCE)
+							FINALISED_OBJECT = CUBE_PATH(CURRENT_ID, CENTRE, DIMENTIONS, CURRENT_TEXTURE_DATA, MOVEMENT, SPEED, FLAG, MAX_DISTANCE, TEXTURE_SHEETS_USED)
 
 
 						#Add it to the physics list (Kinetics)
 						KINETICS[CURRENT_ID] = FINALISED_OBJECT
 
 
-
 		PHYS_DATA = (KINETICS, STATICS)
 		RENDER_DATA = (ENV_VAO_DATA, LIGHTS)
 		FLAG_DATA = (FLAG_STATES, LOGIC_GATES)
-		return RENDER_DATA, PHYS_DATA, SHEET_ID, FLAG_DATA, PLAYER_ID
+		return RENDER_DATA, PHYS_DATA, SHEET_ID, FLAG_DATA, PLAYER_ID, SHEETS_USED
 
-	except Exception as E:
-		log.ERROR("scene.LOAD_FILE", E)
+	#except Exception as E:
+		#log.ERROR("scene.LOAD_FILE", E)
