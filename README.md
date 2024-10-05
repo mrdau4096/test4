@@ -7,6 +7,8 @@ _**Thank you for visiting this page, and if you download; I thank you.**_
 ### All assets, scenes, UI, etc are non-final!
 _They will change, in due time._
 
+### The final deadline is 18/10/24
+_Work will likely not cease after this, but it must be usable before then._
 
 
 ## Features;
@@ -16,20 +18,14 @@ _They will change, in due time._
 - Human-readable data files for easier debugging
 - Billboarded sprites. (DOOM93 demon-type sprite usage soon)
 - Object-Oriented internal systems.
-- 5 minute load time on low-end devices. _(Roughly 5s on anything capable)_
+- <5 minute load time on low-end devices. _(Roughly 5s on anything capable)_
 
 
 ## Planned;
 - Obligatory bugfixes.
 - Items for the player to hold/use.
-- Proper menus to interact with, rather than ESC = quit()
 - Projectile and Hitscan weapons.
-- Scene editing program within the filepath.
 
 
 ## Known Bugs;
-- Transparent surfaces do not pass shadows through correctly.
-- Sprites do not render correctly.
-- Player "rebounds" off of the floor at high velocities/low framerates.
-- When turning camera, speed appears inconsistant.
-- Both sides of a triangle appear lit, if one side is. (Direction ignored by lighting)
+- Triangle collisions are non-ideal.
