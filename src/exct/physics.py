@@ -51,8 +51,6 @@ def ACCELERATION_CALC(FORCE, MASS):
 	If Mass == 0 or Force == 0, then it will raise a zero-div-error.
 	I account for this via presuming a "safe" return value is 0us^-2.
 	"""
-	if MASS <= 0:
-		raise ValueError(f"Mass cannot be <= 0; {MASS}")
 	try:
 		return FORCE/MASS
 
@@ -113,23 +111,32 @@ def PLAYER_MOVEMENT(KEY_STATES, PLAYER):
 
 def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 	#Updates the physics with as many iterations as CONSTANTS["PHYSICS_ITERATIONS"] defines.
-	try:
+	#try:
 		KINETICs_LIST, STATICs_LIST = PHYS_DATA
+		REMOVED_OBJECTS = []
 
 		for _ in range(CONSTANTS["PHYSICS_ITERATIONS"]):
 			for PHYS_OBJECT_ID, PHYS_OBJECT in KINETICs_LIST.items():
 				#Check every physics object (PLAYER, CUBE_PHYSICS, etc.)
+				OBJECT_TYPE = type(PHYS_OBJECT)
 
-				if type(PHYS_OBJECT) == CUBE_PATH:
+				if PHYS_OBJECT_ID in REMOVED_OBJECTS:
+					continue
+
+				if OBJECT_TYPE == PROJECTILE:
+					PHYS_OBJECT.LIFETIME += 1
+					if PHYS_OBJECT.LIFETIME >= CONSTANTS["MAX_PROJECTILE_LIFESPAN"]:
+						REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+						continue
+
+				if OBJECT_TYPE == CUBE_PATH:
 					#CUBE_PATH has to be treated seperately, as it has its own unique physics requirements.
 					#This will move the cube if its flag-state is true, handled within the utils.py class attribute ADVANCE().
 					PHYS_OBJECT.ADVANCE(FLAG_STATES)
 
-
 				else:
 					#Any other physics object.
 					COLLIDING, DISPLACEMENT_VECTOR, TOUCHING = False, VECTOR_3D(0, 0, 0), False
-					OBJECT_TYPE = type(PHYS_OBJECT)
 
 						
 					if OBJECT_TYPE == PLAYER:
@@ -141,6 +148,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 					#Collisions between physics-bodies (not with itself, hence the comparing of IDs)
 					for BODY_ID, BODY in KINETICs_LIST.items():
 						if BODY_ID != PHYS_OBJECT_ID: #Stops self collisions.
+							BODY_TYPE = type(BODY)
 							if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, BODY.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
 								COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, BODY)
 								if COLLISION_DATA[2]:
@@ -151,22 +159,39 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 									DISPLACEMENT = COLLISION_DATA[1]
 									DISPLACEMENT.Y = 0.0
 
-									#Moves each proportional to their mass (i.e. pushing)
-									#If the BODY is a CUBE_PATH, do not push. CUBE_PATH has unique requirements and cannot be pushed by another phys object.
-									PHYS_OBJECT_PROPORTION = (BODY.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (type(BODY) != CUBE_PATH) else 1.0
-									BODY_PROPORTION = (PHYS_OBJECT.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (type(BODY) != CUBE_PATH) else 0.0
+
+									if OBJECT_TYPE == PROJECTILE:
+										if BODY.ID != PHYS_OBJECT.OWNER and not PHYS_OBJECT.CREATE_EXPLOSION:
+											REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+											if BODY_TYPE in (PLAYER, ENEMY,):
+												BODY.HURT(PHYS_OBJECT.DAMAGE_STRENGH)
+											continue
+									
+									elif BODY_TYPE == PROJECTILE:
+										if PHYS_OBJECT.ID != BODY.OWNER and not BODY.CREATE_EXPLOSION:
+											REMOVED_OBJECTS.append(BODY.ID)
+											if BODY_TYPE in (PLAYER, ENEMY,):
+												PHYS_OBJECT.HURT(BODY.DAMAGE_STRENGH)
+											continue
+
+									else:
+										#Moves each proportional to their mass (i.e. pushing)
+										#If the BODY is a CUBE_PATH, do not push. CUBE_PATH has unique requirements and cannot be pushed by another phys object.
+										PHYS_OBJECT_PROPORTION = (BODY.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (BODY_TYPE != CUBE_PATH) else 1.0
+										BODY_PROPORTION = (PHYS_OBJECT.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (BODY_TYPE != CUBE_PATH) else 0.0
 
 
-									DISPLACEMENT_VECTOR += DISPLACEMENT * PHYS_OBJECT_PROPORTION
-									BODY.POSITION -= DISPLACEMENT * BODY_PROPORTION
+										DISPLACEMENT_VECTOR += DISPLACEMENT * PHYS_OBJECT_PROPORTION
+										BODY.POSITION -= DISPLACEMENT * BODY_PROPORTION
 
 
-									if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
-										#Calculate new points data (Axis aligned)
-										PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
-									elif OBJECT_TYPE in (CUBE_PHYSICS,):
-										#Calculate new points data (Rotated)
-										PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
+
+										if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
+											#Calculate new points data (Axis aligned)
+											PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
+										elif OBJECT_TYPE in (CUBE_PHYSICS,):
+											#Calculate new points data (Rotated)
+											PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
 
 
 					#Collisions between phys-body and environmental objects
@@ -189,13 +214,19 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 									Repeat every 2nd frame, causes vibration.
 									"""
 									DISPLACEMENT_VECTOR += COLLISION_DATA[1] * 0.975
+
+									if OBJECT_TYPE == PROJECTILE:
+										REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 					
 
 
 					if PHYS_OBJECT.POSITION.Y <= -256.0:
-						#If the object falls outside of the scene boundaries, return to the player's initial position.
-						PHYS_OBJECT.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
-						PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
+						if OBJECT_TYPE in (ENEMY, ITEM, PROJECTILE, CUBE_PHYSICS):
+							REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+						else:
+							#If the object falls outside of the scene boundaries, return to the player's initial position.
+							PHYS_OBJECT.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
+							PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
 
 
 					elif COLLIDING:
@@ -215,11 +246,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 						if KEY_STATES["JUMP_GRACE"] <= 10:
 							KEY_STATES["JUMP_GRACE"] += 1/CONSTANTS["PHYSICS_ITERATIONS"]
 
-						try:
-							GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/FPS, CONSTANTS["PLAYER_MASS"]) / CONSTANTS["PHYSICS_ITERATIONS"]
-						except ZeroDivisionError: #If player mass is inexplicably 0, try 10 as a "safe" value.
-							GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/PREFERENCES["FPS_LIMIT"], 10) / CONSTANTS["PHYSICS_ITERATIONS"]
-
+						GRAVITY_ACCEL = ACCELERATION_CALC(CONSTANTS["ACCEL_GRAV"]/FPS, PHYS_OBJECT.MASS) / CONSTANTS["PHYSICS_ITERATIONS"]
 						OBJECT_ACCELERATION = VECTOR_3D(0, GRAVITY_ACCEL, 0)
 						PHYS_OBJECT.LATERAL_VELOCITY += OBJECT_ACCELERATION
 						PHYS_OBJECT.POSITION += PHYS_OBJECT.LATERAL_VELOCITY / CONSTANTS["PHYSICS_ITERATIONS"]
@@ -233,7 +260,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 
 
 				OBJECT_TYPE = type(PHYS_OBJECT)
-				if OBJECT_TYPE in (ENEMY, ITEM, PLAYER, CUBE_PATH,):
+				if OBJECT_TYPE in (ENEMY, ITEM, PLAYER, CUBE_PATH, PROJECTILE,):
 					#Calculate new points data (Axis aligned)
 					PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
 				
@@ -247,11 +274,15 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 				KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
 
 
+		for OBJECT_ID in REMOVED_OBJECTS:
+			if OBJECT_ID  in KINETICs_LIST:
+				del KINETICs_LIST[OBJECT_ID]
+
 		PHYS_DATA = (KINETICs_LIST, STATICs_LIST)
 		return PHYS_DATA, FLAG_STATES
 	
-	except Exception as E:
-		log.ERROR("physics.UPDATE_PHYSICS", E)
+	#except Exception as E:
+		#log.ERROR("physics.UPDATE_PHYSICS", E)
 
 
 
@@ -326,7 +357,7 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 	APPLIED_VECTOR, PEN_DEPTH = VECTOR_3D(0.0, 0.0, 0.0), float("inf")
 	STATIC_TYPE = type(STATIC)
 	
-	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, TRIGGER,): #Cube-like objects
+	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, TRIGGER, PROJECTILE,): #Cube-like objects
 		APPLIED_VECTOR = AABB_COLLISION_RESPONSE(PHYS_BODY, STATIC)	
 
 		if APPLIED_VECTOR is not None: return (True, APPLIED_VECTOR, False)

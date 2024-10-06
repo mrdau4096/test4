@@ -1,1 +1,2 @@
-test | 0.35, 1.25, 0.35 | 10 | 100 | 1 | F | 1>11/1>12/1>13/1>14/1>15/1>16
+//Physical Size | Mass | Max-Health | Speed | Weapon | Items-to-drop | Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+test | 0.35, 1.25, 0.35 | 10 | 100 | 1 | rl | 1>11/1>12/1>13/1>14/1>15/1>16

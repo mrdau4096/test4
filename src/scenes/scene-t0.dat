@@ -7,7 +7,7 @@
 
 //Scene data example (// marks a comment, Blank lines ignored.)
 //The formats for each datatype;
-//' | ' seperates sections of the data, such as object type (first hex digit) and coordinates etc.
+//'|' seperates sections of the data, such as object type (first hex digit) and coordinates etc.
 //Vectors, dimentions and coordinates must be in the format 'X, Y, Z'
 //All textures are hex-IDs, seperated by a single forward-slash '/'
 //Boolean Values are represented by T(rue) & F(alse), seperated by '.'
@@ -37,19 +37,8 @@
 //.. more.
 
 
-
-//You must declare the texture sheet the level is to use in the file currently.
-//This will change in future, to instead have 3+ digit textures corresponding to sheet, and then X/Y position.
-//Texture sheet to use;
-> 1
-
 //Every scene MUST have the PLAYER object, as seen below.
-//SCENE object is optional, but controls any scene-wide changes you'd like, such as;
-//- Void colour
-//- Ambient sound to play
-//Setting up scene data;
-//0 | 2560, 2560, 2560 | 0, 0, 0 | 06/05/04
-1 | 10, 0, 0 | 0, 0, 0 | weapon_1:weapon_2:weapon_3
+1 | 10, 0, 0 | 0, 0, 0 | rl:laser
 
 
 //The real "meat and potatoes" of the file.

@@ -1,1 +1,2 @@
-0 | 0.25, 0.25, 0.25 | 1 | F | 7.5 | 00
+//Name | Physical size | Mass | Create-explosion | Strength | Texture
+rocket | 0.25, 0.25, 0.25 | 0 | T | 25.0 | sprites>00

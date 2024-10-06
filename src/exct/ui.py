@@ -215,6 +215,12 @@ def HUD(PLAYER, FPS):
 		#Top-Right corner's FPS counter.
 		DRAW_TEXT(UI_SURFACE, f"FPS: {str(maths.floor(FPS)).zfill(2)}", (583, 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 
+		#Held Item, using player's held item.
+		ITEM_TEXTURE = PLAYER.ITEMS[PLAYER.HELD_ITEM][9]
+		if ITEM_TEXTURE is not None:
+			DRAW_IMG(UI_SURFACE, f"item-{str(ITEM_TEXTURE)}", (384, 104), (256, 256))
+
+
 		#Top-Left debug notices.
 		DEBUG_TYPES = {
 			"DEBUG_MAPS": PREFERENCES["DEBUG_MAPS"],
@@ -226,7 +232,7 @@ def HUD(PLAYER, FPS):
 			"DEV_TEST": PREFERENCES["DEV_TEST"],
 		}
 		
-		for DEBUG_TYPE, ENABLED in DEBUG_TYPES.items():
+		for I, (DEBUG_TYPE, ENABLED) in enumerate(DEBUG_TYPES.items()):
 			if ENABLED:
 				DRAW_TEXT(UI_SURFACE, DEBUG_TYPE, (5, (10*I) + 2), 8, COLOUR=UI_COLOURS["GOLD_TIPS"])
 

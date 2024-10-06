@@ -32,7 +32,7 @@ log.REPORT_IMPORT("scene.py")
 
 global CURRENT_ID #Make global, so any other sub-file or function can use a unique object ID.
 PREFERENCES, CONSTANTS = utils.PREFERENCES, utils.CONSTANTS
-OVERHANG = 1
+OVERHANG, CURRENT_ID = 1, 0
 SHEETS_USED = ["base",]
 
 #Formatting for each class type's file representation
@@ -92,7 +92,7 @@ def LOAD_FILE(FILE_NAME):
 			FILE_CONTENTS.append(LINE_RAW.strip('\n'))#Remove uneccessary auto-formatting from the file
 
 		#Get the game-data for use here.
-		HOSTILES, SUPPLIES, PROJECTILES, SHEETS_USED = utils.GET_GAME_DATA(SHEETS_USED)
+		HOSTILES, SUPPLIES, PROJECTILES, ITEMS, SHEETS_USED = utils.GET_GAME_DATA(SHEETS_USED)
 
 
 		ENV_VAO_DATA = [NP.array([]), NP.array([])]
@@ -100,14 +100,10 @@ def LOAD_FILE(FILE_NAME):
 		for LINE in FILE_CONTENTS:
 			#Read every line
 			if LINE not in (""):
-				#If the line isnt empty..
-				if LINE[0].strip() == ">":
-					#Current sheet is given by "> ID"
-					SHEET_ID = (LINE.strip()).split(" ")[-1]
-
-				elif LINE[0].strip() not in ("/",):
+				#If the line isnt empty and isnt a comment
+				if not LINE.startswith("//"):
 					#"/" marks a comment, so if it is NOT that, read the line.
-					LINE_DATA = (LINE.strip()).split(' | ')
+					LINE_DATA = (LINE.strip()).split('|')
 					OBJECT_TYPE = int(LINE_DATA[0], 16)
 
 					CLASS_TYPE, FORMAT = FORMATTING[OBJECT_TYPE]
@@ -116,11 +112,11 @@ def LOAD_FILE(FILE_NAME):
 
 					for SECTION, RAW_DATA in zip(FORMAT, LINE_DATA[1:]):
 						#Read each part of the data-line, and interpret said part using the formatting for each type.
-						DATA = RAW_DATA.strip(" ")
+						DATA = RAW_DATA.strip()
 						if DATA != "":
 							match SECTION:
 								case "vect":
-									FILE_VECTOR = DATA.split(', ')
+									FILE_VECTOR = [ENTRY.strip() for ENTRY in DATA.split(",")]
 									OBJECT_DATA.append(VECTOR_3D(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8)))
 
 								case "texture":
@@ -152,7 +148,7 @@ def LOAD_FILE(FILE_NAME):
 
 
 								case "rgba":
-									FILE_VECTOR = DATA.split(', ')
+									FILE_VECTOR = [ENTRY.strip() for ENTRY in DATA.split(",")]
 									OBJECT_DATA.append(RGBA(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8), round(float(FILE_VECTOR[2]), 8)))
 
 								case "int":
@@ -316,14 +312,16 @@ def LOAD_FILE(FILE_NAME):
 							PLAYER_ID = CURRENT_ID
 							CENTRE = OBJECT_DATA[0]
 							CONSTANTS["PLAYER_INITIAL_POS"] = CENTRE
-							FINALISED_OBJECT = PLAYER(CURRENT_ID, CENTRE, OBJECT_DATA[1], OBJECT_DATA[2])
+							ITEMS = GET_GAME_DATA(SHEETS_USED)[3]
+							ITEMS[None] = (VECTOR_3D(0, 0, 0), '0', [('base', '00')], '0', 100, False, None, 0.0, 0.0, None)
+							FINALISED_OBJECT = PLAYER(CURRENT_ID, CENTRE, OBJECT_DATA[1], ITEMS)
 
 
 						elif CLASS_TYPE == ITEM:
 							CENTRE = OBJECT_DATA[0]
 							ITEM_TYPE = OBJECT_DATA[2]
-							ITEM_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[0][ENEMY_TYPE]
-							#Get data for this hostile type specifically (0 for hostiles, ENEMY_TYPE for specificity.)
+							ITEM_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[1][ENEMY_TYPE]
+							#Get data for this item type specifically (1 for supplies, ITEM_TYPE for specificity.)
 							TEXTURE_SHEETS_USED = [SHEET for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
 							TEXTURES = [texture_load.UV_CACHE_MANAGER(str(TEXTURE)) for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
 
@@ -385,7 +383,7 @@ def LOAD_FILE(FILE_NAME):
 		PHYS_DATA = (KINETICS, STATICS)
 		RENDER_DATA = (ENV_VAO_DATA, LIGHTS)
 		FLAG_DATA = (FLAG_STATES, LOGIC_GATES)
-		return RENDER_DATA, PHYS_DATA, SHEET_ID, FLAG_DATA, PLAYER_ID, SHEETS_USED
+		return RENDER_DATA, PHYS_DATA, FLAG_DATA, PLAYER_ID, SHEETS_USED, CURRENT_ID
 
 	#except Exception as E:
 		#log.ERROR("scene.LOAD_FILE", E)

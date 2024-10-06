@@ -1,0 +1,4 @@
+//Name | Physical Size | Mass | Energy per use | Raycast (T/F) | Projectile type (if not Raycast) | Firing velocity (if not Raycast) | Placeholder texture, 00
+rl | 0, 0, 0 | 0 | 0 | 5 | F | rocket | 0.333 | 0.25 | rl | 00
+laser | 0, 0, 0 | 0 | 0 | 1 | T | None | 0.0 | 0.1 | laser | 00
+dbs | 0, 0, 0 | 0 | 0 | 5 | T | None | 12.0 | 1.0 | dbs | 00

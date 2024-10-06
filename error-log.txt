@@ -233,3 +233,30 @@
 22:46:24, 03-10-2024 / ERROR in main.py / ':' expected after dictionary key (scene.py, line 56)
 18:57:45, 04-10-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 1217)
 18:57:58, 04-10-2024 / ERROR in texture_load.py / invalid syntax (utils.py, line 1217)
+13:44:58, 05-10-2024 / ERROR in render.py / invalid syntax (ui.py, line 219)
+13:49:59, 05-10-2024 / ERROR in ui.HUD / None
+14:09:58, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+16:26:30, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+16:26:38, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+16:27:26, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+17:04:14, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+18:34:35, 05-10-2024 / ERROR in scene.LOAD_FILE / 'list' object has no attribute 'strip'
+18:57:07, 05-10-2024 / ERROR in texture_load.py // LOAD_SHEET / unhashable type: 'list'
+18:57:25, 05-10-2024 / ERROR in texture_load.py // LOAD_SHEET / unhashable type: 'list'
+19:11:30, 05-10-2024 / ERROR in physics.UPDATE_PHYSICS / dictionary changed size during iteration
+19:12:15, 05-10-2024 / ERROR in physics.UPDATE_PHYSICS / dictionary changed size during iteration
+19:23:59, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+19:24:11, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+19:36:46, 05-10-2024 / ERROR in ui.HUD / tuple index out of range
+19:49:13, 05-10-2024 / ERROR in physics.UPDATE_PHYSICS / 17
+21:07:24, 05-10-2024 / ERROR in ui.HUD / name 'I' is not defined
+21:12:25, 05-10-2024 / ERROR in main.py / inconsistent use of tabs and spaces in indentation (physics.py, line 261)
+21:12:35, 05-10-2024 / ERROR in main.py / inconsistent use of tabs and spaces in indentation (physics.py, line 261)
+11:40:19, 06-10-2024 / ERROR in render.py / 'UI_RESOLUTION'
+11:40:57, 06-10-2024 / ERROR in render.py / 'UI_RESOLUTION'
+11:41:22, 06-10-2024 / ERROR in render.py / 'UI_RESOLUTION'
+11:46:43, 06-10-2024 / ERROR in texture_load.py / expected ':' (utils.py, line 418)
+11:46:58, 06-10-2024 / ERROR in render.OBJECT_VAO_MANAGER / 'NoneType' object has no attribute 'index'
+14:38:32, 06-10-2024 / ERROR in scene.LOAD_FILE / list index out of range
+14:39:01, 06-10-2024 / ERROR in scene.LOAD_FILE / list index out of range
+14:39:31, 06-10-2024 / ERROR in main.py / unexpected indent (scene.py, line 77)

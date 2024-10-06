@@ -24,6 +24,7 @@ try:
 	import math as maths
 	import copy
 	import numpy as NP
+	import random
 
 	#Stop PyGame from giving that annoying welcome message
 	os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -94,6 +95,7 @@ def MAIN():
 		CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
 		HEADLAMP_ENABLED = False
 		FPS_CAP = PREFERENCES["FPS_LIMIT"]
+		SECONDS_SINCE_LAST_FIRE = 5
 		KEY_STATES = {
 			1: False, 2: False, 3: False,			#Mouse buttons (LMB, MMB, RMB)
 			PG.K_w: False, PG.K_s: False,			#Forward/Backwards keys
@@ -129,7 +131,8 @@ def MAIN():
 
 		#PyOpenGL & VAO/VBO/EBO setup.
 		
-		RENDER_DATA, PHYS_DATA, SHEET_NAME, FLAG_DATA, PLAYER_ID, SHEETS_USED = scene.LOAD_FILE(PREFERENCES["SCENE"])
+		RENDER_DATA, PHYS_DATA, FLAG_DATA, PLAYER_ID, SHEETS_USED, CURRENT_ID = scene.LOAD_FILE(PREFERENCES["SCENE"])
+		scene.CURRENT_ID = CURRENT_ID
 		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(scene.SHEETS_USED)
 		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
 		FLAG_STATES, LOGIC_GATES = FLAG_DATA
@@ -159,7 +162,7 @@ def MAIN():
 
 
 		#Set the context back as the main PG window, and convert any shadow map data.
-		PG.display.set_caption("test4.2.6//main.py")
+		PG.display.set_caption("test4.2.7//main.py")
 		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
 		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
 
@@ -169,8 +172,11 @@ def MAIN():
 			(VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE),
 			(VAO_SCENE, VBO_SCENE, EBO_SCENE),
 			(MODEL_MATRIX, PROJECTION_MATRIX)
-		) = render.SET_PYGAME_CONTEXT(SHEET_NAME)
+		) = render.SET_PYGAME_CONTEXT()
 
+		HOSTILES, SUPPLIES, PROJECTILES, ITEMS, (SHEETS_USED, SHEET_LIST) = GET_GAME_DATA(SHEETS_USED, PROCESS_SHEETS_USED=False)
+		SHEETS_USED.extend(SHEET_LIST)
+		SHEETS_USED = utils.REMOVE_INDEXED_DUPLICATES(SHEETS_USED)
 		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED)
 
 		for I, LIGHT in enumerate(LIGHTS):
@@ -209,7 +215,10 @@ def MAIN():
 		while RUN:
 			MOUSE_MOVE = [0, 0]
 			PLAYER = PHYS_DATA[0][PLAYER_ID]
-			FPS = utils.CLAMP(CLOCK.get_fps(), 0, FPS_CAP)
+			FPS = utils.CLAMP(CLOCK.get_fps(), 1, FPS_CAP)
+			if SECONDS_SINCE_LAST_FIRE < 5:
+				#Only count for 5s of no item use to prevent infinite increase.
+				SECONDS_SINCE_LAST_FIRE += 1/FPS
 			"""
 			Getting Mouse/Keyboard/GamePad inputs
 			Getting other general events (Like window resize or window close events)
@@ -222,9 +231,11 @@ def MAIN():
 						PG.quit()
 						sys.exit()
 
+
 					case PG.ACTIVEEVENT:
 						if EVENT.state == 2:
 							WINDOW_FOCUS = EVENT.gain
+
 
 					case PG.MOUSEBUTTONDOWN:
 						if EVENT.button in KEY_STATES:
@@ -233,11 +244,110 @@ def MAIN():
 						match EVENT.button:
 							case 1:
 								#LMB Pressed
-								current_frame = 0
+								if PLAYER.HELD_ITEM is not None:
+									ITEM = PLAYER.ITEMS[PLAYER.HELD_ITEM]
+
+									if SECONDS_SINCE_LAST_FIRE >= ITEM[8] and PLAYER.ENERGY >= ITEM[4]:
+										SECONDS_SINCE_LAST_FIRE = 0
+										if ITEM[5]: #If raycast...
+
+											if ITEM[7] > 0: #For raycasts, this means multiple rays with spread or if 0.0, 1 ray.
+												SPREAD_MAX = CONSTANTS["MAX_RAY_SPREAD"]
+												for _ in range(int(round(ITEM[7]))-1):
+													SPREAD = VECTOR_2D(random.randint(-SPREAD_MAX, SPREAD_MAX), random.randint(-SPREAD_MAX, SPREAD_MAX))
+													ANGLE = (VECTOR_2D(PLAYER.ROTATION.X, PLAYER.ROTATION.Y) + SPREAD).RADIANS()
+													RAYCAST = RAY(
+														CAMERA_POSITION,
+														"BULLET_RAY",
+														RENDER_START_POINT=PLAYER.POSITION + (0.5 * CAMERA_OFFSET),
+														ANGLE=ANGLE,
+														MAX_DISTANCE=64.0,
+														OWNER=PLAYER.ID,
+													)
+													scene.CURRENT_ID += 1
+													PHYS_DATA[1][1][scene.CURRENT_ID] = RAYCAST
+
+													COLLIDED_OBJECT = RAYCAST.CHECK_FOR_INTERSECTS(
+														physics.BOUNDING_BOX_COLLISION,
+														physics.RAY_TRI_INTERSECTION,
+														PHYS_DATA
+													)
+
+													if type(COLLIDED_OBJECT) in (PLAYER, ENEMY,):
+														COLLIDED_OBJECT.HURT(ITEM[5])
+
+
+											#Always do 1 perfectly aimed ray.
+											RAYCAST = RAY(
+												CAMERA_POSITION,
+												"BULLET_RAY",
+												RENDER_START_POINT=PLAYER.POSITION + (0.5 * CAMERA_OFFSET),
+												ANGLE=VECTOR_2D(maths.radians(PLAYER.ROTATION.X), maths.radians(PLAYER.ROTATION.Y)),
+												MAX_DISTANCE=64.0,
+												OWNER=PLAYER.ID,
+											)
+											scene.CURRENT_ID += 1
+											PHYS_DATA[1][1][scene.CURRENT_ID] = RAYCAST
+
+											COLLIDED_OBJECT = RAYCAST.CHECK_FOR_INTERSECTS(
+												physics.BOUNDING_BOX_COLLISION,
+												physics.RAY_TRI_INTERSECTION,
+												PHYS_DATA
+											)
+
+											if type(COLLIDED_OBJECT) in (PLAYER, ENEMY,):
+												COLLIDED_OBJECT.HURT(ITEM[5])
+										
+										else:
+											DIRECTION_VECTOR = VECTOR_3D(
+												 maths.cos(maths.radians(-PLAYER.ROTATION.Y)) * maths.sin(maths.radians(PLAYER.ROTATION.X) - utils.piDIV2),
+												 maths.sin(maths.radians(-PLAYER.ROTATION.Y)),
+												-maths.cos(maths.radians(-PLAYER.ROTATION.Y)) * maths.cos(maths.radians(PLAYER.ROTATION.X) - utils.piDIV2)
+											)
+
+											PROJ_DATA = PROJECTILES[ITEM[6]]
+											PROJ_TEXTURE_SHEETS_USED, PROJ_TEXTURE = PROJ_DATA[2][0]
+											PROJ_TEXTURE = texture_load.UV_CACHE_MANAGER(PROJ_TEXTURE)
+											scene.CURRENT_ID += 1
+
+											#Would use "PROJECTILE" as the variable name, but the class already uses that.
+											PROJ = PROJECTILE(
+												scene.CURRENT_ID,
+												CAMERA_POSITION + (DIRECTION_VECTOR * 0.25),	#0.25u offset infront of the camera.
+												DIRECTION_VECTOR * ITEM[7],						#Firing velocity is stored within the item's data.
+												ITEM[6],										#Projectile Type.
+												PROJ_TEXTURE,									#Texture used by the projectile.
+												PROJ_TEXTURE_SHEETS_USED,						#The sheet the texture was on.
+												PLAYER.ID,										#"Owner" is player.
+											)
+
+											#Add to PHYS_DATA\KINETICs
+											PHYS_DATA[0][scene.CURRENT_ID] = PROJ
+
+										PLAYER.ENERGY -= ITEM[4]
+
+
+
+					case PG.MOUSEWHEEL:
+						SECONDS_SINCE_LAST_FIRE = 5
+						ITEM_LIST = list(PLAYER.ITEMS.keys())
+						CURRENT_ITEM_INDEX = ITEM_LIST.index(PLAYER.HELD_ITEM)
+						if EVENT.y > 0:
+							CURRENT_ITEM_INDEX += 1
+						elif EVENT.y < 0:
+							CURRENT_ITEM_INDEX -= 1
+
+						if CURRENT_ITEM_INDEX < 0:
+							CURRENT_ITEM_INDEX = len(ITEM_LIST)-1
+						CURRENT_ITEM_INDEX %= len(ITEM_LIST)
+
+						PLAYER.HELD_ITEM = ITEM_LIST[CURRENT_ITEM_INDEX]
+
 
 					case PG.MOUSEBUTTONUP:
 						if EVENT.button in KEY_STATES:
 							KEY_STATES[EVENT.button] = False
+
 
 					case PG.KEYDOWN:
 						if EVENT.key in KEY_STATES:
@@ -249,15 +359,25 @@ def MAIN():
 								PG.quit()
 								sys.exit()
 
+
 							case PG.K_ESCAPE:
-								RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(SCREEN, ui.PAUSE_MENU, KEY_STATES, (VAO_QUAD, VAO_UI), QUAD_SHADER, BACKGROUND=PREVIOUS_FRAME, UI_DATA=OPTIONS_DATA)
+								RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(
+									SCREEN,
+									ui.PAUSE_MENU, KEY_STATES,
+									(VAO_QUAD, VAO_UI),
+									QUAD_SHADER,
+									BACKGROUND=PREVIOUS_FRAME,
+									UI_DATA=OPTIONS_DATA
+								)
 								PG.mouse.set_visible(False)
 							
+
 							case PG.K_LCTRL:
 								#Change collision hitbox size for crouching.
 								CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET_CROUCH"]
 								PLAYER.COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]
 								PLAYER.POSITION -= (CONSTANTS["PLAYER_COLLISION_CUBOID"] - CONSTANTS["PLAYER_COLLISION_CUBOID_CROUCH"]) / 2
+
 
 							case PG.K_c:
 								#C is the zoom key.
@@ -268,9 +388,16 @@ def MAIN():
 									CONSTANTS["MAX_VIEW_DIST"]
 								)
 
+
 							case PG.K_e:
 								#Interacting with buttons/similar
-								RAYCAST = RAY(CAMERA_POSITION, "INTERACT_RAY", RENDER_START_POINT=PLAYER.POSITION, ANGLE=VECTOR_2D(maths.radians(PLAYER.ROTATION.X), maths.radians(PLAYER.ROTATION.Y)), MAX_DISTANCE=1.25)
+								RAYCAST = RAY(
+									CAMERA_POSITION,
+									"INTERACT_RAY",
+									RENDER_START_POINT=PLAYER.POSITION,
+									ANGLE=VECTOR_2D(maths.radians(PLAYER.ROTATION.X), maths.radians(PLAYER.ROTATION.Y)),
+									MAX_DISTANCE=1.25
+								)
 
 								if PREFERENCES["DEBUG_RAYS"]:
 									scene.CURRENT_ID += 1
@@ -279,6 +406,7 @@ def MAIN():
 								COLLIDED_OBJECT = RAYCAST.CHECK_FOR_INTERSECTS(physics.BOUNDING_BOX_COLLISION, physics.RAY_TRI_INTERSECTION, PHYS_DATA)
 								if type(COLLIDED_OBJECT) == INTERACTABLE:
 									FLAG_STATES[COLLIDED_OBJECT.FLAG] = not FLAG_STATES[COLLIDED_OBJECT.FLAG]
+
 
 							case PG.K_f:
 								HEADLAMP_ENABLED = not HEADLAMP_ENABLED
@@ -328,18 +456,6 @@ def MAIN():
 					#Limit the camera"s vertical movement to ~±90*
 					PLAYER.ROTATION = PLAYER.ROTATION.CLAMP(Y_BOUNDS=(-89.9, 89.9))
 
-
-
-			if KEY_STATES[1] and PREFERENCES["DEV_TEST"]:
-				current_frame += 1
-				if current_frame > (0):
-					current_frame=0
-					RAYCAST = RAY(CAMERA_POSITION, "BULLET_RAY", RENDER_START_POINT=PLAYER.POSITION, ANGLE=VECTOR_2D(maths.radians(PLAYER.ROTATION.X), maths.radians(PLAYER.ROTATION.Y)))
-
-					scene.CURRENT_ID += 1
-					PHYS_DATA[1][1][scene.CURRENT_ID] = RAYCAST
-
-					COLLIDED_OBJECT = RAYCAST.CHECK_FOR_INTERSECTS(physics.BOUNDING_BOX_COLLISION, physics.RAY_TRI_INTERSECTION, PHYS_DATA)
 
 
 			
@@ -407,6 +523,7 @@ def MAIN():
 			HEADLAMP_ENABLED_LOC = glGetUniformLocation(SCENE_SHADER, "HEADLAMP_ENABLED")
 			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
 			WIREFRAME_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "WIREFRAME_DEBUG")
+			RAY_PERSIST_FRAMES_LOC = glGetUniformLocation(SCENE_SHADER, "MAX_RAY_PERSIST_FRAMES")
 			SHEETS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHEETS")
 
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
@@ -420,6 +537,7 @@ def MAIN():
 			glUniform1i(HEADLAMP_ENABLED_LOC, HEADLAMP_ENABLED)
 			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["DEBUG_NORMALS"])
 			glUniform1i(WIREFRAME_DEBUG_LOC, PREFERENCES["DEBUG_WIREFRAME"])
+			glUniform1i(RAY_PERSIST_FRAMES_LOC, CONSTANTS["MAX_RAY_PERSIST_FRAMES"])
 
 
 			for I, LIGHT in enumerate(LIGHTS):

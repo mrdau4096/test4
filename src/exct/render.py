@@ -232,8 +232,8 @@ def CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_POSITION, SPRITE_DIMENTIONS):
 
 
 
-def SET_PYGAME_CONTEXT(SHEET_NAME):
-	#Sets the PG context to the current PG display. Takes a sheet for the texture to render, which will inevitably be retrieved from texture_load.SHEET_CACHE.
+def SET_PYGAME_CONTEXT():
+	#Sets the PG context to the current PG display.
 	DISPLAY_RESOLUTION = CONSTANTS["DISPLAY_RESOLUTION"]
 
 	PG.display.gl_set_attribute(PG.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -258,7 +258,7 @@ def SET_PYGAME_CONTEXT(SHEET_NAME):
 		glCullFace(GL_BACK)
 	glMatrixMode(GL_PROJECTION)
 	glLoadIdentity()
-	gluPerspective(PREFERENCES["FOV"], DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y, CONSTANTS["MIN_VIEW_DIST"], CONSTANTS["MAX_VIEW_DIST"])  # Example parameters
+	gluPerspective(PREFERENCES["FOV"], DISPLAY_RESOLUTION.X / DISPLAY_RESOLUTION.Y, CONSTANTS["MIN_VIEW_DIST"], CONSTANTS["MAX_VIEW_DIST"])
 	glMatrixMode(GL_MODELVIEW)
 	MODEL_MATRIX = Matrix44.identity()
 	glLoadIdentity()
@@ -440,7 +440,7 @@ def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED):
 def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES, SHEETS_USED):
 	#Processes a given object (I.e. SPRITE_STATIC, ITEM, etc.) for its new data.
 	OBJECT_TYPE = type(OBJECT_DATA)
-	if OBJECT_TYPE in [SPRITE_STATIC, ITEM, ENEMY]:
+	if OBJECT_TYPE in [SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,]:
 		#Sprites
 		SPRITE_POSITION = OBJECT_DATA.POSITION - VECTOR_3D(0.0, 0.5 * OBJECT_DATA.DIMENTIONS_2D.Y, 0.0) if OBJECT_TYPE in [ENEMY, ITEM] else OBJECT_DATA.POSITION
 		COORDINATES = CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER.POSITION, OBJECT_DATA.DIMENTIONS_2D)
@@ -496,7 +496,7 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES, SHEETS_USE
 def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTURES=None, POINTS=None):
 	#Appends the current object's data to the VAO data, depending on the type and associated data.
 	#For example, a sprite would be added to the vertices as a quad, and same for the indices, with the UV data and normals data as needed.
-	#try:
+	try:
 		if POINTS is None:
 			POINTS = OBJECT.POINTS
 		if TEXTURES is None:
@@ -557,7 +557,7 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTU
 				INDEX_OFFSET += 4
 
 
-		elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY): #Quad-like objects.
+		elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,): #Quad-like objects.
 			FACE_ORDER = (0, 1, 2, 3)
 			NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
 			if CLASS_TYPE == ENEMY:
@@ -580,7 +580,7 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTU
 			FACE_ORDER = (0, 1, 2)
 			NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2]
 			NORMAL = OBJECT.NORMALS[0]  # Assuming all vertices in a TRI have the same normal
-			TEXTURE_INDEX = SHEETS_USED.index(TEXTURE_SHEETS_USED)
+			TEXTURE_INDEX = OBJECT.LIFETIME if (CLASS_TYPE == RAY) else SHEETS_USED.index(TEXTURE_SHEETS_USED)
 
 			#Iterate through the indices for the triangle.
 			for I, INDEX in enumerate(FACE_ORDER):
@@ -596,8 +596,8 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTU
 
 		return (VAO_VERTICES, VAO_INDICES)
 
-	#except Exception as E:
-		#log.ERROR("render.OBJECT_VAO_MANAGER", E)
+	except Exception as E:
+		log.ERROR("render.OBJECT_VAO_MANAGER", E)
 
 
 #Shader loading functions

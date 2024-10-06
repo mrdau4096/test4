@@ -175,6 +175,17 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 #Other functions
 
 
+def REMOVE_INDEXED_DUPLICATES(ARRAY):
+    SEEN, RESULT = set(), []
+
+    for ENTRY in ARRAY:
+        if ENTRY not in SEEN:
+            SEEN.add(ENTRY)
+            RESULT.append(ENTRY)
+
+    return RESULT
+
+
 def POINT_IN_RECTANGLE(POINT, RECTANGLE_POSITION, RECTANGLE_DIMENTIONS):
 	if (POINT.X < RECTANGLE_POSITION.X or POINT.X > RECTANGLE_POSITION.X+RECTANGLE_DIMENTIONS.X) or (POINT.Y < RECTANGLE_POSITION.Y or POINT.Y > RECTANGLE_POSITION.Y+RECTANGLE_DIMENTIONS.Y):
 		return False
@@ -264,7 +275,7 @@ def SAVE_CONFIGS(DATA):
 			for LINE in CONFIG_DATA:
 				STRIPPED_LINE = LINE.strip()
 				if STRIPPED_LINE and not STRIPPED_LINE.startswith("//"):  #If not a comment or empty line
-					KEY, _ = STRIPPED_LINE.split(' = ')
+					KEY, _ = STRIPPED_LINE.split('=')
 					KEY = KEY.strip()
 					if KEY in CONSTANTS:
 						#Replace the line with updated value from the dictionary
@@ -288,8 +299,8 @@ def GET_CONFIGS():
 			
 			for LINE in PREFERENCE_DATA:
 				if LINE[0].strip() != "" and not LINE.startswith("//"):
-					P_LINE_DATA = (LINE.strip()).split(' = ')
-					USER_CHOICE = P_LINE_DATA[1]
+					P_LINE_DATA = (LINE.strip()).split('=')
+					USER_CHOICE = P_LINE_DATA[1].strip()
 					
 					try:
 						try:
@@ -311,7 +322,7 @@ def GET_CONFIGS():
 						else:
 							CHOSEN_DATA = USER_CHOICE
 
-					PREFERENCES[P_LINE_DATA[0]] = CHOSEN_DATA
+					PREFERENCES[P_LINE_DATA[0].strip()] = CHOSEN_DATA
 
 
 
@@ -328,16 +339,16 @@ def GET_CONFIGS():
 			
 			for LINE in CONSTANTS_DATA:
 				if LINE[0].strip() not in ("/", ""):
-					C_LINE_DATA = (LINE.strip()).split(' = ')
-					USER_CHOICE = C_LINE_DATA[1]
+					C_LINE_DATA = (LINE.strip()).split('=')
+					USER_CHOICE = C_LINE_DATA[1].strip()
 
 					if USER_CHOICE.startswith("<VECTOR_2D: [") and USER_CHOICE.endswith("]>"):
-						DATA = USER_CHOICE.replace("<VECTOR_2D: [", "").replace("]>","").split(", ")
-						CHOSEN_DATA = VECTOR_2D(DATA[0], DATA[1])
+						DATA = USER_CHOICE.replace("<VECTOR_2D: [", "").replace("]>","").split(",")
+						CHOSEN_DATA = VECTOR_2D(DATA[0].strip(), DATA[1].strip())
 
 					elif USER_CHOICE.startswith("<VECTOR_3D: [") and USER_CHOICE.endswith("]>"):
-						DATA = USER_CHOICE.replace("<VECTOR_3D: [", "").replace("]>", "").split(", ")
-						CHOSEN_DATA = VECTOR_3D(DATA[0], DATA[1], DATA[2])
+						DATA = USER_CHOICE.replace("<VECTOR_3D: [", "").replace("]>", "").split(",")
+						CHOSEN_DATA = VECTOR_3D(DATA[0].strip(), DATA[1].strip(), DATA[2].strip())
 
 					else:					
 						try:
@@ -357,7 +368,7 @@ def GET_CONFIGS():
 							else:
 								CHOSEN_DATA = USER_CHOICE
 
-					CONSTANTS[C_LINE_DATA[0]] = CHOSEN_DATA
+					CONSTANTS[C_LINE_DATA[0].strip()] = CHOSEN_DATA
 
 
 
@@ -370,117 +381,128 @@ def GET_CONFIGS():
 	return PREFERENCES, CONSTANTS
 
 
-def GET_GAME_DATA(SHEETS_USED):
+def GET_GAME_DATA(SHEETS_USED, PROCESS_SHEETS_USED=True):
 	#Gets the hostiles.dat, supplies.dat and projectiles.dat file data for use elsewhere.
 	DATA_PATH = GET_DATA_PATH()
-	HOSTILES, SUPPLIES, PROJECTILES = {}, {}, {}
+	HOSTILES, SUPPLIES, PROJECTILES, ITEMS = {}, {}, {}, {}
+	SHEET_LIST = []
 
 	HOSTILES_FILE = open(f"{DATA_PATH}\\hostiles.dat", "r")
 	SUPPLIES_FILE = open(f"{DATA_PATH}\\supplies.dat", "r")
 	PROJECTILES_FILE = open(f"{DATA_PATH}\\projectiles.dat", "r")
+	ITEMS_FILE = open(f"{DATA_PATH}\\items.dat", "r")
 
 	HOSTILES_DATA = HOSTILES_FILE.readlines()
 	SUPPLIES_DATA = SUPPLIES_FILE.readlines()
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
+	ITEMS_DATA = ITEMS_FILE.readlines()
 
-	H_FORMATTING = ("float", "float", "hex", "list", "list",)	#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
-	S_FORMATTING = ("hex", "int",)								#What-to-give, Quantity,
-	P_FORMATTING = ("bool", "float",)							#Create-explosion, Strength
+	HOSTILES_FORMATTING = ("float", "float", "str", "list", "list",)			#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+	SUPPLIES_FORMATTING = ("str", "int",)										#What-to-give, Quantity.
+	PROJECTILES_FORMATTING = ("bool", "float",)									#Create-explosion, Strength.
+	ITEMS_FORMATTING = ("str", "int", "bool", "str", "float", "float", "str",)	#Name, Energy per use, Raycast (T/F), Projectile type (if not Raycast), Firing velocity (if not Raycast), Image name.
 
-	for H_DATA, S_DATA, P_DATA in zip(HOSTILES_DATA, SUPPLIES_DATA, PROJECTILES_DATA):
-		#Process each type.
-		PROCESSED_H, SHEETS_USED = PROCESS_LINE(H_DATA, H_FORMATTING, SHEETS_USED)
-		PROCESSED_S, SHEETS_USED = PROCESS_LINE(S_DATA, S_FORMATTING, SHEETS_USED)
-		PROCESSED_P, SHEETS_USED = PROCESS_LINE(P_DATA, P_FORMATTING, SHEETS_USED)
+	
+	for HOSTILES_LINE in HOSTILES_DATA:
+		PROCESSED_HOSTILES_LINE, EXTRA = PROCESS_LINE(HOSTILES_LINE, HOSTILES_FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST)
+		if PROCESSED_HOSTILES_LINE is not None:
+			HOSTILES[PROCESSED_HOSTILES_LINE[0].strip()] = PROCESSED_HOSTILES_LINE[1:]
+			(SHEETS_USED, SHEET_LIST) = EXTRA
+	
+	for SUPPLIES_LINE in SUPPLIES_DATA:
+		PROCESSED_SUPPLIES_LINE, EXTRA = PROCESS_LINE(SUPPLIES_LINE, SUPPLIES_FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST)
+		if PROCESSED_SUPPLIES_LINE is not None:
+			SUPPLIES[PROCESSED_SUPPLIES_LINE[0].strip()] = PROCESSED_SUPPLIES_LINE[1:]
+			(SHEETS_USED, SHEET_LIST) = EXTRA
+	
+	for PROJECTILES_LINE in PROJECTILES_DATA:
+		PROCESSED_PROJECTILES_LINE, EXTRA = PROCESS_LINE(PROJECTILES_LINE, PROJECTILES_FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST)
+		if PROCESSED_PROJECTILES_LINE is not None:
+			PROJECTILES[PROCESSED_PROJECTILES_LINE[0].strip()] = PROCESSED_PROJECTILES_LINE[1:]
+			(SHEETS_USED, SHEET_LIST) = EXTRA
+	
+	for ITEM_LINE in ITEMS_DATA:
+		PROCESSED_ITEMS_LINE, EXTRA = PROCESS_LINE(ITEM_LINE, ITEMS_FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST)
+		if PROCESSED_ITEMS_LINE is not None:
+			ITEMS[PROCESSED_ITEMS_LINE[0].strip()] = PROCESSED_ITEMS_LINE[1:]
+			(SHEETS_USED, SHEET_LIST) = EXTRA
 
-		if PROCESSED_H is not None: HOSTILES[PROCESSED_H[0]] = PROCESSED_H[1:]
-		if PROCESSED_S is not None: SUPPLIES[PROCESSED_S[0]] = PROCESSED_S[1:]
-		if PROCESSED_P is not None: PROJECTILES[PROCESSED_P[0]] = PROCESSED_P[1:]
 
 
 	#Close the files.
 	HOSTILES_FILE.close()
 	SUPPLIES_FILE.close()
 	PROJECTILES_FILE.close()
+	ITEMS_FILE.close()
 
-	return HOSTILES, SUPPLIES, PROJECTILES, SHEETS_USED
+	SHEET_DATA = SHEETS_USED if PROCESS_SHEETS_USED else (SHEETS_USED, SHEET_LIST)
+	return HOSTILES, SUPPLIES, PROJECTILES, ITEMS, SHEET_DATA
 
 
-def PROCESS_LINE(LINE, FORMATTING, SHEETS_USED):
+def PROCESS_LINE(LINE, FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST):
 	#Process a line of a .dat file.
-	if LINE != "":
-		if LINE[0] != "//":
-			DATA = LINE.split(" | ")
-			TYPE = DATA[0]
-			MASS = DATA[2]
-			TEXTURES = list(DATA[-1].split("/"))
+	if LINE != "" and not LINE.startswith("//"):
+		DATA = LINE.split("|")
+		TYPE = DATA[0]
+		MASS = DATA[2]
+		TEXTURES = list(DATA[-1].strip().split("/"))
 
-			TEXTURE_LIST = []
-			for TEXTURE in TEXTURES:
-				TEXTURE_PARTS = TEXTURE.split(">")
-				if len(TEXTURE_PARTS) == 2:
-					SHEET_NAME, TEXTURE_UV = TEXTURE_PARTS
-				else:
-					SHEET_NAME, TEXTURE_UV = "base", TEXTURE_PARTS[0]
-				TEXTURE_LIST.append((SHEET_NAME, TEXTURE_UV))
+		TEXTURE_LIST = []
+		for TEXTURE in TEXTURES:
+			TEXTURE_PARTS = TEXTURE.split(">")
+			if len(TEXTURE_PARTS) == 2:
+				SHEET_NAME, TEXTURE_UV = TEXTURE_PARTS
+			else:
+				SHEET_NAME, TEXTURE_UV = "base", TEXTURE_PARTS[0]
+			
+			if not PROCESS_SHEETS_USED and SHEET_NAME not in SHEET_LIST: SHEET_LIST.append(SHEET_NAME)
+			TEXTURE_LIST.append((SHEET_NAME, TEXTURE_UV))
 
-			SIZE_RAW = DATA[1].split(", ")
-			COLLISION_SIZE = VECTOR_3D(SIZE_RAW[0], SIZE_RAW[1], SIZE_RAW[2])
-			OUT = [TYPE, COLLISION_SIZE, MASS, TEXTURE_LIST,]
-			#print(OUT)
+		SIZE_RAW = [ENTRY.strip() for ENTRY in DATA[1].split(",")]
+		COLLISION_SIZE = VECTOR_3D(SIZE_RAW[0], SIZE_RAW[1], SIZE_RAW[2])
+		OUT = [TYPE, COLLISION_SIZE, MASS, TEXTURE_LIST,]
 
-			for FORM, INFO in zip(FORMATTING, DATA[3:]):
-				#Match the found data's type to the formatting step provided.
-				match FORM:
-					case "vect":
-						FILE_VECTOR = INFO.split(', ')
-						OUT.append(VECTOR_3D(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8)))
+		for FORM, INFO in zip(FORMATTING, DATA[3:]):
+			#Match the found data's type to the formatting step provided.
+			match FORM:
+				case "vect":
+					FILE_VECTOR = [ENTRY.strip() for ENTRY in INFO.split(',')]
+					OUT.append(VECTOR_3D(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8)))
 
-					case "bool":
-						BOOLEAN = INFO.split(".")
-						for I, BOOL in enumerate(BOOLEAN):
-							if BOOL == "T":
-								BOOLEAN[I] = True
-							elif BOOL == "F":
-								BOOLEAN[I] = False
-						OUT.append(BOOLEAN)
-					
-					case "texture":
-						TEXTURE_IDs = INFO.split("/")
-						TEX_LIST, SHEET_LIST = [], []
-						for TEXTURE in TEXTURE_IDs:
-							TEXTURE_DATA = TEXTURE.split(">")
-							if len(TEXTURE_DATA) == 2:
-								SHEET_NAME, SHEET_HEX = TEXTURE_DATA
-							else:
-								SHEET_NAME, SHEET_HEX = "base", TEXTURE_DATA[0]
-							if SHEET_NAME not in SHEETS_USED: SHEETS_USED.append(SHEET_NAME)
-							TEX_LIST.append(SHEET_HEX)
-							SHEET_LIST.append(SHEET_NAME)
-						OUT.append(TEX_LIST)
-						OUT.append(SHEET_LIST)
+				case "bool":
+					BOOLEAN = INFO.split(".")
+					for I, BOOL in enumerate(BOOLEAN):
+						if BOOL.strip().upper() == "T":
+							BOOLEAN[I] = True
+						elif BOOL.strip().upper() == "F":
+							BOOLEAN[I] = False
+						else:
+							log.ERROR("utils.GET_GAME_DATA", f"Unknown Bool {BOOL}, expected (T, F)")
+					if len(BOOLEAN) == 1: BOOLEAN = BOOLEAN[0]
+					OUT.append(BOOLEAN)
 
-					case "rgba":
-						FILE_VECTOR = INFO.split(', ')
-						OUT.append(RGBA(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8), round(float(FILE_VECTOR[2]), 8)))
+				case "rgba":
+					FILE_VECTOR = [ENTRY.strip() for ENTRY in INFO.split(',')]
+					OUT.append(RGBA(round(float(FILE_VECTOR[0]), 8), round(float(FILE_VECTOR[1]), 8), round(float(FILE_VECTOR[2]), 8), round(float(FILE_VECTOR[2]), 8)))
 
-					case "int":
-						OUT.append(int(INFO))
+				case "int":
+					OUT.append(int(INFO))
 
-					case "float":
-						OUT.append(float(INFO))
+				case "float":
+					OUT.append(float(INFO))
 
-					case "hex":
-						OUT.append(int(INFO, 16))
+				case "hex":
+					OUT.append(hex(int(INFO.strip())))
 
-					case "list":
-						OUT.append(INFO.split(":"))
+				case "list":
+					OUT.append([ENTRY.strip() for ENTRY in INFO.split(":")])
 
-					case "str":
-						OUT.append(INFO)
+				case "str":
+					OUT.append(INFO.strip())
 
-			return OUT, SHEETS_USED
-	return None
+		
+		return OUT, (SHEETS_USED, SHEET_LIST)
+	return None, (None, None)
 
 
 
@@ -562,16 +584,17 @@ class BOUNDING_BOX:
 
 class RAY:
 	#Ray for raycasting calculations
-	def __init__(self, START_POINT, RAY_TYPE, RENDER_START_POINT=None, DIRECTION_VECTOR=None, ANGLE=None, MAX_DISTANCE=64.0):
+	def __init__(self, START_POINT, RAY_TYPE, RENDER_START_POINT=None, DIRECTION_VECTOR=None, ANGLE=None, MAX_DISTANCE=64.0, OWNER=None):
 		#Optionally direction vector or angle.
 		self.START_POINT = START_POINT
 		self.RAY_TYPE = RAY_TYPE
 		self.LIFETIME = 0 #Ray gets removed after a certain number of frames, if rendered.
+		self.OWNER = OWNER
 
 
 		if ANGLE is not None:
 			#Invert Y (pitch)
-			#Subtract [πDIV2 // 90*] from X (yaw)
+			#Subtract [piDIV2 // 90*] from X (yaw)
 			DIRECTION_VECTOR = VECTOR_3D(
 				maths.cos(-ANGLE.Y) * maths.sin(ANGLE.X - piDIV2),
 				maths.sin(-ANGLE.Y),
@@ -608,7 +631,7 @@ class RAY:
 
 
 		if BOUNDING_BOX_COLLISION(self.BOUNDING_BOX, OTHER.BOUNDING_BOX):
-			if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH): #Cube-like objects
+			if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, ENEMY, PLAYER,): #Cube-like objects
 				for FACE in OTHER.FACES:
 					TRIANGLES = (
 						(VERTICES[FACE[0]], VERTICES[FACE[1]], VERTICES[FACE[2]]),
@@ -658,6 +681,7 @@ class RAY:
 					COLLIDED_OBJECTS[COLLISION_DATA] = STATIC
 			
 			for KINETIC_ID, KINETIC in KINETICS.items():
+				if KINETIC_ID == self.OWNER: continue
 				COLLISION_DATA = RAY.CHECK_COLLISION(KINETIC, BOUNDING_BOX_COLLISION, RAY_TRI_INTERSECTION)
 				
 				if COLLISION_DATA is not None:
@@ -1171,7 +1195,7 @@ class CUBE_PHYSICS(PHYSICS_OBJECT):
 class ITEM(PHYSICS_OBJECT):
 	#Item that gives supplies when touched
 	def __init__(self, ID, POSITION, POP, TEXTURE_INFO, TYPE, TEXTURE_SHEETS_USED):
-		_, SUPPLIES, _ = GET_GAME_DATA()
+		_, SUPPLIES, _, _, _ = GET_GAME_DATA(TEXTURE_SHEETS_USED)
 		TYPE_DATA = SUPPLIES[TYPE]
 		MASS = TYPE_DATA[1]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA[0], POSITION)
@@ -1221,7 +1245,7 @@ class ITEM(PHYSICS_OBJECT):
 class ENEMY(PHYSICS_OBJECT):
 	#Hostile enemy towards the player.
 	def __init__(self, ID, POSITION, TYPE, TEXTURES, ROTATION, TEXTURE_SHEETS_USED, SCENE_SHEETS_USED):
-		HOSTILES, _, _, _ = GET_GAME_DATA(SCENE_SHEETS_USED)
+		HOSTILES, _, _, _, _ = GET_GAME_DATA(SCENE_SHEETS_USED)
 		TYPE_DATA = HOSTILES[TYPE]
 		POINTS = FIND_CUBOID_POINTS(TYPE_DATA[0], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
@@ -1234,6 +1258,9 @@ class ENEMY(PHYSICS_OBJECT):
 
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.DIMENTIONS = TYPE_DATA[0]
+		
+		FACES = GET_CUBOID_FACE_INDICES()
+		self.FACES = FACES
 		
 
 		self.POINTS = POINTS
@@ -1252,36 +1279,43 @@ class ENEMY(PHYSICS_OBJECT):
 
 	def HURT(self, DAMAGE):
 		#Harms the enemy, and sets their state to ALIVE=False if HEALTH<=0.
-		self.HEALTH = CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH)
-		if self.HEALTH <= 0:
+		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
+		if self.HEALTH == 0:
 			self.ALIVE = False
+			self.DROP_ITEMS()
 		return self
+
+	def DROP_ITEMS(self):
+		print("I am dead. Not big surprise.")
 
 
 class PROJECTILE(PHYSICS_OBJECT):
 	#Harms ENEMY/PLAYER.
-	def __init__(self, POSITION, MASS, FIRED_VELOCITY, TYPE, TEXTURE_INFO, TEXTURE_SHEETS_USED):
-		TYPE_DATA = PROJECTILES[hex(TYPE)]
-		POINTS = FIND_CUBOID_POINTS(TYPE_DATA["Dimentions"], POSITION)
+	def __init__(self, ID, POSITION, FIRED_VELOCITY, TYPE, TEXTURE_INFO, TEXTURE_SHEETS_USED, OWNER):
+		_, _, PROJECTILES, _, _ = GET_GAME_DATA(TEXTURE_SHEETS_USED)
+		TYPE_DATA = PROJECTILES[TYPE]
+		POINTS = FIND_CUBOID_POINTS(TYPE_DATA[0], POSITION)
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
+		MASS=  TYPE_DATA[1]
 
-		super().__init__(ID, POSITION, None, None, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO, LATERAL_VELOCITY = FIRED_VELOCITY)
+		super().__init__(ID, POSITION, None, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO, LATERAL_VELOCITY=FIRED_VELOCITY)
 		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
 
-		AVG_X = (TYPE_DATA["Dimentions"][0] + TYPE_DATA["Dimentions"][2]) / 2
-		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, TYPE_DATA["Dimentions"][1])
-		self.DIMENTIONS = VECTOR_3D(*TYPE_DATA["Dimentions"])
+		AVG_X = (TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2
+		self.DIMENTIONS_2D = VECTOR_2D(AVG_X, TYPE_DATA[0].Y)
+		self.DIMENTIONS = TYPE_DATA[0]
 		
 
 		self.POINTS = POINTS
-		self.TYPE = hex(TYPE)
-		self.DAMAGE_TYPE = TYPE_DATA["Damage Type"]
-		self.DAMAGE_STRENGTH = TYPE_DATA["Damage Strength"]
-		self.CREATE_EXPLOSION = bool(TYPE_DATA["Create Explosion"])
+		self.TYPE = TYPE
+		self.CREATE_EXPLOSION = TYPE_DATA[3]
+		self.DAMAGE_STRENGTH = TYPE_DATA[4]
+		self.OWNER = OWNER
+		self.LIFETIME = 0
 
 	def __repr__(self):
-		return f"<PROJECTILE: [POSITION: {self.POSITION} // PROJECTILE_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // DAMAGE_TYPE: {self.DAMAGE_TYPE} // DAMAGE_STRENGTH: {self.DAMAGE_STRENGTH} // CREATE_EXPLOSION: {self.CREATE_EXPLOSION}]>"
+		return f"<PROJECTILE: [POSITION: {self.POSITION} // PROJECTILE_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // DAMAGE_STRENGTH: {self.DAMAGE_STRENGTH} // CREATE_EXPLOSION: {self.CREATE_EXPLOSION}]>"
 
 
 class PLAYER(PHYSICS_OBJECT):
@@ -1295,23 +1329,27 @@ class PLAYER(PHYSICS_OBJECT):
 		super().__init__(ID, POSITION, ROTATION, NORMALS, BOUNDING_BOX_OBJ, CONSTANTS["PLAYER_MASS"], None)
 		
 		
+		FACES = GET_CUBOID_FACE_INDICES()
+		self.FACES = FACES
+		
 
 		self.POINTS = POINTS
 		self.MAX_HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
 		self.ITEMS = ITEMS
-		self.ENERGY = 0
+		self.HELD_ITEM = None
+		self.ENERGY = CONSTANTS["PLAYER_START_ENERGY"]
 		self.ALIVE = True
 
 
 	def __repr__(self):
-		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {self.ITEMS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
+		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {list(self.ITEMS.keys())} // MASS: {self.MASS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 
 	def HURT(self, DAMAGE):
 		#Harms the player, and sets their state to ALIVE=False if HEALTH<=0.
-		self.HEALTH = CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH)
-		if self.HEALTH <= 0:
+		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
+		if self.HEALTH == 0:
 			self.ALIVE = False
 		return self
 
