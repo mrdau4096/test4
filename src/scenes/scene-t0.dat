@@ -28,7 +28,7 @@
 //A, ENEMY, fights back // Start location, Facing direction, type.
 //B, CUBE_PHYSICS, Such as a box // Position, Dimentions, bottom/side/top textures.
 //C, LIGHT, Creates light at a point with intensity and colour. Can be toggled with the flag. // Location, Look-at position, Colour, Intensity, FOV, Max-distance, Toggle-flag.
-//D, NPC_PATH_NODE, Used for Enemy pathfinding with Dijkstra's Algorithm. // Location, Hex-ID, Connections (To other Hex-IDs).
+//D, NPC_PATH_NODE, Used for Enemy pathfinding with Dijkstra's Algorithm. // Location, flag, Connections (To other Nodes).
 //E, LOGIC, Logic gate for flag logic. // flagA TYPE flagB, outputFlag.
 
 //Types of object (Unusable in file);
@@ -72,7 +72,7 @@ C | -5, 10, 0 | 0, 0, 0 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 90.0 | 25.0 | CONST_ON
 
 //TRIGGER testing.
 7 | 15, -0.25, 5 | 1, 1, 1 | triggerTest
-2 | 15, -0.25, 5 | 1, 1, 1 | F | 18/18/18
+2 | 15, -0.25, 5 | 1, 1, 1 | F | 1>18/1>18/1>18
 C | 13, 2, 5 | 15, 0.25, 5 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 7.5 | triggerTest
 
 
@@ -105,3 +105,8 @@ C | 14, 5, -9.25 | 15, 0, -9.25 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | doorT
 3 | 15, .5, -7.5 | 15, 0, -7.5 | 15, 0, -6.5 | 15, .5, -6.5 | T | FF
 3 | 15, .5, -10 | 15, 1, -10 | 15, 1, -6.5 | 15, .5, -6.5 | T | FF
 9 | 15.06, -0.25, -8 | 0.1, 1.5, 1 | 0, 0, -1 | 0.05 | doorTest | 1>17/1>17/1>17
+
+
+//Pathing node testing
+4 | -5, 0, -5 | -5, 0, -4.75 | -5, -0.25, -4.875 | F | 00
+D | -5, -1, -4.875 | node_1 | 

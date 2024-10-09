@@ -813,7 +813,19 @@ class LOGIC:
 		return f"<LOGIC [{LOGIC_TYPE} -> {self.OUTPUT_FLAG})]>"
 
 
-class SCENE():
+class NPC_PATH_NODE:
+	#Pathing node for ENEMY class.
+	def __init__(self, FLAG, POSITION, CONNECTIONS):
+		self.FLAG = FLAG
+		self.POSITION = POSITION
+		self.CONNECTIONS = CONNECTIONS
+		self.PREDECESSOR = None
+
+	def __repr__(self):
+		return f"<NPC_PATH_NODE: [FLAG: {self.FLAG}, POSITION: {self.POSITION}, CONNECTIONS: {self.CONNECTIONS}, PREDECESSOR: {self.PREDECESSOR}]>"
+
+
+class SCENE:
 	#Scene object for scene-wide data like gravity values. (Likely deprecated.)
 	def __init__(self, VOID_COLOUR, GRAVITY, AIR_RES_MULT):
 		self.VOID = RGBA(VOID_COLOUR)
@@ -940,7 +952,6 @@ Static Objects
 > INTERACTABLE (Quad that gives a flag value when player interacts with it)
 > LIGHT (Light that casts shadows)
 > EXPLOSION (Explosion that harms PLAYER/ENEMY)
-> NPC_PATH_NODE (Pathing node for ENEMY)
 """
 
 
@@ -1148,18 +1159,6 @@ class EXPLOSION(WORLD_OBJECT):
 		return f"<EXPLOSION: [POSITION: {self.POSITION} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // DIMENTIONS_3D: {self.DIMENTIONS_3D} // STRENGTH: {self.STRENGH} // PUSH_FORCE: {self.PUSH_FORCE} // BOUNDING_BOX: {BOUNDING_BOX_OBJ} // VERTICES: {POINTS}]>"
 
 
-class NPC_PATH_NODE(WORLD_OBJECT):
-	#Pathing node for ENEMY
-	def __init__(self, POSITION, FLAG, CONNECTIONS):
-		super().__init__(None, POSITION, False)
-
-		self.FLAG = FLAG
-		self.CONNECTIONS = CONNECTIONS
-
-	def __repr__(self):
-		return f"<NPC_PATH_NODE: [POSITION: {self.POSITION} // FLAG: {self.FLAG} // CONNECTIONS: {CONNECTIONS}]>"
-
-
 
 """
 Physics Objects
@@ -1261,6 +1260,10 @@ class ENEMY(PHYSICS_OBJECT):
 		
 		FACES = GET_CUBOID_FACE_INDICES()
 		self.FACES = FACES
+
+
+		self.TARGET = NPC_PATH_NODE("None", POSITION, {})
+		self.SPEED = 0.02
 		
 
 		self.POINTS = POINTS

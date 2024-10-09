@@ -40,7 +40,7 @@ try:
 
 	#Import other sub-files.
 	from imgs import texture_load
-	from exct import render, physics, utils, ui
+	from exct import render, physics, utils, ui, pathfinding
 	from scenes import scene
 	from exct.utils import *
 	
@@ -619,6 +619,8 @@ def MAIN():
 			#Display current frame to user.
 			glDeleteTextures([UI_TEXTURE_ID])
 			PG.display.flip()
+
+			pathfinding.NPC_NODE_GRAPH.CLEAR_NEW_NODES()
 
 
 		#Quitting/Deleting all that needs to be done, when RUN == False

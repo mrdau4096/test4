@@ -30,7 +30,7 @@ try:
 	from OpenGL.GL.shaders import compileProgram, compileShader
 
 	#Import other sub-files.
-	from exct import ui, utils
+	from exct import ui, utils, pathfinding
 	from imgs import texture_load
 	from exct.utils import *
 
@@ -466,6 +466,14 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES, SHEETS_USE
 				
 				case N if N <= -60 and N > -100:
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[5]
+
+
+			#While not the ideal time to do pathfinding calculations, this is the only time enemies alone are referenced ONCE in a frame.
+			#Physics does multiple iterations per frame, and extra loops are slow.
+			PATH = pathfinding.NPC_NODE_GRAPH.DIJKSTRA(OBJECT_DATA, PLAYER)
+			if PATH is not None: #Path found
+				OBJECT_DATA.TARGET = PATH[1]
+
 
 		else:
 			TEXTURES = OBJECT_DATA.TEXTURE_INFO

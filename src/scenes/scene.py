@@ -21,8 +21,9 @@ try:
 
 	#Import other sub-files.
 	from exct.utils import *
+	from exct.pathfinding import *
 	from imgs import texture_load
-	from exct import log, utils, render
+	from exct import utils, render, pathfinding
 
 except ImportError:
 	log.ERROR("ui.py", "Initial imports failed.")
@@ -43,14 +44,14 @@ FORMATTING = {
 	3:  (QUAD,			("vect", "vect", "vect", "vect", "bool", "texture"			)), #Quad/Plane
 	4:  (TRI, 			("vect", "vect", "vect", "bool", "texture"					)), #Triangle
 	5:  (SPRITE_STATIC,	("vect", "vect", "texture"									)), #Static Sprite
-	6:  (ITEM,			("vect", "hex", "str", "texture"							)),	#Item/Supplies-Object
+	6:  (ITEM,			("vect", "str", "str", "texture"							)),	#Item/Supplies-Object
 	7:  (TRIGGER,		("vect", "vect", "str"										)), #Trigger Box
 	8:  (INTERACTABLE,	("vect", "vect", "vect", "vect", "str", "texture"			)), #Interactable
 	9:  (CUBE_PATH,		("vect", "vect", "vect", "float", "str", "texture"			)),	#Moving surface (i.e. door)
 	10: (ENEMY,			("vect", "vect", "str", "texture"							)), #Hostile Enemy
 	11: (CUBE_PHYSICS,	("vect", "vect", "float", "texture"							)), #Physics cube
 	12: (LIGHT,			("vect", "vect", "rgba", "float", "float", "float", "str"	)), #Light object
-	13: (NPC_PATH_NODE,	("vect", "hex", "list"										)), #NPC Path node
+	13: (NPC_PATH_NODE,	("vect", "str", "list"										)), #NPC Path node
 	14: (LOGIC,			("str", "str"												)),	#Flag-Logic gate (Not rendered.)
 	15: (None,			(															)), #Unused, Placeholder
 	#-------------------------------------------------------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def LOAD_FILE(FILE_NAME):
 
 
 		ENV_VAO_DATA = [NP.array([]), NP.array([])]
-		KINETICS, STATICS, LIGHTS, LOGIC_GATES = {}, [{}, {}], [], [] #Preparing the arrays and dictionaries for data.
+		KINETICS, STATICS, LIGHTS, LOGIC_GATES, PATH_NODES = {}, [{}, {}], [], [], {} #Preparing the arrays and dictionaries for data.
 		for LINE in FILE_CONTENTS:
 			#Read every line
 			if LINE not in (""):
@@ -237,10 +238,9 @@ def LOAD_FILE(FILE_NAME):
 						elif CLASS_TYPE == NPC_PATH_NODE:
 							CENTRE = OBJECT_DATA[0]
 							FLAG = OBJECT_DATA[1]
-							NEIGHBOURS = OBJECT_DATA[2]
+							NEIGHBOURS = {} if len(OBJECT_DATA) != 3 else OBJECT_DATA[2]
 
-							FINALISED_OBJECT = NPC_PATH_NODE(CENTRE, FLAG, NEIGHBOURS)
-
+							PATH_NODES[FLAG] = NPC_PATH_NODE(FLAG, CENTRE, NEIGHBOURS)
 
 						elif CLASS_TYPE == LIGHT:
 							POSITION = OBJECT_DATA[0]
@@ -282,7 +282,7 @@ def LOAD_FILE(FILE_NAME):
 
 
 
-						if TEXTURE_DATA != [] and CLASS_TYPE not in [SPRITE_STATIC,]:
+						if TEXTURE_DATA != [] and CLASS_TYPE not in [SPRITE_STATIC, NPC_PATH_NODE,]:
 							#Add to the VAO data, as long as it isnt a dynamic object like a STATIC_SPRITE.
 							ENV_VAO_DATA = render.OBJECT_VAO_MANAGER(FINALISED_OBJECT, ENV_VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED)
 
@@ -378,6 +378,13 @@ def LOAD_FILE(FILE_NAME):
 
 						#Add it to the physics list (Kinetics)
 						KINETICS[CURRENT_ID] = FINALISED_OBJECT
+
+
+
+
+		INITIAL_NODE_LIST = INITIALISE_NODE_LIST(PATH_NODES)
+		pathfinding.NPC_NODE_GRAPH = GRAPH(INITIAL_NODE_LIST)
+
 
 
 		PHYS_DATA = (KINETICS, STATICS)

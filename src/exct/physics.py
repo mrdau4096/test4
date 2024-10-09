@@ -28,7 +28,7 @@ try:
 	from pygame import time, joystick, display, image
 
 	#Import other sub-files.
-	from exct import log, utils, render
+	from exct import log, utils, render, pathfinding
 	from scenes import scene
 	from exct.utils import *
 
@@ -128,6 +128,19 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 					if PHYS_OBJECT.LIFETIME >= CONSTANTS["MAX_PROJECTILE_LIFESPAN"]:
 						REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 						continue
+
+				elif OBJECT_TYPE == ENEMY:
+					MOVEMENT_DIRECTION = (PHYS_OBJECT.TARGET.POSITION - PHYS_OBJECT.POSITION)
+					if abs(MOVEMENT_DIRECTION) > CONSTANTS["PATHFINDING_THRESHOLD"]:
+						MOVEMENT_VECTOR = MOVEMENT_DIRECTION.NORMALISE() * (PHYS_OBJECT.SPEED / CONSTANTS["PHYSICS_ITERATIONS"])
+						PHYS_OBJECT.POSITION += MOVEMENT_VECTOR
+			
+						MOVEMENT_DIRECTION = MOVEMENT_DIRECTION.NORMALISE()
+						YAW = maths.atan2(MOVEMENT_DIRECTION.X, MOVEMENT_DIRECTION.Z)
+						
+						PHYS_OBJECT.ROTATION = VECTOR_3D(YAW, 0.0, 0.0).DEGREES()
+
+
 
 				if OBJECT_TYPE == CUBE_PATH:
 					#CUBE_PATH has to be treated seperately, as it has its own unique physics requirements.
