@@ -449,32 +449,33 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, S
 		if OBJECT_TYPE in (ENEMY,):
 			FACING_DIRECTION = (PLAYER_INSTANCE.POSITION - OBJECT_DATA.POSITION).TO_VECTOR_2D().NORMALISE()
 			OBJECT_POS = OBJECT_DATA.ROTATION.TO_VECTOR_2D().NORMALISE()
-			ANGLE = OBJECT_POS.DOT(FACING_DIRECTION) * utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION))
-			print(ANGLE, utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION)))
+			DIRECTION = utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION))
+			ANGLE = (OBJECT_POS.DOT(FACING_DIRECTION) + 1) * 0.5 * DIRECTION
+
+			#Convert Dot product to the range 0←1 for right, and -1←0
 
 			match ANGLE:
-				case N if N > 0.75 or N <= -0.75: #Front, 1
+				case N if N >=  0.9 or N <  -0.9:		#Front, Texture-1
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[0]
 				
-				case N if N <= 0.75 and N > 0.5: #FL, 2
+				case N if N <=  0.9 and N >  0.5:		#Front-Right, Texture-2
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[1]
 
-				case N if N <= 0.5 and N > 0.2: #BL, 3
+				case N if N <=  0.5 and N >  0.1:		#Back-Right, Texture-3
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[2]
 
-				case N if N <= 0.2 and N > -0.2: #Back, 4
+				case N if N <=  0.1 and N > -0.1:		#Back, Texture-4
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[3]
 
-				case N if N <= -0.2 and N > -0.5: #BR, 5
+				case N if N <= -0.1 and N > -0.5:		#Back-Left, Texture-5
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[4]
 				
-				case N if N <= -0.5 and N > -0.75: #BL, 6
+				case N if N <= -0.5 and N > -0.9:		#Front-Left, Texture-6
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[5]
 
 
-			if not OBJECT_DATA.ALIVE: #Deceased, 7
+			if not OBJECT_DATA.ALIVE: 				#Deceased, Texture-7
 				TEXTURES = OBJECT_DATA.TEXTURE_INFO[6]
-
 
 			#While not the ideal time to do pathfinding calculations, this is the only time enemies alone are referenced ONCE in a frame.
 			#Physics does multiple iterations per frame, and extra loops are slow.
@@ -502,9 +503,9 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, S
 					PHYS_DATA
 				)
 
-				if (ANGLE > 0.5) and (type(COLLIDED_OBJECT) == PLAYER):
+				if (abs(ANGLE) > 0.75) and (type(COLLIDED_OBJECT) == PLAYER):
 					#Have roughly 90* (π/4 rad) of targetting area ahead of them.
-					OBJECT_DATA.AWAKE = False
+					OBJECT_DATA.AWAKE = True
 
 
 		else:

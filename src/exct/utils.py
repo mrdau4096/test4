@@ -1620,7 +1620,6 @@ class VECTOR_2D:
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
 		MAGNITUDE = abs(self)
 		if MAGNITUDE != 0:
-			print(self, MAGNITUDE, self/MAGNITUDE)
 			return self / MAGNITUDE
 
 		return VECTOR_2D(0.0, 0.0)
