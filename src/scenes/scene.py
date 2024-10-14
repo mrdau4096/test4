@@ -44,11 +44,11 @@ FORMATTING = {
 	3:  (QUAD,			("vect", "vect", "vect", "vect", "bool", "texture"			)), #Quad/Plane
 	4:  (TRI, 			("vect", "vect", "vect", "bool", "texture"					)), #Triangle
 	5:  (SPRITE_STATIC,	("vect", "vect", "texture"									)), #Static Sprite
-	6:  (ITEM,			("vect", "str", "str", "texture"							)),	#Item/Supplies-Object
+	6:  (ITEM,			("vect", "str"												)),	#Item/Supplies-Object
 	7:  (TRIGGER,		("vect", "vect", "str"										)), #Trigger Box
 	8:  (INTERACTABLE,	("vect", "vect", "vect", "vect", "str", "texture"			)), #Interactable
 	9:  (CUBE_PATH,		("vect", "vect", "vect", "float", "str", "texture"			)),	#Moving surface (i.e. door)
-	10: (ENEMY,			("vect", "vect", "str", "texture"							)), #Hostile Enemy
+	10: (ENEMY,			("vect", "vect", "str"										)), #Hostile Enemy
 	11: (CUBE_PHYSICS,	("vect", "vect", "float", "texture"							)), #Physics cube
 	12: (LIGHT,			("vect", "vect", "rgba", "float", "float", "float", "str"	)), #Light object
 	13: (NPC_PATH_NODE,	("vect", "str", "list"										)), #NPC Path node
@@ -319,13 +319,13 @@ def LOAD_FILE(FILE_NAME):
 
 						elif CLASS_TYPE == ITEM:
 							CENTRE = OBJECT_DATA[0]
-							ITEM_TYPE = OBJECT_DATA[2]
-							ITEM_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[1][ENEMY_TYPE]
+							ITEM_TYPE = OBJECT_DATA[1]
+							ITEM_TYPE_DATA = GET_GAME_DATA(SHEETS_USED)[1][ITEM_TYPE]
 							#Get data for this item type specifically (1 for supplies, ITEM_TYPE for specificity.)
-							TEXTURE_SHEETS_USED = [SHEET for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
-							TEXTURES = [texture_load.UV_CACHE_MANAGER(str(TEXTURE)) for SHEET, TEXTURE in ITEM_TYPE_DATA[2]]
+							TEXTURE_SHEETS_USED = ITEM_TYPE_DATA[2][0][0]
+							TEXTURES = texture_load.UV_CACHE_MANAGER(str(ITEM_TYPE_DATA[2][0][1]))
 
-							FINALISED_OBJECT = ITEM(CURRENT_ID, CENTRE, False, TEXTURES, ITEM_TYPE, TEXTURE_SHEETS_USED, SHEETS_USED)
+							FINALISED_OBJECT = ITEM(CURRENT_ID, CENTRE, False, TEXTURES, ITEM_TYPE, TEXTURE_SHEETS_USED)
 
 
 						elif CLASS_TYPE == ENEMY:

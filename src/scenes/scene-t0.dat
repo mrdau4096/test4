@@ -21,7 +21,7 @@
 //3, QUAD // TL coordinate, BL coordinate, BR coordinate, TR coordinate, texture.
 //4, TRI // TL coordinate, BL coordinate, BR coordinate, Collide-able, texture.
 //5, SPRITE_STATIC, decoration // Centre location, texture.
-//6, ITEM, gives something and disappears // Centre location, "what to give" (health, ammo), "how much" (amount), texture.
+//6, ITEM, gives something and disappears // Centre location, "what to give" (health, ammo)
 //7, TRIGGER, Do "thing" when player touches (01 is prev. scene, 02 is next scene, etc.) // Centre location, Dimensions, Trigger-flag.
 //8, INTERACTABLE, Like a button for player to use // TL coordinate, BL coordinate, BR coordinate, TR coordinate, Trigger-flag, texture.
 //9, CUBE_PATH, Moving boxes for doors or similar // Position, Dimentions, Movement vector, Movement speed, Trigger-flag, bottom/side/top textures.
@@ -38,7 +38,7 @@
 
 
 //Every scene MUST have the PLAYER object, as seen below.
-1 | 10, 0, 0 | 0, 0, 0 | rl:laser
+1 | 10, 0, 0 | 0, 0, 0 | rl:laser:dbs
 
 
 //The real "meat and potatoes" of the file.
@@ -110,3 +110,10 @@ C | 14, 5, -9.25 | 15, 0, -9.25 | 1.0, 1.0, 1.0, 1.0 | 1.0 | 45.0 | 10.0 | doorT
 //Pathing node testing
 4 | -5, 0, -5 | -5, 0, -4.75 | -5, -0.25, -4.875 | F | 00
 D | -5, -1, -4.875 | node_1 | 
+
+
+//Supplies Testing
+6 | 09.25, 0, -9.5 | small-health
+6 | 09.75, 0, -9.5 | large-health
+6 | 10.25, 0, -9.5 | small-energy
+6 | 10.75, 0, -9.5 | large-energy

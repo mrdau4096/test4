@@ -3,12 +3,13 @@
 in vec2 fragTexCoords;
 in vec3 fragNormal;
 in vec3 fragPos;
-in float fragSheetID;
+flat in float fragSheetID;
 
 out vec4 fragColour;
 
 
 uniform sampler2DArray SHEETS;
+uniform sampler2DArray SHADOW_MAPS;
 uniform vec3 CAMERA_POSITION;
 uniform vec3 CAMERA_LOOK_AT;
 uniform vec4 VOID_COLOUR;
@@ -28,7 +29,6 @@ struct LIGHT {
 	float FOV;
 	float MAX_DIST;
 	mat4 LIGHT_SPACE_MATRIX;
-	sampler2D SHADOW_MAP;
 	bool ENABLED;
 };
 
@@ -38,7 +38,7 @@ uniform LIGHT LIGHTS[64];
 
 
 
-float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_POSITION_LIGHT_SPACE, vec3 fragPos) {
+float FIND_SHADOW(int LIGHT_ID, LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_POSITION_LIGHT_SPACE, vec3 fragPos) {
 	//Finds whether or not a fragPos should be in shadow or not, utilising the shadow map, and PCF.
 
 	vec3 PROJECTED_COORDINATES = FRAGMENT_POSITION_LIGHT_SPACE.xyz / FRAGMENT_POSITION_LIGHT_SPACE.w;
@@ -46,13 +46,13 @@ float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_
 
 	//Initialise values such as the mapping bias and whatnot.
 	float SHADOW = 0.0;
-	vec2 TEXEL_SIZE = 1.5 / textureSize(LIGHT.SHADOW_MAP, 0);
+	vec2 TEXEL_SIZE = vec2(0.000732421875); //1.5 DIV 2048
 	float ACTUAL_DEPTH = length(LIGHT.POSITION - fragPos);
 	if (ACTUAL_DEPTH > LIGHT.MAX_DIST) {
 		return 1.0;
 	}
 	float CURRENT_DEPTH = clamp(ACTUAL_DEPTH, LIGHT.MAX_DIST/100, LIGHT.MAX_DIST)/LIGHT.MAX_DIST; //0.0 is the light's position, 1.0 at the light's maximum distance. Linear.
-	float MAPPING_BIAS = (-1.25e-2 * max(1.0 - dot(NORMAL, LIGHT_DIRECTION), 0.01)) - (2.5e-3 * dot(NORMAL, LIGHT_DIRECTION));
+	float MAPPING_BIAS = (-1.5e-2 * max(1.0 - dot(NORMAL, LIGHT_DIRECTION), 0.01)) - (3e-3 * dot(NORMAL, LIGHT_DIRECTION));
 
 
 
@@ -60,7 +60,7 @@ float FIND_SHADOW(LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, vec4 FRAGMENT_
 	//Iterate over a square with KERNEL_SIZE "radius" to calculate PCF values.
 	for (int X = -KERNEL_SIZE; X <= KERNEL_SIZE; ++X) {
 		for (int Y = -KERNEL_SIZE; Y <= KERNEL_SIZE; ++Y) {
-			float SHADOW_MAP_DEPTH = texture(LIGHT.SHADOW_MAP, PROJECTED_COORDINATES.xy + vec2(X, Y) * TEXEL_SIZE).r;
+			float SHADOW_MAP_DEPTH = texture(SHADOW_MAPS, vec3(vec2(PROJECTED_COORDINATES.xy + vec2(X, Y) * TEXEL_SIZE), float(LIGHT_ID))).r;
 			SHADOW += ((CURRENT_DEPTH + MAPPING_BIAS) > SHADOW_MAP_DEPTH) ? 1.0 : 0.0;
 		}
 	}
@@ -132,7 +132,7 @@ void main() {
 		//Brightness component calculations.
 		float ATTENUATION = max(0.0, 1.0 - (FRAG_LIGHT_DISTANCE / LIGHTS[I].MAX_DIST)); //"Distance fade from light".
 		float DIFFUSE =  2.0 * FOV_COS * FOV_COS - 1.0; //Dimmer as you go further from the "centre" of the light's direction.
-		float SHADOW = FIND_SHADOW(LIGHTS[I], LIGHT_DIRECTION, NORMAL, FRAGMENT_POSITION_LIGHT_SPACE, fragPos); //Fragment shadow or not.
+		float SHADOW = FIND_SHADOW(I, LIGHTS[I], LIGHT_DIRECTION, NORMAL, FRAGMENT_POSITION_LIGHT_SPACE, fragPos); //Fragment shadow or not.
 		float BRIGHTNESS = clamp(ATTENUATION * LIGHTS[I].INTENSITY * DIFFUSE * (1.0 - SHADOW), 0.05, 1.0) * abs(NORMAL_LIGHT_ANGLE); //Combine all the rest into one.
 
 		//Add this light's influence to the final colour.

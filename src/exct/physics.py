@@ -28,7 +28,7 @@ try:
 	from pygame import time, joystick, display, image
 
 	#Import other sub-files.
-	from exct import log, utils, render, pathfinding
+	from exct import log, utils, pathfinding
 	from scenes import scene
 	from exct.utils import *
 
@@ -130,15 +130,19 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 						continue
 
 				elif OBJECT_TYPE == ENEMY:
-					MOVEMENT_DIRECTION = (PHYS_OBJECT.TARGET.POSITION - PHYS_OBJECT.POSITION)
-					if abs(MOVEMENT_DIRECTION) > CONSTANTS["PATHFINDING_THRESHOLD"]:
-						MOVEMENT_VECTOR = MOVEMENT_DIRECTION.NORMALISE() * (PHYS_OBJECT.SPEED / CONSTANTS["PHYSICS_ITERATIONS"])
-						PHYS_OBJECT.POSITION += MOVEMENT_VECTOR
-			
-						MOVEMENT_DIRECTION = MOVEMENT_DIRECTION.NORMALISE()
-						YAW = maths.atan2(MOVEMENT_DIRECTION.X, MOVEMENT_DIRECTION.Z)
-						
-						PHYS_OBJECT.ROTATION = VECTOR_3D(YAW, 0.0, 0.0).DEGREES()
+					#Check the physics object is alive, and is aware of the player.
+					if PHYS_OBJECT.ALIVE and PHYS_OBJECT.AWAKE:
+						MOVEMENT_DIRECTION = (PHYS_OBJECT.TARGET.POSITION - PHYS_OBJECT.POSITION)
+						if abs(MOVEMENT_DIRECTION) > CONSTANTS["PATHFINDING_THRESHOLD"]:
+							MOVEMENT_VECTOR = MOVEMENT_DIRECTION.NORMALISE() * (PHYS_OBJECT.SPEED / CONSTANTS["PHYSICS_ITERATIONS"])
+							PHYS_OBJECT.POSITION += MOVEMENT_VECTOR
+							PHYS_OBJECT.ROTATION = MOVEMENT_DIRECTION
+
+
+					elif not PHYS_OBJECT.ALIVE:
+						PHYS_OBJECT.LIFETIME -= (1 / (FPS * CONSTANTS["PHYSICS_ITERATIONS"]))
+						if PHYS_OBJECT.LIFETIME <= 0.0:
+							REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 
 
 
@@ -162,34 +166,65 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 					for BODY_ID, BODY in KINETICs_LIST.items():
 						if BODY_ID != PHYS_OBJECT_ID: #Stops self collisions.
 							BODY_TYPE = type(BODY)
+
 							if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, BODY.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
 								COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, BODY)
+
 								if COLLISION_DATA[2]:
 									TOUCHING = True
 
+
 								if COLLISION_DATA[0]:
-									COLLIDING = True
-									DISPLACEMENT = COLLISION_DATA[1]
-									DISPLACEMENT.Y = 0.0
-
-
 									if OBJECT_TYPE == PROJECTILE:
 										if BODY.ID != PHYS_OBJECT.OWNER and not PHYS_OBJECT.CREATE_EXPLOSION:
 											REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 											if BODY_TYPE in (PLAYER, ENEMY,):
-												BODY.HURT(PHYS_OBJECT.DAMAGE_STRENGH)
+												PHYS_DATA = BODY.HURT(PHYS_OBJECT.DAMAGE_STRENGH, PHYS_DATA, scene.CURRENT_ID)
 											continue
 									
+
 									elif BODY_TYPE == PROJECTILE:
 										if PHYS_OBJECT.ID != BODY.OWNER and not BODY.CREATE_EXPLOSION:
 											REMOVED_OBJECTS.append(BODY.ID)
 											if BODY_TYPE in (PLAYER, ENEMY,):
-												PHYS_OBJECT.HURT(BODY.DAMAGE_STRENGH)
+												PHYS_DATA = PHYS_OBJECT.HURT(BODY.DAMAGE_STRENGH, PHYS_DATA, scene.CURRENT_ID)
 											continue
 
+
+									elif (OBJECT_TYPE == ITEM or BODY_TYPE == ITEM):
+										if OBJECT_TYPE == PLAYER:
+											#Take from the PHYS_OBJECT
+											BODY.TAKE(PHYS_OBJECT)
+
+											if BODY.EMPTY:
+												REMOVED_OBJECTS.append(BODY_ID)
+
+										elif BODY_TYPE == PLAYER:
+											#Take from the BODY
+											PHYS_OBJECT.TAKE(BODY)
+
+											if PHYS_OBJECT.EMPTY:
+												REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+
+
+										elif ((OBJECT_TYPE == BODY_TYPE)
+											or (OBJECT_TYPE == ENEMY and BODY_TYPE == ITEM)
+											or (OBJECT_TYPE == ITEM and BODY_TYPE == ENEMY)):
+											#Allow ITEMs to pass through each other, and ENEMY types.
+											continue
+
+
+										else:
+											continue #Pass with no collision
+
+
 									else:
+										COLLIDING = True
+										DISPLACEMENT = COLLISION_DATA[1]
+										DISPLACEMENT.Y = 0.0
+
 										#Moves each proportional to their mass (i.e. pushing)
-										#If the BODY is a CUBE_PATH, do not push. CUBE_PATH has unique requirements and cannot be pushed by another phys object.
+										#If the BODY is a CUBE_PATH, PROJECTILE or ITEM, do not push. CUBE_PATH has unique requirements and cannot be pushed by another phys object.
 										PHYS_OBJECT_PROPORTION = (BODY.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (BODY_TYPE != CUBE_PATH) else 1.0
 										BODY_PROPORTION = (PHYS_OBJECT.MASS / (PHYS_OBJECT.MASS + BODY.MASS)) if (BODY_TYPE != CUBE_PATH) else 0.0
 
@@ -198,13 +233,13 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 										BODY.POSITION -= DISPLACEMENT * BODY_PROPORTION
 
 
-
 										if OBJECT_TYPE in (ENEMY, ITEM, PLAYER,):
 											#Calculate new points data (Axis aligned)
 											PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
 										elif OBJECT_TYPE in (CUBE_PHYSICS,):
 											#Calculate new points data (Rotated)
 											PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
+
 
 
 					#Collisions between phys-body and environmental objects
@@ -247,7 +282,7 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 						if OBJECT_TYPE == PLAYER:
 							KEY_STATES["JUMP_GRACE"] = 0
 						PHYS_OBJECT.POSITION += DISPLACEMENT_VECTOR
-						PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
+						PHYS_OBJECT.LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
 
 						if TOUCHING:
 							#Slide along surfaces, but not forever.
@@ -273,10 +308,15 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 
 
 				OBJECT_TYPE = type(PHYS_OBJECT)
-				if OBJECT_TYPE in (ENEMY, ITEM, PLAYER, CUBE_PATH, PROJECTILE,):
+				if OBJECT_TYPE in (ENEMY, PLAYER, CUBE_PATH, PROJECTILE,):
 					#Calculate new points data (Axis aligned)
 					PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION)
 				
+				elif OBJECT_TYPE in (ITEM,):
+					#Calculate new points data (Axis aligned)
+					PHYS_OBJECT.POINTS = utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS_3D, PHYS_OBJECT.POSITION)
+				
+
 				elif OBJECT_TYPE in (CUBE_PHYSICS,):
 					#Calculate new points data (Rotated)
 					PHYS_OBJECT.POINTS = utils.ROTATE_POINTS(utils.FIND_CUBOID_POINTS(PHYS_OBJECT.DIMENTIONS, PHYS_OBJECT.POSITION), PHYS_OBJECT.POSITION, PHYS_OBJECT.ROTATION)
@@ -355,8 +395,6 @@ def RAY_TRI_INTERSECTION(RAY, TRIANGLE):
 
 
 	if INTERSECTION_DISTANCE > EPSILON:
-		#INTERSECTION_POINT is unused currently, but may be needed in the future, so has been retained.
-		#INTERSECTION_POINT = RAY.START_POINT + (INTERSECTION_DISTANCE * RAY.DIRECTION_VECTOR)
 		return INTERSECTION_DISTANCE
 
 	else:
@@ -370,7 +408,7 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 	APPLIED_VECTOR, PEN_DEPTH = VECTOR_3D(0.0, 0.0, 0.0), float("inf")
 	STATIC_TYPE = type(STATIC)
 	
-	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, TRIGGER, PROJECTILE,): #Cube-like objects
+	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, TRIGGER, PROJECTILE, ITEM,): #Cube-like objects
 		APPLIED_VECTOR = AABB_COLLISION_RESPONSE(PHYS_BODY, STATIC)	
 
 		if APPLIED_VECTOR is not None: return (True, APPLIED_VECTOR, False)
@@ -412,18 +450,29 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 def AABB_COLLISION_RESPONSE(AABB_1, AABB_2):
 	#Compares 2 axis-aligned bounding boxes to determine collisions and their response.
 	if BOUNDING_BOX_COLLISION(AABB_1.BOUNDING_BOX, AABB_2.BOUNDING_BOX, OFFSET=-1.0):
+		if type(AABB_1) in (ITEM,): #Objects with DIMENTIONS_3D/2D rather than DIMENTIONS attribute
+			AABB_1_DIMENTIONS = AABB_1.DIMENTIONS_3D
+		else:
+			AABB_1_DIMENTIONS = AABB_1.DIMENTIONS
+
+		if type(AABB_2) in (ITEM,):
+			AABB_2_DIMENTIONS = AABB_2.DIMENTIONS_3D
+		else:
+			AABB_2_DIMENTIONS = AABB_2.DIMENTIONS
+
+
 		NORMALS = [VECTOR_3D(1.0, 0.0, 0.0), VECTOR_3D(0.0, 1.0, 0.0), VECTOR_3D(0.0, 0.0, 1.0)]
 		X_AXIS = min(
-			(AABB_1.POSITION.X + (AABB_1.DIMENTIONS.X / 2)) - (AABB_2.POSITION.X - (AABB_2.DIMENTIONS.X / 2)),
-			(AABB_2.POSITION.X + (AABB_2.DIMENTIONS.X / 2)) - (AABB_1.POSITION.X - (AABB_1.DIMENTIONS.X / 2))
+			(AABB_1.POSITION.X + (AABB_1_DIMENTIONS.X / 2)) - (AABB_2.POSITION.X - (AABB_2_DIMENTIONS.X / 2)),
+			(AABB_2.POSITION.X + (AABB_2_DIMENTIONS.X / 2)) - (AABB_1.POSITION.X - (AABB_1_DIMENTIONS.X / 2))
 		) #Minimums in the X axis.
 		Y_AXIS = min(
-			(AABB_1.POSITION.Y + (AABB_1.DIMENTIONS.Y / 2)) - (AABB_2.POSITION.Y - (AABB_2.DIMENTIONS.Y / 2)),
-			(AABB_2.POSITION.Y + (AABB_2.DIMENTIONS.Y / 2)) - (AABB_1.POSITION.Y - (AABB_1.DIMENTIONS.Y / 2))
+			(AABB_1.POSITION.Y + (AABB_1_DIMENTIONS.Y / 2)) - (AABB_2.POSITION.Y - (AABB_2_DIMENTIONS.Y / 2)),
+			(AABB_2.POSITION.Y + (AABB_2_DIMENTIONS.Y / 2)) - (AABB_1.POSITION.Y - (AABB_1_DIMENTIONS.Y / 2))
 		) #Minimums in the Y axis.
 		Z_AXIS = min(
-			(AABB_1.POSITION.Z + (AABB_1.DIMENTIONS.Z / 2)) - (AABB_2.POSITION.Z - (AABB_2.DIMENTIONS.Z / 2)),
-			(AABB_2.POSITION.Z + (AABB_2.DIMENTIONS.Z / 2)) - (AABB_1.POSITION.Z - (AABB_1.DIMENTIONS.Z / 2))
+			(AABB_1.POSITION.Z + (AABB_1_DIMENTIONS.Z / 2)) - (AABB_2.POSITION.Z - (AABB_2_DIMENTIONS.Z / 2)),
+			(AABB_2.POSITION.Z + (AABB_2_DIMENTIONS.Z / 2)) - (AABB_1.POSITION.Z - (AABB_1_DIMENTIONS.Z / 2))
 		) #Minimums in the Z axis.
 		
 		INTERSECTS = (X_AXIS, Y_AXIS, Z_AXIS)

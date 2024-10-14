@@ -12,7 +12,7 @@ Imports Modules;
 from exct import log
 try: #Module Imports
 	#Importing base python modules
-	import sys, os
+	import sys, os, random
 	import math as maths
 	import numpy as NP
 	from pyrr import Matrix44, Vector3, Vector4
@@ -40,6 +40,10 @@ piDIV2 = pi / 2
 
 
 #Mathematical functions
+
+
+def SIGN(VALUE):
+	return 1.0 if VALUE > 0.0 else -1.0 if VALUE < 0.0 else 0.0
 
 
 def CLAMP(VARIABLE, LOWER, UPPER): #Clamps any value between 2 bounds. Used almost exclusively for camera angle.
@@ -173,6 +177,11 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 
 
 #Other functions
+
+
+def XOR(A, B):
+	#Returns A XOR B, using its decomposition.
+	return (A and not B) or (B and not A)
 
 
 def REMOVE_INDEXED_DUPLICATES(ARRAY):
@@ -397,7 +406,7 @@ def GET_GAME_DATA(SHEETS_USED, PROCESS_SHEETS_USED=True):
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
 	ITEMS_DATA = ITEMS_FILE.readlines()
 
-	HOSTILES_FORMATTING = ("float", "float", "str", "list", "list",)			#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+	HOSTILES_FORMATTING = ("float", "str", "list", "list",)			#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
 	SUPPLIES_FORMATTING = ("str", "int",)										#What-to-give, Quantity.
 	PROJECTILES_FORMATTING = ("bool", "float",)									#Create-explosion, Strength.
 	ITEMS_FORMATTING = ("str", "int", "bool", "str", "float", "float", "str",)	#Name, Energy per use, Raycast (T/F), Projectile type (if not Raycast), Firing velocity (if not Raycast), Image name.
@@ -553,7 +562,7 @@ class PHYSICS_OBJECT:
 		self.PREVIOUS_COLLISION = False
 		if LATERAL_VELOCITY is not None: self.LATERAL_VELOCITY = VECTOR_3D(*LATERAL_VELOCITY)
 		else: self.LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
-		self.TEXTURE_INFO = tuple(TEXTURE_INFO) if TEXTURE_INFO is not None else None
+		self.TEXTURE_INFO = TEXTURE_INFO if TEXTURE_INFO is not None else None
 		if ROTATION is None: self.ROTATION = VECTOR_3D(0.0, 0.0, 0.0)
 		else: self.ROTATION = ROTATION.RADIANS()
 
@@ -1201,15 +1210,12 @@ class ITEM(PHYSICS_OBJECT):
 		NORMALS = FIND_CUBOID_NORMALS(POINTS)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(POSITION, POINTS)
 
-		super().__init__(ID, POSITION, None, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO)
-		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
-
 		if POP:
 			#Whether or not the item should "pop" (mostly for items dropped by enemies)
 			#Has a random direction and magnitude, within limits to make the item slightly "pop" in a direction on creation.
-			MAGNITUDE = random.uniform(0.25, 0.75)
+			MAGNITUDE = random.uniform(0.1, 0.5)
 			ANGLE_X = maths.radians(random.randint(0, 360))
-			ANGLE_Y = maths.radians(random.randint(0, 90))
+			ANGLE_Y = maths.radians(random.randint(23, 68))
 
 			LATERAL_VELOCITY = VECTOR_3D(
 				MAGNITUDE * maths.cos(ANGLE_Y) * maths.cos(ANGLE_X),
@@ -1220,25 +1226,55 @@ class ITEM(PHYSICS_OBJECT):
 		else:
 			LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
 
+		super().__init__(ID, POSITION, None, NORMALS, BOUNDING_BOX_OBJ, MASS, TEXTURE_INFO, LATERAL_VELOCITY=LATERAL_VELOCITY)
+		self.TEXTURE_SHEETS_USED = TEXTURE_SHEETS_USED
+
 		self.TYPE = TYPE
 		self.DIMENTIONS_2D = VECTOR_2D((TYPE_DATA[0].X + TYPE_DATA[0].Z) / 2, TYPE_DATA[0].Y)
 		self.DIMENTIONS_3D = TYPE_DATA[0]
 		
 
 		self.POINTS = POINTS
-		self.LATERAL_VELOCITY = LATERAL_VELOCITY
-		self.QUANTITY = TYPE_DATA[3]
+		self.SUPPLY = TYPE_DATA[3].upper()
+		self.QUANTITY = TYPE_DATA[4]
 		self.EMPTY = False
+
 
 	def __repr__(self):
 		return f"<ITEM: [POSITION: {self.POSITION} // ITEM_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // DIMENTIONS_3D: {self.DIMENTIONS_3D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY}]>"
 
-	def TAKE(self, AMOUNT_TO_TAKE):
+
+	def TAKE(self, PLAYER_INSTANCE):
 		#When touched; removes as much as possible, and if not all; retains some.
+		match self.SUPPLY:
+			case "ENERGY":
+				PLAYER_VALUE = PLAYER_INSTANCE.ENERGY
+				MAX_VALUE = CONSTANTS["PLAYER_START_ENERGY"]
+			case "HEALTH":
+				PLAYER_VALUE = PLAYER_INSTANCE.HEALTH
+				MAX_VALUE = CONSTANTS["PLAYER_MAX_HEALTH"]
+			case _:
+				log.ERROR("utils.py // <ITEM>", f"Unknown supply type; {self.SUPPLY}")
+
+
+		#Only take integer amounts, > 0 and <= the current quantity in the supply.
+		AMOUNT_TO_TAKE = round(min(MAX_VALUE - PLAYER_VALUE, self.QUANTITY))
+		
+		if AMOUNT_TO_TAKE == 0:
+			return
+
+		match self.SUPPLY:
+			case "ENERGY":
+				PLAYER_INSTANCE.ENERGY += AMOUNT_TO_TAKE
+			case "HEALTH":
+				PLAYER_INSTANCE.HEALTH += AMOUNT_TO_TAKE
+			case _:
+				log.ERROR("utils.py // <ITEM>", f"Unknown supply type; {self.SUPPLY}")
+
 		self.QUANTITY -= AMOUNT_TO_TAKE
 		if self.QUANTITY <= 0:
 			self.EMPTY = True
-		return self
+		
 
 
 class ENEMY(PHYSICS_OBJECT):
@@ -1263,7 +1299,7 @@ class ENEMY(PHYSICS_OBJECT):
 
 
 		self.TARGET = NPC_PATH_NODE("None", POSITION, {})
-		self.SPEED = 0.02
+		self.SPEED = 0.02 #Standard speed for enemies.
 		
 
 		self.POINTS = POINTS
@@ -1273,23 +1309,44 @@ class ENEMY(PHYSICS_OBJECT):
 		self.HELD_ITEM = TYPE_DATA[4]
 		self.LOOT = TYPE_DATA[5]
 		self.ALIVE = True
-		self.ATTACK_TYPE = 0
-		self.ATTACK_STRENGTH = 1
+		self.AWAKE = False
+		self.ATTACK_STRENGTH = 1.0
+		self.LIFETIME = 5.0 #5 Seconds of "lifetime" after self.ALIVE is set to False.
 
 
 	def __repr__(self):
-		return f"<ENEMY: [POSITION: {self.POSITION} // ENEMY_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ATTACK_TYPE: {self.ATTACK_TYPE} // ATTACK_STRENGTH: {self.ATTACK_STRENGTH} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
+		return f"<ENEMY: [POSITION: {self.POSITION} // ENEMY_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ATTACK_STRENGTH: {self.ATTACK_STRENGTH} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
-	def HURT(self, DAMAGE):
+
+	def HURT(self, DAMAGE, PHYS_DATA, CURRENT_ID):
 		#Harms the enemy, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
-		if self.HEALTH == 0:
+		self.AWAKE = True
+		if self.HEALTH == 0 and self.ALIVE:
 			self.ALIVE = False
-			self.DROP_ITEMS()
-		return self
+			return self.DROP_ITEMS(PHYS_DATA, CURRENT_ID)
 
-	def DROP_ITEMS(self):
-		print("I am dead. Not big surprise.")
+		return PHYS_DATA
+
+
+	def DROP_ITEMS(self, PHYS_DATA, CURRENT_ID):
+		ITEMS_DATA = GET_GAME_DATA(None, PROCESS_SHEETS_USED=False)[1]
+		for ITEM_TYPE in self.LOOT:
+			if ITEM_TYPE in ITEMS_DATA:
+				CURRENT_ID += 1
+				SPECIFIC_ITEM_DATA = ITEMS_DATA[ITEM_TYPE]
+				PHYS_DATA[0][CURRENT_ID] = ITEM(
+					CURRENT_ID,									#Item ID
+					self.POSITION + VECTOR_3D(0.0, 0.05, 0.0),	#Position + an offset, so the items don't get stuck in the surface the ENEMY was standing on.
+					True,										#Make the item "Pop" (Small jump in a random direction)
+					SPECIFIC_ITEM_DATA[2][0][1],				#Texture Data
+					ITEM_TYPE,									#Item Type
+					SPECIFIC_ITEM_DATA[2][0][0],				#Texture Sheet used
+				)
+			else:
+				log.ERROR("utils.py // <ENEMY>", f"Unknown item type; {ITEM}\n    Valid item types; {ITEMS_DATA.keys()}")
+
+		return PHYS_DATA
 
 
 class PROJECTILE(PHYSICS_OBJECT):
@@ -1349,12 +1406,12 @@ class PLAYER(PHYSICS_OBJECT):
 		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {list(self.ITEMS.keys())} // MASS: {self.MASS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 
-	def HURT(self, DAMAGE):
+	def HURT(self, PHYS_DATA, DAMAGE):
 		#Harms the player, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
 		if self.HEALTH == 0:
 			self.ALIVE = False
-		return self
+		return PHYS_DATA
 
 
 
@@ -1465,7 +1522,7 @@ class RGBA:
 		)
 
 	def CONVERT_TO_PYRR_VECTOR4(self):
-		return Vector4(self.TO_LIST())
+		return Vector4(list(self))
 
 	def CONVERT_TO_GLM_VEC4(self):
 		return glm.vec4(self.R, self.G, self.B, self.A)
@@ -1544,6 +1601,17 @@ class VECTOR_2D:
 	def __iter__(self):
 		return iter([self.X, self.Y])
 
+	def TO_INT(self):
+		X = int(self.X)
+		Y = int(self.Y)
+		return VECTOR_2D(X, Y)
+
+	def TO_FLOAT(self):
+		X = float(self.X)
+		Y = float(self.Y)
+		return VECTOR_2D(X, Y)
+
+
 	def SIGN(self): #Gives the sign of each value in the vector.
 		X = 1.0 if self.X > 0 else -1.0 if self.X < 0 else 0.0
 		Y = 1.0 if self.Y > 0 else -1.0 if self.Y < 0 else 0.0
@@ -1552,12 +1620,13 @@ class VECTOR_2D:
 	def NORMALISE(self): #Normalise self // {self}.NORMALISE()
 		MAGNITUDE = abs(self)
 		if MAGNITUDE != 0:
+			print(self, MAGNITUDE, self/MAGNITUDE)
 			return self / MAGNITUDE
 
 		return VECTOR_2D(0.0, 0.0)
 
 	def DOT(self, OTHER): #Dot product of self and OTHER // {self}.DOT({OTHER})
-		return self.X * OTHER.X + self.Y + OTHER.Y
+		return (self.X * OTHER.X) + (self.Y * OTHER.Y)
 
 	def DET(self, OTHER): #Determinant of self and OTHER // {self}.DET({OTHER})
 		return self.X * OTHER.Y - self.Y * OTHER.X
@@ -1571,19 +1640,6 @@ class VECTOR_2D:
 			if self == ITEM:
 				return True
 		return False
-
-	def TO_LIST(self): #Converts to a list.
-		return [self.X, self.Y]
-
-	def TO_INT(self): #Converts to integers.
-		X = int(self.X)
-		Y = int(self.Y)
-		return VECTOR_2D(X, Y)
-
-	def TO_FLOAT(self): #Converts to floats.
-		X = float(self.X)
-		Y = float(self.Y)
-		return VECTOR_2D(X, Y)
 
 	def RADIANS(self): #Converts to radians.
 		X = maths.radians(self.X)
@@ -1687,6 +1743,21 @@ class VECTOR_3D:
 
 	def __iter__(self): #Creates an iterable of itself
 		return iter([self.X, self.Y, self.Z])
+
+	def TO_INT(self):
+		X = int(self.X)
+		Y = int(self.Y)
+		Z = int(self.Z)
+		return VECTOR_3D(X, Y, Z)
+
+	def TO_FLOAT(self):
+		X = float(self.X)
+		Y = float(self.Y)
+		Z = float(self.Z)
+		return VECTOR_3D(X, Y, Z)
+
+	def TO_VECTOR_2D(self):
+		return VECTOR_2D(self.X, self.Z)
 	
 	def SIGN(self): #Gets the sign of each value in the vector.
 		X = 1.0 if self.X > 0.0 else -1.0 if self.X < 0.0 else 0.0
@@ -1733,18 +1804,6 @@ class VECTOR_3D:
 			if self == ITEM:
 				return True
 		return False
-
-	def TO_INT(self): #Converts to integers.
-		X = int(self.X)
-		Y = int(self.Y)
-		Z = int(self.Z)
-		return VECTOR_3D(X, Y, Z)
-
-	def TO_FLOAT(self): #Converts to floats.
-		X = float(self.X)
-		Y = float(self.Y)
-		Z = float(self.Z)
-		return VECTOR_3D(X, Y, Z)
 
 	def RADIANS(self): #Converts to radians.
 		X = maths.radians(self.X)

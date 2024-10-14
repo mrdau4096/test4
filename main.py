@@ -26,7 +26,7 @@ try:
 	import numpy as NP
 	import random
 
-	#Stop PyGame from giving that annoying welcome message
+	#Stops PyGame from giving the welcome message.
 	os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 
@@ -44,12 +44,16 @@ try:
 	from scenes import scene
 	from exct.utils import *
 	
-
 except Exception as E:
 	log.ERROR("main.py", E)
 
 #Formatting for the terminal output.
 print("--\n")
+
+
+from OpenGL.GL import *
+import numpy as np
+from PIL import Image
 
 
 
@@ -133,7 +137,7 @@ def MAIN():
 		
 		RENDER_DATA, PHYS_DATA, FLAG_DATA, PLAYER_ID, SHEETS_USED, CURRENT_ID = scene.LOAD_FILE(PREFERENCES["SCENE"])
 		scene.CURRENT_ID = CURRENT_ID
-		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(scene.SHEETS_USED)
+		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(scene.SHEETS_USED, FROM_FILE=True)
 		(ENV_VAO_VERTICES, ENV_VAO_INDICES), LIGHTS = RENDER_DATA
 		FLAG_STATES, LOGIC_GATES = FLAG_DATA
 
@@ -151,22 +155,22 @@ def MAIN():
 				raise Exception("GLFW could not be initialised.")
 
 			glfw.window_hint(glfw.VISIBLE, glfw.FALSE)
-			SURFACE = glfw.create_window(int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), "Hidden Window", None, None)
+			SURFACE = glfw.create_window(int(SHADOWMAP_RESOLUTION.X), int(SHADOWMAP_RESOLUTION.Y), f"Shadowmap; {I} of {len(LIGHTS)}", None, None)
 			if not SURFACE:
 				glfw.terminate()
 				raise Exception("GLFW could not create window.")
 			glfw.make_context_current(SURFACE)
 
 			LIGHTS[I] = render.CREATE_SHADOW_MAPS(SURFACE, I, LIGHT, (NP.array(ENV_VAO_VERTICES, dtype=NP.float32), NP.array(ENV_VAO_INDICES, dtype=NP.uint32)), SHEETS_USED)
+			glfw.terminate()
 
-
+		SHADOW_MAP_DATA_ARRAY = NP.array([LIGHT.SHADOW_MAP_DATA for LIGHT in LIGHTS], dtype=NP.float32)
 
 		#Set the context back as the main PG window, and convert any shadow map data.
 		PG.display.set_caption("test4.2.7//main.py")
 		PG.display.set_icon(PG.image.load("src\\imgs\\main.ico"))
-		SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+		SCREEN = PG.display.set_mode(list(DISPLAY_RESOLUTION), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
 
-		
 		(
 			(SCENE_SHADER, QUAD_SHADER),
 			(VAO_QUAD, VAO_UI, FBO_SCENE, TCB_SCENE),
@@ -177,10 +181,10 @@ def MAIN():
 		HOSTILES, SUPPLIES, PROJECTILES, ITEMS, (SHEETS_USED, SHEET_LIST) = GET_GAME_DATA(SHEETS_USED, PROCESS_SHEETS_USED=False)
 		SHEETS_USED.extend(SHEET_LIST)
 		SHEETS_USED = utils.REMOVE_INDEXED_DUPLICATES(SHEETS_USED)
-		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED)
+		SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED, FROM_FILE=True)
 
-		for I, LIGHT in enumerate(LIGHTS):
-			LIGHT.SHADOW_MAP = render.CREATE_TEXTURE_FROM_DATA(LIGHT.SHADOW_MAP_DATA, FILTER=GL_NEAREST)
+
+		SHADOW_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHADOW_MAP_DATA_ARRAY, DIMENTIONS=SHADOWMAP_RESOLUTION, GL_TYPE=GL_RGB, DATA_TYPE=GL_FLOAT)
 
 	#except Exception as E:
 		#log.ERROR("Main.py Value initialisation", E)
@@ -210,7 +214,6 @@ def MAIN():
 		DISPLAY_CENTRE = DISPLAY_RESOLUTION/2
 
 
-		PREVIOUS_FRAME = None
 		#Main game loop.
 		while RUN:
 			MOUSE_MOVE = [0, 0]
@@ -274,7 +277,7 @@ def MAIN():
 													)
 
 													if type(COLLIDED_OBJECT) in (PLAYER, ENEMY,):
-														COLLIDED_OBJECT.HURT(ITEM[5])
+														PHYS_DATA = COLLIDED_OBJECT.HURT(ITEM[5], PHYS_DATA, scene.CURRENT_ID)
 
 
 											#Always do 1 perfectly aimed ray.
@@ -296,7 +299,8 @@ def MAIN():
 											)
 
 											if type(COLLIDED_OBJECT) in (PLAYER, ENEMY,):
-												COLLIDED_OBJECT.HURT(ITEM[5])
+												PHYS_DATA = COLLIDED_OBJECT.HURT(ITEM[5], PHYS_DATA, scene.CURRENT_ID)
+
 										
 										else:
 											DIRECTION_VECTOR = VECTOR_3D(
@@ -439,7 +443,7 @@ def MAIN():
 						#Display size changes handled
 						DISPLAY_RESOLUTION = VECTOR_2D(EVENT.w, EVENT.h)
 						utils.CONSTANTS["DISPLAY_RESOLUTION"] = DISPLAY_RESOLUTION
-						SCREEN = PG.display.set_mode(DISPLAY_RESOLUTION.TO_LIST(), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
+						SCREEN = PG.display.set_mode(list(DISPLAY_RESOLUTION), PG.DOUBLEBUF | PG.OPENGL | PG.RESIZABLE)
 						FBO_SCENE, TCB_SCENE, _, _, _ = render.CREATE_FBO(DISPLAY_RESOLUTION)
 						glViewport(0, 0, int(DISPLAY_RESOLUTION.X), int(DISPLAY_RESOLUTION.Y))
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
@@ -465,7 +469,7 @@ def MAIN():
 				FPS_CAP = CONSTANTS["FPS_LOW"] if PREFERENCES["FPS_DEFOCUS"] else PREFERENCES["FPS_LIMIT"]
 			else:
 				#Otherwise move mouse to centre of screen (hidden) and use the "active", higher FPS.
-				PG.mouse.set_pos(DISPLAY_CENTRE.TO_LIST())
+				PG.mouse.set_pos(list(DISPLAY_CENTRE))
 				PG.mouse.set_visible(False)	
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
 			
@@ -525,6 +529,7 @@ def MAIN():
 			WIREFRAME_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "WIREFRAME_DEBUG")
 			RAY_PERSIST_FRAMES_LOC = glGetUniformLocation(SCENE_SHADER, "MAX_RAY_PERSIST_FRAMES")
 			SHEETS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHEETS")
+			SHADOWS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHADOW_MAPS")
 
 			glUniformMatrix4fv(MODEL_LOC, 1, GL_FALSE, MODEL_MATRIX)
 			glUniformMatrix4fv(VIEW_LOC, 1, GL_FALSE, CAMERA_VIEW_MATRIX)
@@ -538,6 +543,8 @@ def MAIN():
 			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["DEBUG_NORMALS"])
 			glUniform1i(WIREFRAME_DEBUG_LOC, PREFERENCES["DEBUG_WIREFRAME"])
 			glUniform1i(RAY_PERSIST_FRAMES_LOC, CONSTANTS["MAX_RAY_PERSIST_FRAMES"])
+			glUniform1i(SHEETS_ARRAY_LOC, 0)
+			glUniform1i(SHADOWS_ARRAY_LOC, 1)
 
 
 			for I, LIGHT in enumerate(LIGHTS):
@@ -549,7 +556,6 @@ def MAIN():
 				LIGHT_FOV_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].FOV")
 				LIGHT_MAX_DIST_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].MAX_DIST")
 				LIGHT_SPACE_MATRIX_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].LIGHT_SPACE_MATRIX")
-				SHADOW_MAP_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].SHADOW_MAP")
 				ENABLED_LOC = glGetUniformLocation(SCENE_SHADER, f"LIGHTS[{I}].ENABLED")
 
 				glUniform3fv(LIGHT_POSITION_LOC, 1, glm.value_ptr(LIGHT.POSITION.CONVERT_TO_GLM_VEC3()))
@@ -559,21 +565,18 @@ def MAIN():
 				glUniform1f(LIGHT_FOV_LOC, LIGHT.FOV)
 				glUniform1f(LIGHT_MAX_DIST_LOC, LIGHT.MAX_DISTANCE)
 				glUniformMatrix4fv(LIGHT_SPACE_MATRIX_LOC, 1, GL_FALSE, glm.value_ptr(LIGHT.SPACE_MATRIX))
-				glActiveTexture(GL_TEXTURE1 + I)
-				glBindTexture(GL_TEXTURE_2D, LIGHT.SHADOW_MAP)
-				glUniform1i(SHADOW_MAP_LOC, I + 1)
 				glUniform1i(ENABLED_LOC, FLAG_STATES[LIGHT.FLAG])
 
 
 
 			#Finally, instruct OpenGL to render the triangles of the scene with their assigned data, texture, etc.
 			if PREFERENCES["DEBUG_WIREFRAME"]: glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-			glActiveTexture(GL_TEXTURE0)
 			glBindVertexArray(VAO_SCENE)
-			glBindTexture(GL_TEXTURE_2D_ARRAY, SHEET_ARRAY)
-			glUniform1i(SHEETS_ARRAY_LOC, 0)
+			glBindTextureUnit(0, SHEET_ARRAY)
+			glBindTextureUnit(1, SHADOW_ARRAY)
+			glBindVertexArray(VAO_SCENE)
+			
 			glDrawElements(GL_TRIANGLES, len(COPIED_VAO_INDICES), GL_UNSIGNED_INT, None)
-			glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 			glBindVertexArray(0)
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -582,6 +585,7 @@ def MAIN():
 
 			#Reset values to align with the display size.
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+			PREVIOUS_FRAME = TCB_SCENE
 			
 			glUseProgram(QUAD_SHADER)
 
@@ -590,28 +594,21 @@ def MAIN():
 
 
 
-			#Save the current frame, for a screenshot the next frame.
-			PREVIOUS_FRAME = TCB_SCENE
-
-			#Draw the current frame to a quad in the camera"s view to apply any effects to it.
+			#Draw the current frame to a quad in the camera's view to apply any effects to it.
 			glBindVertexArray(VAO_QUAD)
-			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, TCB_SCENE)
+			glBindTextureUnit(0, TCB_SCENE)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
-			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
 			
 
 			#Draw UI on a quad slightly closer to the camera to overlay on the scene.			
 			glBindVertexArray(VAO_UI)
-			glActiveTexture(GL_TEXTURE0)
-			glBindTexture(GL_TEXTURE_2D, UI_TEXTURE_ID)
+			glBindTextureUnit(0, UI_TEXTURE_ID)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
-			glBindTexture(GL_TEXTURE_2D, 0)
 			glBindVertexArray(0)
 
 
@@ -631,8 +628,6 @@ def MAIN():
 		glDeleteFramebuffers(len(FRAME_BUFFERS), FRAME_BUFFERS)
 		glDeleteVertexArrays(len(VERTEX_BUFFERS), VERTEX_BUFFERS)
 		glDeleteBuffers(len(DATA_BUFFERS), DATA_BUFFERS)
-		if PREVIOUS_FRAME:
-			glDeleteTextures([PREVIOUS_FRAME])
 
 		PG.mouse.set_visible(True)
 		PG.joystick.quit()

@@ -1,2 +1,2 @@
-//Physical Size | Mass | Max-Health | Speed | Weapon | Items-to-drop | Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
-test | 0.35, 1.25, 0.35 | 10 | 100 | 1 | rl | 1>11/1>12/1>13/1>14/1>15/1>16
+//Physical Size | Mass | Max-Health | Weapon | Items-to-drop | Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+test | 0.7, 1.0, 0.7 | 10 | 32 | rl | small-energy:small-energy | hostiles>01/hostiles>02/hostiles>03/hostiles>04/hostiles>05/hostiles>06

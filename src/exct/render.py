@@ -24,13 +24,13 @@ try:
 	import glm, glfw
 	import pygame as PG
 	from pygame import time, joystick, display, image
-	#from PIL import Image
+	from PIL import Image
 	from OpenGL.GL import *
 	from OpenGL.GLU import *
 	from OpenGL.GL.shaders import compileProgram, compileShader
 
 	#Import other sub-files.
-	from exct import ui, utils, pathfinding
+	from exct import ui, utils, pathfinding, physics
 	from imgs import texture_load
 	from exct.utils import *
 
@@ -418,9 +418,9 @@ def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED):
 		NEW_DYNAMIC_STATICS = {}
 
 		for ID, PHYS_OBJECT in PHYS_DATA[0].items(): #All physics objects, such as Items and Cubes.
-			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(PHYS_OBJECT, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED)
+			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(PHYS_OBJECT, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED, PHYS_DATA)
 		for ID, DYNAMIC_STATIC in PHYS_DATA[1][1].items(): #All "dynamic statics" such as static sprites, that must face camera.
-			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(DYNAMIC_STATIC, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED)
+			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(DYNAMIC_STATIC, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED, PHYS_DATA)
 
 			if type(DYNAMIC_STATIC) == RAY:
 				if DYNAMIC_STATIC.LIFETIME >= CONSTANTS["MAX_RAY_PERSIST_FRAMES"]:
@@ -437,42 +437,74 @@ def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED):
 		#log.ERROR("render.SCENE", E)
 
 
-def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES, SHEETS_USED):
+def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, SHEETS_USED, PHYS_DATA):
 	#Processes a given object (I.e. SPRITE_STATIC, ITEM, etc.) for its new data.
 	OBJECT_TYPE = type(OBJECT_DATA)
-	if OBJECT_TYPE in [SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,]:
+	if OBJECT_TYPE in (SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,):
 		#Sprites
 		SPRITE_POSITION = OBJECT_DATA.POSITION - VECTOR_3D(0.0, 0.5 * OBJECT_DATA.DIMENTIONS_2D.Y, 0.0) if OBJECT_TYPE in [ENEMY, ITEM] else OBJECT_DATA.POSITION
-		COORDINATES = CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER.POSITION, OBJECT_DATA.DIMENTIONS_2D)
+		COORDINATES = CALC_SPRITE_POINTS(SPRITE_POSITION, PLAYER_INSTANCE.POSITION, OBJECT_DATA.DIMENTIONS_2D)
 		OBJECT_DATA.NORMALS = ((COORDINATES[1] - COORDINATES[0]).CROSS(COORDINATES[2] - COORDINATES[0]), (COORDINATES[1] - COORDINATES[3]).CROSS(COORDINATES[2] - COORDINATES[3]))
-		if OBJECT_TYPE in [ENEMY,]:
-			ANGLE = utils.CALC_2D_VECTOR_ANGLE((PLAYER.POSITION - OBJECT_DATA.POSITION).NORMALISE(), OBJECT_DATA.ROTATION.NORMALISE())
+		
+		if OBJECT_TYPE in (ENEMY,):
+			FACING_DIRECTION = (PLAYER_INSTANCE.POSITION - OBJECT_DATA.POSITION).TO_VECTOR_2D().NORMALISE()
+			OBJECT_POS = OBJECT_DATA.ROTATION.TO_VECTOR_2D().NORMALISE()
+			ANGLE = OBJECT_POS.DOT(FACING_DIRECTION) * utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION))
+			print(ANGLE, utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION)))
 
 			match ANGLE:
-				case N if N > 100 or N <= -100:
+				case N if N > 0.75 or N <= -0.75: #Front, 1
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[0]
 				
-				case N if N <= 100 and N > 60:
+				case N if N <= 0.75 and N > 0.5: #FL, 2
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[1]
 
-				case N if N <= 60 and N > 20:
+				case N if N <= 0.5 and N > 0.2: #BL, 3
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[2]
 
-				case N if N <= 20 and N > -20:
+				case N if N <= 0.2 and N > -0.2: #Back, 4
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[3]
 
-				case N if N <= -20 and N > -60:
+				case N if N <= -0.2 and N > -0.5: #BR, 5
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[4]
 				
-				case N if N <= -60 and N > -100:
+				case N if N <= -0.5 and N > -0.75: #BL, 6
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[5]
+
+
+			if not OBJECT_DATA.ALIVE: #Deceased, 7
+				TEXTURES = OBJECT_DATA.TEXTURE_INFO[6]
 
 
 			#While not the ideal time to do pathfinding calculations, this is the only time enemies alone are referenced ONCE in a frame.
 			#Physics does multiple iterations per frame, and extra loops are slow.
-			PATH = pathfinding.NPC_NODE_GRAPH.DIJKSTRA(OBJECT_DATA, PLAYER)
-			if PATH is not None: #Path found
-				OBJECT_DATA.TARGET = PATH[1]
+			#Check the physics object is alive, and is aware of the player.
+			if OBJECT_DATA.ALIVE and OBJECT_DATA.AWAKE:
+				PATH = pathfinding.NPC_NODE_GRAPH.DIJKSTRA(OBJECT_DATA, PLAYER_INSTANCE)
+				if PATH is not None: #Path found
+					OBJECT_DATA.TARGET = PATH[1]
+
+			elif OBJECT_DATA.ALIVE: #If alive, but unaware;
+				DIRECTION = (PLAYER_INSTANCE.POSITION - OBJECT_DATA.POSITION).NORMALISE()
+
+				LINE_OF_SIGHT_RAY = RAY(
+					OBJECT_DATA.POSITION,
+					"LINE_OF_SIGHT_RAY",
+					DIRECTION_VECTOR=DIRECTION,
+					MAX_DISTANCE=32.0,
+					OWNER=OBJECT_DATA.ID,
+				)
+
+
+				COLLIDED_OBJECT = LINE_OF_SIGHT_RAY.CHECK_FOR_INTERSECTS(
+					physics.BOUNDING_BOX_COLLISION,
+					physics.RAY_TRI_INTERSECTION,
+					PHYS_DATA
+				)
+
+				if (ANGLE > 0.5) and (type(COLLIDED_OBJECT) == PLAYER):
+					#Have roughly 90* (π/4 rad) of targetting area ahead of them.
+					OBJECT_DATA.AWAKE = False
 
 
 		else:
@@ -504,7 +536,7 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER, COPIED_VERTS, COPIED_INDICES, SHEETS_USE
 def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTURES=None, POINTS=None):
 	#Appends the current object's data to the VAO data, depending on the type and associated data.
 	#For example, a sprite would be added to the vertices as a quad, and same for the indices, with the UV data and normals data as needed.
-	try:
+	#try:
 		if POINTS is None:
 			POINTS = OBJECT.POINTS
 		if TEXTURES is None:
@@ -568,9 +600,19 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTU
 		elif CLASS_TYPE in (QUAD, INTERACTABLE, SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,): #Quad-like objects.
 			FACE_ORDER = (0, 1, 2, 3)
 			NEW_INDICES = [INDEX_OFFSET, INDEX_OFFSET + 1, INDEX_OFFSET + 2, INDEX_OFFSET + 2, INDEX_OFFSET + 3, INDEX_OFFSET]
+
+
 			if CLASS_TYPE == ENEMY:
 				CURRENT_TEXTURE = OBJECT.TEXTURE_INFO.index(TEXTURES)
 				TEXTURE_INDEX = SHEETS_USED.index(TEXTURE_SHEETS_USED[CURRENT_TEXTURE])
+
+			elif CLASS_TYPE == ITEM and type(TEXTURES) == str:
+				#If the ITEM has been dynamically created via utils, load textures.
+				#Cannot be given loaded textures then, as utils cannot import texture_load (circular import)
+				TEXTURES = texture_load.UV_CACHE_MANAGER(TEXTURES)
+				OBJECT.TEXTURE_INFO = TEXTURES
+				TEXTURE_INDEX = SHEETS_USED.index(TEXTURE_SHEETS_USED)
+
 			else:
 				TEXTURE_INDEX = SHEETS_USED.index(TEXTURE_SHEETS_USED)
 
@@ -604,8 +646,8 @@ def OBJECT_VAO_MANAGER(OBJECT, VAO_DATA, TEXTURE_SHEETS_USED, SHEETS_USED, TEXTU
 
 		return (VAO_VERTICES, VAO_INDICES)
 
-	except Exception as E:
-		log.ERROR("render.OBJECT_VAO_MANAGER", E)
+	#except Exception as E:
+		#log.ERROR("render.OBJECT_VAO_MANAGER", E)
 
 
 #Shader loading functions
@@ -953,7 +995,7 @@ def CREATE_SHADOW_MAPS(SURFACE, I, LIGHT, VAO_DATA, SHEETS_USED):
 	#Gets the shadow shader compiled GLSL
 	SHADOW_SHADER = SHADER_INIT(SHADOW=True)
 
-	SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED)
+	SHEET_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHEETS_USED, FROM_FILE=True)
 
 
 	#Calculate matrices.

@@ -55,11 +55,11 @@ FALLBACK_TEXTURE = "fallback"
 
 
 def UV_CACHE_MANAGER(HEX_ID):
-	"""
-	Loads a set of UV coordinates based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
-	If already in the UV-cache, give that data to prevent re-loading of information
-	"""
-	try:
+		"""
+		Loads a set of UV coordinates based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
+		If already in the UV-cache, give that data to prevent re-loading of information
+		"""
+	#try:
 		if HEX_ID in UV_CACHE:
 			TEXTURE_COORDINATES = UV_CACHE[HEX_ID]
 
@@ -89,8 +89,8 @@ def UV_CACHE_MANAGER(HEX_ID):
 
 		return TEXTURE_COORDINATES
 
-	except Exception as E:
-		log.ERROR("texture_load.UV_CACHE_MANAGER", E)
+	#except Exception as E:
+		#log.ERROR("texture_load.UV_CACHE_MANAGER", E)
 
 
 
@@ -192,22 +192,30 @@ def LOAD_IMG(FILE_NAME, SUBFOLDER=None, OPENGL=False, FALLBACK=False):
 
 
 
-def CREATE_SHEET_ARRAY(SHEETS):
-	DIMS = CONSTANTS["TEXTURE_SHEET_DIMENTIONS"]
-	TEXTURE_WIDTH, TEXTURE_HEIGHT = int(DIMS.X), int(DIMS.Y)
-	SHEETS_DATA = NP.zeros((len(SHEETS), TEXTURE_HEIGHT, TEXTURE_WIDTH, 4), dtype=NP.uint8)
-	for I, SHEET_NAME in enumerate(SHEETS):
-		SHEETS_DATA[I] = (LOAD_SHEET(SHEET_NAME)[0])
+def CREATE_SHEET_ARRAY(SHEETS, FROM_FILE=False, DIMENTIONS=CONSTANTS["TEXTURE_SHEET_DIMENTIONS"], GL_TYPE=GL_RGBA, DATA_TYPE=GL_UNSIGNED_BYTE):
+	TEXTURE_WIDTH, TEXTURE_HEIGHT = int(DIMENTIONS.X), int(DIMENTIONS.Y)
+	if FROM_FILE:
+		SHEETS_DATA = NP.zeros((len(SHEETS), TEXTURE_HEIGHT, TEXTURE_WIDTH, 4), dtype=NP.uint8)
+		for I, SHEET_NAME in enumerate(SHEETS):
+			SHEETS_DATA[I] = (LOAD_SHEET(SHEET_NAME)[0])
+	else:
+		SHEETS_DATA = SHEETS
+
+	if DATA_TYPE == GL_FLOAT:
+		INTERNAL_FORMAT = GL_RGB32F
+	else:
+		INTERNAL_FORMAT = GL_RGBA
 
 	ARRAY_ID = glGenTextures(1)
 	glBindTexture(GL_TEXTURE_2D_ARRAY, ARRAY_ID)
-
-	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, TEXTURE_HEIGHT, TEXTURE_WIDTH, SHEETS_DATA.shape[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, SHEETS_DATA)
 
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+
+
+	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, INTERNAL_FORMAT, TEXTURE_HEIGHT, TEXTURE_WIDTH, SHEETS_DATA.shape[0], 0, GL_TYPE, DATA_TYPE, SHEETS_DATA)
 
 	glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 

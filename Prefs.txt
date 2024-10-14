@@ -2,7 +2,7 @@
 //The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
 
 //User Preference
-FOV = 75
+FOV = 70
 FPS_LIMIT = 60
 FPS_DEFOCUS = True
 PLAYER_SPEED_TURN_MOUSE = 0.1
@@ -21,7 +21,7 @@ DEBUG_NORMALS = False
 DEBUG_PROFILER = False
 DEBUG_RAYS = False
 DEBUG_WIREFRAME = False
-DEV_TEST = False
+DEV_TEST = True
 
 
 
