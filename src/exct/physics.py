@@ -269,12 +269,12 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 
 
 					if PHYS_OBJECT.POSITION.Y <= -256.0:
-						if OBJECT_TYPE in (ENEMY, ITEM, PROJECTILE, CUBE_PHYSICS):
-							REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+						if OBJECT_TYPE == PLAYER:
+							PHYS_OBJECT.ALIVE = False
+							PHYS_OBJECT.HEALTH = 0
+
 						else:
-							#If the object falls outside of the scene boundaries, return to the player's initial position.
-							PHYS_OBJECT.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
-							PHYS_OBJECT.LATERAL_VELOCITY.Y = 0.0
+							REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 
 
 					elif COLLIDING:

@@ -1,13 +1,13 @@
 #version 460 core
 
 in vec2 fragTexCoords;
-out vec4 fragColor;
+out vec4 fragColour;
 
-uniform sampler2D SCREEN_TCB;
-uniform vec2 RESOLUTION;
-uniform float PIXEL_SIZE;
+uniform sampler2D TEXTURE;
+uniform vec4 VIGNETTE_COLOUR;
+uniform bool USE_VIGNETTE;
 
 void main()
 {
-	fragColor = texture(SCREEN_TCB, fragTexCoords);
+	fragColour = texture(TEXTURE, fragTexCoords);
 }

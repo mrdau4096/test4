@@ -179,6 +179,16 @@ def FIND_CLOSEST_CUBE_TRIS(CUBE, PHYS_BODY):
 #Other functions
 
 
+def RESET_PLAYER(PLAYER_INSTANCE):
+	PLAYER_INSTANCE.POSITION = CONSTANTS["PLAYER_INITIAL_POS"]
+	PLAYER_INSTANCE.LATERAL_VELOCITY = VECTOR_3D(0.0, 0.0, 0.0)
+	PLAYER_INSTANCE.ROTATION = VECTOR_3D(0.0, 0.0, 0.0)
+	PLAYER_INSTANCE.HEALTH = CONSTANTS["PLAYER_MAX_HEALTH"]
+	PLAYER_INSTANCE.ENERGY = CONSTANTS["PLAYER_START_ENERGY"]
+	PLAYER_INSTANCE.ALIVE = True
+	return PLAYER_INSTANCE
+
+
 def XOR(A, B):
 	#Returns A XOR B, using its decomposition.
 	return (A and not B) or (B and not A)
@@ -353,11 +363,15 @@ def GET_CONFIGS():
 
 					if USER_CHOICE.startswith("<VECTOR_2D: [") and USER_CHOICE.endswith("]>"):
 						DATA = USER_CHOICE.replace("<VECTOR_2D: [", "").replace("]>","").split(",")
-						CHOSEN_DATA = VECTOR_2D(DATA[0].strip(), DATA[1].strip())
+						CHOSEN_DATA = VECTOR_2D(*[float(DATUM.strip()) for DATUM in DATA])
 
 					elif USER_CHOICE.startswith("<VECTOR_3D: [") and USER_CHOICE.endswith("]>"):
 						DATA = USER_CHOICE.replace("<VECTOR_3D: [", "").replace("]>", "").split(",")
-						CHOSEN_DATA = VECTOR_3D(DATA[0].strip(), DATA[1].strip(), DATA[2].strip())
+						CHOSEN_DATA = VECTOR_3D(*[float(DATUM.strip()) for DATUM in DATA])
+
+					elif USER_CHOICE.startswith("<RGBA: [") and USER_CHOICE.endswith("]>"):
+						DATA = USER_CHOICE.replace("<RGBA: [", "").replace("]>", "").split(",")
+						CHOSEN_DATA = RGBA(*[float(DATUM.strip()) for DATUM in DATA])
 
 					else:					
 						try:
@@ -1312,6 +1326,7 @@ class ENEMY(PHYSICS_OBJECT):
 		self.AWAKE = False
 		self.ATTACK_STRENGTH = 1.0
 		self.LIFETIME = 5.0 #5 Seconds of "lifetime" after self.ALIVE is set to False.
+		self.COOLDOWN = 0.0 #5 Seconds of cooldown maximum is counted between attacks.
 
 
 	def __repr__(self):
@@ -1406,7 +1421,7 @@ class PLAYER(PHYSICS_OBJECT):
 		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {list(self.ITEMS.keys())} // MASS: {self.MASS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 
-	def HURT(self, PHYS_DATA, DAMAGE):
+	def HURT(self, PHYS_DATA, DAMAGE, CURRENT_ID):
 		#Harms the player, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
 		if self.HEALTH == 0:
@@ -1432,73 +1447,72 @@ class RGBA:
 		self.A = round(CLAMP(A, RANGE[0], RANGE[1]), 8)
 
 	def __add__(self, OTHER):
-		self.R += OTHER.R
-		self.G += OTHER.G
-		self.B += OTHER.B
-		self.A += OTHER.A
-		return self
+		R = self.R + OTHER
+		G = self.G + OTHER
+		B = self.B + OTHER
+		A = self.A + OTHER
+
+		return RGBA(R, G, B, A)
 
 	def __sub__(self, OTHER):
-		self.R -= OTHER.R
-		self.G -= OTHER.G
-		self.B -= OTHER.B
-		self.A -= OTHER.A
-		return self
+		R = self.R - OTHER
+		G = self.G - OTHER
+		B = self.B - OTHER
+		A = self.A - OTHER
+
+		return RGBA(R, G, B, A)
 
 	def __mul__(self, OTHER):
 		if type(OTHER) == RGBA:
-			self_DECIMAL = self.DECIMAL()
-			OTHER_DECIMAL = OTHER.DECIMAL()
-			self.R = self_DECIMAL[0] * OTHER_DECIMAL[0]
-			self.G = self_DECIMAL[1] * OTHER_DECIMAL[1]
-			self.B = self_DECIMAL[2] * OTHER_DECIMAL[2]
-			self.A = self_DECIMAL[3] * OTHER_DECIMAL[3]
-
-			return self * 255
+			self_DECIMAL = self.TO_DECIMAL()
+			OTHER_DECIMAL = OTHER.TO_DECIMAL()
+			R = (self_DECIMAL.R * OTHER_DECIMAL.R) * 255
+			G = (self_DECIMAL.G * OTHER_DECIMAL.G) * 255
+			B = (self_DECIMAL.B * OTHER_DECIMAL.B) * 255
+			A = (self_DECIMAL.A * OTHER_DECIMAL.A) * 255
 
 		elif type(OTHER) in [int, float]:
-			self.R *= OTHER
-			self.G *= OTHER
-			self.B *= OTHER
-			self.A *= OTHER
-			return self
+			R = self.R * OTHER
+			G = self.G * OTHER
+			B = self.B * OTHER
+			A = self.A * OTHER
 
 		else:
 			raise TypeError(f"Cannot multiply type {type(OTHER)} and RGBA.")
+
+		return RGBA(R, G, B, A)
 
 	def __rmul__(self, OTHER):
 		return self * OTHER
 
 	def __truediv__(self, SCALAR):
 		if type(OTHER) == RGBA:
-			self.R /= OTHER.R
-			self.G /= OTHER.G
-			self.B /= OTHER.B
-			self.A /= OTHER.A
-			return self
+			R = self.R / OTHER.R
+			G = self.G / OTHER.G
+			B = self.B / OTHER.B
+			A = self.A / OTHER.A
 
 		elif type(OTHER) in [int, float]:
-			self.R /= OTHER
-			self.G /= OTHER
-			self.B /= OTHER
-			self.A /= OTHER
-			return self
+			R = self.R / OTHER
+			G = self.G / OTHER
+			B = self.B / OTHER
+			A = self.A / OTHER
 
 		else:
 			raise TypeError(f"Cannot divide type [{type(OTHER)}] and RGBA.")
+
+		return RGBA(R, G, B, A)
 
 	def __iadd__(self, OTHER):
 		self.X += OTHER.X
 		self.Y += OTHER.Y
 		self.Z += OTHER.Z
-		return self
 
 	def __isub__(self, OTHER):
 		self.R -= OTHER.R
 		self.G -= OTHER.G
 		self.B -= OTHER.B
 		self.A -= OTHER.A
-		return self
 
 	def __eq__(self, OTHER):
 		return self.R == OTHER.R and self.G == OTHER.G and self.B == OTHER.B and self.A == OTHER.B

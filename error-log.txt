@@ -286,3 +286,23 @@
 16:53:17, 12-10-2024 / ERROR in render.py / expected ':' (physics.py, line 205)
 21:45:29, 12-10-2024 / ERROR in render.py / expected ':' (physics.py, line 210)
 11:01:36, 13-10-2024 / ERROR in texture_load.py / '(' was never closed (render.py, line 456)
+22:25:02, 17-10-2024 / ERROR in ui.HUD / size needs to be (number width, number height)
+22:36:17, 17-10-2024 / ERROR in ui.HUD / name 'SCREEN' is not defined
+22:36:37, 17-10-2024 / ERROR in ui.HUD / name 'COLOURED_VIGNETTE' is not defined
+22:37:38, 17-10-2024 / ERROR in render.py / name 'UPDATE_VIGNETTE' is not defined
+22:37:48, 17-10-2024 / ERROR in render.py / local variable 'VIGNETTE_FADEOUT_CURRENT' referenced before assignment
+22:38:09, 17-10-2024 / ERROR in render.py / local variable 'VIGNETTE_FADEOUT_CURRENT' referenced before assignment
+22:39:40, 17-10-2024 / ERROR in ui.HUD / name 'COLOURED_VIGNETTE' is not defined
+22:42:18, 17-10-2024 / ERROR in ui.HUD / name 'COLOURED_VIGNETTE' is not defined
+22:43:06, 17-10-2024 / ERROR in ui.HUD / name 'COLOURED_VIGNETTE' is not defined
+15:41:55, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'COLOURED_VIGNETTE' is not defined
+15:51:00, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'COLOURED_VIGNETTE' is not defined
+15:54:44, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'COLOURED_VIGNETTE' is not defined
+16:20:48, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / module 'exct.utils' has no attribute 'RESET_PLAYER'
+16:21:33, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / module 'exct.utils' has no attribute 'RESET_PLAYER'
+16:41:53, 18-10-2024 / ERROR in ui.py // PROCESS_UI_STATE / name 'OPTIONS_MENU_BUTTONS' is not defined
+19:56:33, 18-10-2024 / ERROR in texture_load.py / '<' not supported between instances of 'int' and 'str'
+19:56:39, 18-10-2024 / ERROR in texture_load.py / '<' not supported between instances of 'int' and 'str'
+20:07:54, 18-10-2024 / ERROR in main.py / '<' not supported between instances of 'int' and 'str'
+21:22:29, 18-10-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 208)
+21:41:31, 18-10-2024 / ERROR in ui.HUD / argument 1 must be pygame.surface.Surface, not None

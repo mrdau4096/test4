@@ -411,16 +411,35 @@ def SAVE_MAP(RESOLUTION, MAP, FILE_NAME, MAP_TYPE, MIN_DISTANCE=0.0, MAX_DISTANC
 #Per-frame rendering
 
 
-def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED):
+def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED, CURRENT_ID, FPS):
 	#Renders the entire scene, from the positional and texture datas included.
 	#try:
 		ENV_VAO_VERTICES, ENV_VAO_INDICES = ENV_VAO_DATA
 		NEW_DYNAMIC_STATICS = {}
 
 		for ID, PHYS_OBJECT in PHYS_DATA[0].items(): #All physics objects, such as Items and Cubes.
-			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(PHYS_OBJECT, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED, PHYS_DATA)
+			ENV_VAO_VERTICES, ENV_VAO_INDICES, CURRENT_ID = PROCESS_OBJECT(
+				PHYS_OBJECT,
+				PLAYER,
+				ENV_VAO_VERTICES,
+				ENV_VAO_INDICES,
+				SHEETS_USED,
+				PHYS_DATA,
+				CURRENT_ID,
+				FPS
+			)
+		
 		for ID, DYNAMIC_STATIC in PHYS_DATA[1][1].items(): #All "dynamic statics" such as static sprites, that must face camera.
-			ENV_VAO_VERTICES, ENV_VAO_INDICES = PROCESS_OBJECT(DYNAMIC_STATIC, PLAYER, ENV_VAO_VERTICES, ENV_VAO_INDICES, SHEETS_USED, PHYS_DATA)
+			ENV_VAO_VERTICES, ENV_VAO_INDICES, CURRENT_ID = PROCESS_OBJECT(
+				DYNAMIC_STATIC,
+				PLAYER,
+				ENV_VAO_VERTICES,
+				ENV_VAO_INDICES,
+				SHEETS_USED,
+				PHYS_DATA,
+				CURRENT_ID,
+				FPS
+			)
 
 			if type(DYNAMIC_STATIC) == RAY:
 				if DYNAMIC_STATIC.LIFETIME >= CONSTANTS["MAX_RAY_PERSIST_FRAMES"]:
@@ -431,13 +450,13 @@ def SCENE(PHYS_DATA, ENV_VAO_DATA, PLAYER, SHEETS_USED):
 
 		PHYS_DATA = [PHYS_DATA[0], (PHYS_DATA[1][0], NEW_DYNAMIC_STATICS)]
 
-		return [ENV_VAO_VERTICES, ENV_VAO_INDICES], PHYS_DATA
+		return [ENV_VAO_VERTICES, ENV_VAO_INDICES], PHYS_DATA, CURRENT_ID
 
 	#except Exception as E:
 		#log.ERROR("render.SCENE", E)
 
 
-def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, SHEETS_USED, PHYS_DATA):
+def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, SHEETS_USED, PHYS_DATA, CURRENT_ID, FPS):
 	#Processes a given object (I.e. SPRITE_STATIC, ITEM, etc.) for its new data.
 	OBJECT_TYPE = type(OBJECT_DATA)
 	if OBJECT_TYPE in (SPRITE_STATIC, ITEM, ENEMY, PROJECTILE,):
@@ -451,30 +470,29 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, S
 			OBJECT_POS = OBJECT_DATA.ROTATION.TO_VECTOR_2D().NORMALISE()
 			DIRECTION = utils.SIGN(OBJECT_POS.DET(FACING_DIRECTION))
 			ANGLE = (OBJECT_POS.DOT(FACING_DIRECTION) + 1) * 0.5 * DIRECTION
-
 			#Convert Dot product to the range 0←1 for right, and -1←0
 
 			match ANGLE:
-				case N if N >=  0.9 or N <  -0.9:		#Front, Texture-1
+				case N if N >=  0.8333 or N <  -0.8333:	#Front, Texture-1
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[0]
 				
-				case N if N <=  0.9 and N >  0.5:		#Front-Right, Texture-2
+				case N if N <=  0.8333 and N >  0.5000:	#Front-Right, Texture-2
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[1]
 
-				case N if N <=  0.5 and N >  0.1:		#Back-Right, Texture-3
+				case N if N <=  0.5000 and N >  0.1667:	#Back-Right, Texture-3
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[2]
 
-				case N if N <=  0.1 and N > -0.1:		#Back, Texture-4
+				case N if N <=  0.1667 and N > -0.1667:	#Back, Texture-4
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[3]
 
-				case N if N <= -0.1 and N > -0.5:		#Back-Left, Texture-5
+				case N if N <= -0.1667 and N > -0.5000:	#Back-Left, Texture-5
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[4]
 				
-				case N if N <= -0.5 and N > -0.9:		#Front-Left, Texture-6
+				case N if N <= -0.5000 and N > -0.8333:	#Front-Left, Texture-6
 					TEXTURES = OBJECT_DATA.TEXTURE_INFO[5]
 
 
-			if not OBJECT_DATA.ALIVE: 				#Deceased, Texture-7
+			if not OBJECT_DATA.ALIVE: 					#Deceased, Texture-7
 				TEXTURES = OBJECT_DATA.TEXTURE_INFO[6]
 
 			#While not the ideal time to do pathfinding calculations, this is the only time enemies alone are referenced ONCE in a frame.
@@ -484,6 +502,59 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, S
 				PATH = pathfinding.NPC_NODE_GRAPH.DIJKSTRA(OBJECT_DATA, PLAYER_INSTANCE)
 				if PATH is not None: #Path found
 					OBJECT_DATA.TARGET = PATH[1]
+
+
+				if OBJECT_DATA.COOLDOWN < 5.0:
+					#Only count for 5s of no item use to prevent infinite increase.
+					OBJECT_DATA.COOLDOWN += 1.0/FPS
+
+				if OBJECT_DATA.COOLDOWN > 1.0:
+					OBJECT_DATA.COOLDOWN = 0.0
+					DIRECTION = (PLAYER_INSTANCE.POSITION - OBJECT_DATA.POSITION).NORMALISE()
+
+					LINE_OF_SIGHT_RAY = RAY(
+						OBJECT_DATA.POSITION,
+						"LINE_OF_SIGHT_RAY",
+						DIRECTION_VECTOR=DIRECTION,
+						MAX_DISTANCE=32.0,
+						OWNER=OBJECT_DATA.ID,
+					)
+
+					COLLIDED_OBJECT = LINE_OF_SIGHT_RAY.CHECK_FOR_INTERSECTS(
+						physics.BOUNDING_BOX_COLLISION,
+						physics.RAY_TRI_INTERSECTION,
+						PHYS_DATA
+					)
+
+					if type(COLLIDED_OBJECT) == PLAYER:
+						SPREAD_MAX = CONSTANTS["MAX_RAY_SPREAD"]
+						ENEMY_ROTATION = VECTOR_2D(
+							-maths.atan2(DIRECTION.X, DIRECTION.Z) - utils.piDIV2,
+							-maths.atan2(DIRECTION.Y, abs(DIRECTION.TO_VECTOR_2D()))
+						) #Invert because this is PLAYER -> ENEMY, but it needs ENEMY -> PLAYER
+						for _ in range(6):
+							SPREAD = VECTOR_2D(random.randint(-SPREAD_MAX, SPREAD_MAX), random.randint(-SPREAD_MAX, SPREAD_MAX)).RADIANS()
+							RAYCAST = RAY(
+								OBJECT_DATA.POSITION,
+								"BULLET_RAY",
+								ANGLE=ENEMY_ROTATION + SPREAD,
+								MAX_DISTANCE=64.0,
+								OWNER=OBJECT_DATA.ID,
+							)
+							CURRENT_ID += 1
+							PHYS_DATA[1][1][CURRENT_ID] = RAYCAST
+
+							COLLIDED_OBJECT = RAYCAST.CHECK_FOR_INTERSECTS(
+								physics.BOUNDING_BOX_COLLISION,
+								physics.RAY_TRI_INTERSECTION,
+								PHYS_DATA
+							)
+
+							if type(COLLIDED_OBJECT) in (PLAYER, ENEMY,):
+								PHYS_DATA = COLLIDED_OBJECT.HURT(PHYS_DATA, 5.0, CURRENT_ID)
+
+
+
 
 			elif OBJECT_DATA.ALIVE: #If alive, but unaware;
 				DIRECTION = (PLAYER_INSTANCE.POSITION - OBJECT_DATA.POSITION).NORMALISE()
@@ -530,7 +601,7 @@ def PROCESS_OBJECT(OBJECT_DATA, PLAYER_INSTANCE, COPIED_VERTS, COPIED_INDICES, S
 				COPIED_VERTS, COPIED_INDICES = OBJECT_VAO_MANAGER(OBJECT_DATA, [COPIED_VERTS, COPIED_INDICES], None, None, TEXTURES=TEXTURES, POINTS=TRI_POINTS)
 
 
-	return COPIED_VERTS, COPIED_INDICES
+	return COPIED_VERTS, COPIED_INDICES, CURRENT_ID
 
 
 
@@ -711,12 +782,12 @@ def SHADER_INIT(SCENE=False, QUAD=False, SHADOW=False):
 def FBO_QUAD_INIT(RENDER_RES):
 	#Creates the quad data for the scene TCB and UI quads.
 	QUAD_VERTICES = NP.array([
-		-1.0,  1.0,  0.0,  0.01, 0.99,
-		-1.0, -1.0,  0.0,  0.01, 0.01,
-		 1.0, -1.0,  0.0,  0.99, 0.01,
-		 1.0,  1.0,  0.0,  0.99, 0.99
+		-1.0,  1.0,  1e-7,  0.01, 0.99,
+		-1.0, -1.0,  1e-7,  0.01, 0.01,
+		 1.0, -1.0,  1e-7,  0.99, 0.01,
+		 1.0,  1.0,  1e-7,  0.99, 0.99
 	], dtype=NP.float32)
-	
+
 	#The UI quad is slightly in front of the TCB quad, to overlay on top.
 	UI_VERTICES = NP.array([
 		-1.0,  1.0,  -1e-7,  0.0, 1.0,

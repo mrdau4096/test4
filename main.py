@@ -98,6 +98,7 @@ def MAIN():
 		PLAYER_COLLISION_CUBOID = CONSTANTS["PLAYER_COLLISION_CUBOID"]
 		CAMERA_OFFSET = CONSTANTS["CAMERA_OFFSET"]
 		HEADLAMP_ENABLED = False
+		PLAYER_PREV_FRAME = None
 		FPS_CAP = PREFERENCES["FPS_LIMIT"]
 		SECONDS_SINCE_LAST_FIRE = 5
 		KEY_STATES = {
@@ -186,6 +187,10 @@ def MAIN():
 
 		SHADOW_ARRAY = texture_load.CREATE_SHEET_ARRAY(SHADOW_MAP_DATA_ARRAY, DIMENTIONS=SHADOWMAP_RESOLUTION, GL_TYPE=GL_RGB, DATA_TYPE=GL_FLOAT)
 
+		ui.VIGNETTE_COLOUR = RGBA(0, 0, 0, 0)
+		ui.COLOURED_VIGNETTE = ui.UPDATE_VIGNETTE(RGBA(0, 0, 0, 0), FPS_CAP, FADEOUT=float("inf"))
+		PLAYER = PHYS_DATA[0][PLAYER_ID]
+		
 	#except Exception as E:
 		#log.ERROR("Main.py Value initialisation", E)
 
@@ -197,6 +202,7 @@ def MAIN():
 			(VAO_QUAD, VAO_UI),
 			QUAD_SHADER
 		)
+		
 
 		RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(
 			SCREEN,
@@ -204,7 +210,7 @@ def MAIN():
 			KEY_STATES,
 			(VAO_QUAD, VAO_UI),
 			QUAD_SHADER,
-			BACKGROUND=texture_load.LOAD_IMG("menu_background", OPENGL=True),
+			BACKGROUND=texture_load.LOAD_IMG("ui-menu_background", OPENGL=True),
 			BACKGROUND_SHADE=False,
 			UI_DATA=OPTIONS_DATA
 		)
@@ -217,8 +223,8 @@ def MAIN():
 		#Main game loop.
 		while RUN:
 			MOUSE_MOVE = [0, 0]
-			PLAYER = PHYS_DATA[0][PLAYER_ID]
 			FPS = utils.CLAMP(CLOCK.get_fps(), 1, FPS_CAP)
+			PLAYER_PREV_FRAME = copy.copy(PLAYER)
 			if SECONDS_SINCE_LAST_FIRE < 5:
 				#Only count for 5s of no item use to prevent infinite increase.
 				SECONDS_SINCE_LAST_FIRE += 1/FPS
@@ -449,7 +455,7 @@ def MAIN():
 						DISPLAY_CENTRE = DISPLAY_RESOLUTION / 2
 
 
-				if (WINDOW_FOCUS == 1):
+				if (WINDOW_FOCUS == 1) and (PLAYER.ALIVE):
 					#Mouse inputs for player view rotation only apply when window is focussed.
 					ZOOM_MULT = 0.3333333 if KEY_STATES[PG.K_c] else 1.0 #Zoom changes sensitivity
 					if EVENT.type == PG.MOUSEMOTION:
@@ -472,6 +478,8 @@ def MAIN():
 				PG.mouse.set_pos(list(DISPLAY_CENTRE))
 				PG.mouse.set_visible(False)	
 				FPS_CAP = PREFERENCES["FPS_LIMIT"]
+
+
 			
 			CLOCK.tick_busy_loop(FPS_CAP)
 
@@ -491,12 +499,35 @@ def MAIN():
 
 			#Give the VAO/VBO/EBO the data for any "dynamic" objects such as a sprite"s coordinates.
 			#Applied over the top of other, environmental/static objects like Tris.
-			(COPIED_VAO_VERTICES, COPIED_VAO_INDICES), PHYS_DATA = render.SCENE(PHYS_DATA, [ENV_VAO_VERTICES, ENV_VAO_INDICES], PLAYER, SHEETS_USED)
-			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(COPIED_VAO_VERTICES, COPIED_VAO_INDICES, VBO_SCENE, EBO_SCENE)
+			(COPIED_VAO_VERTICES, COPIED_VAO_INDICES), PHYS_DATA, scene.CURRENT_ID = render.SCENE(
+				PHYS_DATA,
+				[ENV_VAO_VERTICES, ENV_VAO_INDICES],
+				PLAYER,
+				SHEETS_USED,
+				scene.CURRENT_ID,
+				FPS,
+			)
+			VBO_SCENE, EBO_SCENE = render.UPDATE_BUFFERS(
+				COPIED_VAO_VERTICES,
+				COPIED_VAO_INDICES,
+				VBO_SCENE,
+				EBO_SCENE
+			)
 			CAMERA_VIEW_MATRIX, CAMERA_LOOK_AT = render.CALC_VIEW_MATRIX(CAMERA_POSITION, PLAYER.ROTATION.RADIANS())
 
 			
 			#Render the current UI with the player"s data (Health, etc.)
+
+			if PLAYER_PREV_FRAME is not None:
+				#print(PLAYER.HEALTH, PLAYER_PREV_FRAME.HEALTH)
+				if PLAYER.HEALTH > PLAYER_PREV_FRAME.HEALTH:
+					ui.COLOURED_VIGNETTE = ui.UPDATE_VIGNETTE(CONSTANTS["HEAL_COLOUR"], FPS, FADEOUT=1.0)
+				elif PLAYER.HEALTH < PLAYER_PREV_FRAME.HEALTH:
+					ui.COLOURED_VIGNETTE = ui.UPDATE_VIGNETTE(CONSTANTS["HURT_COLOUR"], FPS, FADEOUT=1.0)
+				elif PLAYER.ENERGY > PLAYER_PREV_FRAME.ENERGY:
+					ui.COLOURED_VIGNETTE = ui.UPDATE_VIGNETTE(CONSTANTS["RECHARGE_COLOUR"], FPS, FADEOUT=1.0)
+
+
 			UI_TEXTURE_ID = ui.HUD(PLAYER, FPS)
 			if PREFERENCES["DEBUG_UI"]:
 				#Save map if DEBUG_UI is enabled.
@@ -589,9 +620,8 @@ def MAIN():
 			
 			glUseProgram(QUAD_SHADER)
 
-			SCREEN_TEXTURE_LOC = glGetUniformLocation(QUAD_SHADER, "SCREEN_TCB")
-			glUniform1i(SCREEN_TEXTURE_LOC, 0)
-
+			TEXTURE_LOC = glGetUniformLocation(QUAD_SHADER, "TEXTURE")
+			glUniform1i(TEXTURE_LOC, 0)
 
 
 			#Draw the current frame to a quad in the camera's view to apply any effects to it.
@@ -618,6 +648,19 @@ def MAIN():
 			PG.display.flip()
 
 			pathfinding.NPC_NODE_GRAPH.CLEAR_NEW_NODES()
+
+
+			if not PLAYER.ALIVE:
+				ui.UPDATE_VIGNETTE(CONSTANTS["HURT_COLOUR"], FPS, FADEOUT=float("inf"))
+				ui.PROCESS_UI_STATE(
+					SCREEN,
+					ui.REVIVE_SCREEN, KEY_STATES,
+					(VAO_QUAD, VAO_UI),
+					QUAD_SHADER,
+					BACKGROUND=PREVIOUS_FRAME,
+					UI_DATA=PLAYER,
+				)
+
 
 
 		#Quitting/Deleting all that needs to be done, when RUN == False

@@ -47,7 +47,7 @@ float FIND_SHADOW(int LIGHT_ID, LIGHT LIGHT, vec3 LIGHT_DIRECTION, vec3 NORMAL, 
 	//Initialise values such as the mapping bias and whatnot.
 	float SHADOW = 0.0;
 	vec2 TEXEL_SIZE = vec2(0.000732421875); //1.5 DIV 2048
-	float ACTUAL_DEPTH = length(LIGHT.POSITION - fragPos);
+	float ACTUAL_DEPTH = distance(LIGHT.POSITION, fragPos);
 	if (ACTUAL_DEPTH > LIGHT.MAX_DIST) {
 		return 1.0;
 	}
