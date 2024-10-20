@@ -420,10 +420,10 @@ def GET_GAME_DATA(SHEETS_USED, PROCESS_SHEETS_USED=True):
 	PROJECTILES_DATA = PROJECTILES_FILE.readlines()
 	ITEMS_DATA = ITEMS_FILE.readlines()
 
-	HOSTILES_FORMATTING = ("float", "str", "list", "list",)			#Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
-	SUPPLIES_FORMATTING = ("str", "int",)										#What-to-give, Quantity.
-	PROJECTILES_FORMATTING = ("bool", "float",)									#Create-explosion, Strength.
-	ITEMS_FORMATTING = ("str", "int", "bool", "str", "float", "float", "str",)	#Name, Energy per use, Raycast (T/F), Projectile type (if not Raycast), Firing velocity (if not Raycast), Image name.
+	HOSTILES_FORMATTING =		("float", "str", "list", "list",						) #Max-Health, Speed, Weapon, Items-to-drop, Textures (Front, FL, BL, Back, BR, FR - Hexagonal)
+	SUPPLIES_FORMATTING =		("str", "int",											) #What-to-give, Quantity.
+	PROJECTILES_FORMATTING =	("bool", "float",										) #Create-explosion, Strength.
+	ITEMS_FORMATTING = 			("str", "int", "bool", "str", "float", "float", "str",	) #Name, Energy per use, Raycast (T/F), Projectile type (if not Raycast), Firing velocity (if not Raycast), Image name.
 
 	
 	for HOSTILES_LINE in HOSTILES_DATA:
@@ -487,6 +487,7 @@ def PROCESS_LINE(LINE, FORMATTING, SHEETS_USED, PROCESS_SHEETS_USED, SHEET_LIST)
 
 		for FORM, INFO in zip(FORMATTING, DATA[3:]):
 			#Match the found data's type to the formatting step provided.
+			INFO = INFO.strip()
 			match FORM:
 				case "vect":
 					FILE_VECTOR = [ENTRY.strip() for ENTRY in INFO.split(',')]
@@ -611,7 +612,7 @@ class RAY:
 		#Optionally direction vector or angle.
 		self.START_POINT = START_POINT
 		self.RAY_TYPE = RAY_TYPE
-		self.LIFETIME = 0 #Ray gets removed after a certain number of frames, if rendered.
+		self.LIFETIME = CONSTANTS["MAX_RAY_PERSIST_SECONDS"] #Ray gets removed after a certain number of frames, if rendered.
 		self.OWNER = OWNER
 
 
@@ -983,7 +984,7 @@ class TRI(WORLD_OBJECT):
 	#Static triangle object.
 	def __init__(self, ID, VERTICES, COLLISION, TEXTURE_COORDINATES):
 		CENTROID = FIND_CENTROID(VERTICES)
-		NORMAL = (VERTICES[0] - VERTICES[2].CROSS(VERTICES[1] - VERTICES[2]),)
+		NORMAL = ((VERTICES[0] - VERTICES[2]).CROSS(VERTICES[1] - VERTICES[2]),)
 		BOUNDING_BOX_OBJ = BOUNDING_BOX(CENTROID, VERTICES)
 		super().__init__(ID, CENTROID, COLLISION, TEXTURE_INFO=TEXTURE_COORDINATES, NORMALS=NORMAL, BOUNDING_BOX=BOUNDING_BOX_OBJ)
 		self.POINTS = VERTICES
@@ -1175,13 +1176,14 @@ class EXPLOSION(WORLD_OBJECT):
 
 		self.DIMENTIONS_2D = VECTOR_2D((DIMENTIONS.X + DIMENTIONS.Z) / 2, DIMENTIONS.Y)
 		self.DIMENTIONS_3D = DIMENTIONS
-		self.STRENGTH = STRENGTH
+		self.DAMAGE_STRENGTH = STRENGTH
 		self.PUSH_FORCE = CONSTANTS["EXPLOSION_PUSH_FORCE"]
 		self.POINTS = POINTS
-		self.LIFETIME = CONSTANTS["MAX_EXPLOSION_PERSIST_FRAMES"]
+		self.LIFETIME = CONSTANTS["MAX_EXPLOSION_PERSIST_SECONDS"]
+		self.EXPLODED = False
 
 	def __repr__(self):
-		return f"<EXPLOSION: [POSITION: {self.POSITION} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // DIMENTIONS_3D: {self.DIMENTIONS_3D} // STRENGTH: {self.STRENGTH} // PUSH_FORCE: {self.PUSH_FORCE} // BOUNDING_BOX: {self.BOUNDING_BOX} // VERTICES: {self.POINTS}]>"
+		return f"<EXPLOSION: [POSITION: {self.POSITION} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // DIMENTIONS_3D: {self.DIMENTIONS_3D} // STRENGTH: {self.DAMAGE_STRENGTH} // PUSH_FORCE: {self.PUSH_FORCE} // BOUNDING_BOX: {self.BOUNDING_BOX} // VERTICES: {self.POINTS}]>"
 
 
 
@@ -1327,7 +1329,7 @@ class ENEMY(PHYSICS_OBJECT):
 		self.ALIVE = True
 		self.AWAKE = False
 		self.ATTACK_STRENGTH = 1.0
-		self.LIFETIME = CONSTANTS["MAX_DECEASED_PERSIST_FRAMES"] #5 Seconds of "lifetime" after self.ALIVE is set to False.
+		self.LIFETIME = CONSTANTS["MAX_DECEASED_PERSIST_SECONDS"] #5 Seconds of "lifetime" after self.ALIVE is set to False.
 		self.COOLDOWN = 0.0 #5 Seconds of cooldown maximum is counted between attacks.
 
 
@@ -1389,7 +1391,7 @@ class PROJECTILE(PHYSICS_OBJECT):
 		self.CREATE_EXPLOSION = TYPE_DATA[3]
 		self.DAMAGE_STRENGTH = TYPE_DATA[4]
 		self.OWNER = OWNER
-		self.LIFETIME = CONSTANTS["MAX_PROJECTILE_LIFESPAN"]
+		self.LIFETIME = CONSTANTS["MAX_PROJECTILE_LIFESPAN_SECONDS"]
 
 	def __repr__(self):
 		return f"<PROJECTILE: [POSITION: {self.POSITION} // PROJECTILE_TYPE: {self.TYPE} // DIMENTIONS_2D: {self.DIMENTIONS_2D} // POINTS: {self.POINTS} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // DAMAGE_STRENGTH: {self.DAMAGE_STRENGTH} // CREATE_EXPLOSION: {self.CREATE_EXPLOSION}]>"
@@ -1423,7 +1425,7 @@ class PLAYER(PHYSICS_OBJECT):
 		return f"<PLAYER: [POSITION: {self.POSITION} // LATERAL_VELOCITY: {self.LATERAL_VELOCITY} // ITEMS: {list(self.ITEMS.keys())} // MASS: {self.MASS} // ENERGY: {self.ENERGY} // HEALTH: {self.HEALTH} // ALIVE: {self.ALIVE}]>"
 
 
-	def HURT(self, PHYS_DATA, DAMAGE, CURRENT_ID):
+	def HURT(self, DAMAGE, PHYS_DATA, CURRENT_ID):
 		#Harms the player, and sets their state to ALIVE=False if HEALTH<=0.
 		self.HEALTH = round(CLAMP(self.HEALTH - DAMAGE, 0, self.MAX_HEALTH))
 		if self.HEALTH == 0:

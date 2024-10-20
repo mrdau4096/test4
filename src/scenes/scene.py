@@ -69,12 +69,12 @@ FORMATTING = {
 
 
 def LOAD_FILE(FILE_NAME):
-		SHEETS_USED = ["base",]
-		"""
-		Loads a file with given name FILE_NAME, returning all data and loading all required textures using load_texture.py
-		This info will get given to render.py via main.py, as it contains info for all of the scene's planes and other shapes.
-		"""
-	#try:
+	SHEETS_USED = ["base",]
+	"""
+	Loads a file with given name FILE_NAME, returning all data and loading all required textures using load_texture.py
+	This info will get given to render.py via main.py, as it contains info for all of the scene's planes and other shapes.
+	"""
+	try:
 		CURRENT_ID = 0
 		PLAYER_ID = None
 
@@ -393,5 +393,5 @@ def LOAD_FILE(FILE_NAME):
 		FLAG_DATA = (FLAG_STATES, LOGIC_GATES)
 		return RENDER_DATA, PHYS_DATA, FLAG_DATA, PLAYER_ID, SHEETS_USED, CURRENT_ID
 
-	#except Exception as E:
-		#log.ERROR("scene.LOAD_FILE", E)
+	except Exception as E:
+		log.ERROR("scene.LOAD_FILE", E)

@@ -289,11 +289,11 @@ def HUD(PLAYER, FPS):
 
 
 def PROCESS_UI_STATE(SCREEN, UI_TYPE, KEY_STATES, VAOs, QUAD_SHADER, BACKGROUND=None, BACKGROUND_SHADE=True, UI_DATA=None):
-		"""
-		Handles the current UI screen (UI_TYPE) and acts as its own loop to control the context.
-		Swapping the PG screen resolution
-		"""
-	#try:
+	"""
+	Handles the current UI screen (UI_TYPE) and acts as its own loop to control the context.
+	Swapping the PG screen resolution
+	"""
+	try:
 		if UI_TYPE == OPTIONS_MENU:
 			UI_DATA = CREATE_CONFIG_MENU()
 
@@ -328,10 +328,10 @@ def PROCESS_UI_STATE(SCREEN, UI_TYPE, KEY_STATES, VAOs, QUAD_SHADER, BACKGROUND=
 							KEY_STATES[EVENT.key] = True
 						match EVENT.key:
 							case PG.K_BACKSPACE:
-								PG.mouse.set_visible(True)
-								PG.joystick.quit()
-								PG.quit()
-								sys.exit()
+								if PREFERENCES["DEV_TEST"]:
+									PG.mouse.set_visible(True)
+									PG.quit()
+									sys.exit()
 							case PG.K_ESCAPE:
 								return True, SCREEN, 1
 
@@ -406,8 +406,8 @@ def PROCESS_UI_STATE(SCREEN, UI_TYPE, KEY_STATES, VAOs, QUAD_SHADER, BACKGROUND=
 
 		return RUN, SCREEN, 1
 
-	#except Exception as E:
-		#log.ERROR("ui.py // PROCESS_UI_STATE", E)
+	except Exception as E:
+		log.ERROR("ui.py // PROCESS_UI_STATE", E)
 
 
 

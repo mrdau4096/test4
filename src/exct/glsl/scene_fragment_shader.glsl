@@ -17,7 +17,7 @@ uniform float VIEW_MAX_DIST;
 uniform bool HEADLAMP_ENABLED;
 uniform bool NORMAL_DEBUG;
 uniform bool WIREFRAME_DEBUG;
-uniform int MAX_RAY_PERSIST_FRAMES;
+uniform float MAX_RAY_PERSIST_SECONDS;
 
 
 //Mirrors the python equivalent class, bar a few unneccessary attributes.
@@ -91,7 +91,7 @@ void main() {
 	if (fragNormal == vec3(0.0)) {
 		//For raycasts, helps identify them better.
 		//Uses the sheet ID for a fade-out effect instead, as they are a solid colour.
-		fragColour = vec4(1.0, 1.0, 0.0, 1.0 - (fragSheetID / MAX_RAY_PERSIST_FRAMES));
+		fragColour = vec4(1.0, 1.0, 0.0, (fragSheetID / MAX_RAY_PERSIST_SECONDS));
 		return;
 	} else if (TEXTURE_COLOUR.a < 0.05) {
 		discard;

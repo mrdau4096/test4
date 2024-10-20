@@ -315,3 +315,6 @@
 11:38:06, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)
 11:38:14, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)
 11:38:20, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)
+17:01:52, 20-10-2024 / ERROR in main.py / unindent does not match any outer indentation level (texture_load.py, line 62)
+17:02:05, 20-10-2024 / ERROR in render.py / unindent does not match any outer indentation level (ui.py, line 296)
+17:02:20, 20-10-2024 / ERROR in render.py / unindent does not match any outer indentation level (scene.py, line 77)

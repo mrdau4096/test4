@@ -69,7 +69,7 @@ except ImportError:
 
 
 def MAIN():
-	#try:
+	try:
 		"""
 		[if main:]
 		Preparing the game:
@@ -191,10 +191,10 @@ def MAIN():
 		ui.COLOURED_VIGNETTE = ui.UPDATE_VIGNETTE(RGBA(0, 0, 0, 0), FPS_CAP, FADEOUT=float("inf"))
 		PLAYER = PHYS_DATA[0][PLAYER_ID]
 		
-	#except Exception as E:
-		#log.ERROR("Main.py Value initialisation", E)
+	except Exception as E:
+		log.ERROR("Main.py Value initialisation", E)
 
-	#try:
+	try:
 		OPTIONS_DATA = (
 			SCREEN,
 			ui.OPTIONS_MENU,
@@ -258,8 +258,8 @@ def MAIN():
 
 									if SECONDS_SINCE_LAST_FIRE >= ITEM[8] and PLAYER.ENERGY >= ITEM[4]:
 										SECONDS_SINCE_LAST_FIRE = 0
-										if ITEM[5]: #If raycast...
 
+										if ITEM[5]: #If raycast...
 											if ITEM[7] > 0: #For raycasts, this means multiple rays with spread or if 0.0, 1 ray.
 												SPREAD_MAX = CONSTANTS["MAX_RAY_SPREAD"]
 												for _ in range(int(round(ITEM[7]))-1):
@@ -366,9 +366,11 @@ def MAIN():
 						
 						match EVENT.key:
 							case PG.K_BACKSPACE:
-								PG.mouse.set_visible(True)
-								PG.quit()
-								sys.exit()
+								if PREFERENCES["DEV_TEST"]:
+									#Only allow if DEV_TEST to stop accidental usage.
+									PG.mouse.set_visible(True)
+									PG.quit()
+									sys.exit()
 
 
 							case PG.K_ESCAPE:
@@ -563,7 +565,7 @@ def MAIN():
 			HEADLAMP_ENABLED_LOC = glGetUniformLocation(SCENE_SHADER, "HEADLAMP_ENABLED")
 			NORMAL_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "NORMAL_DEBUG")
 			WIREFRAME_DEBUG_LOC = glGetUniformLocation(SCENE_SHADER, "WIREFRAME_DEBUG")
-			RAY_PERSIST_FRAMES_LOC = glGetUniformLocation(SCENE_SHADER, "MAX_RAY_PERSIST_FRAMES")
+			RAY_PERSIST_FRAMES_LOC = glGetUniformLocation(SCENE_SHADER, "MAX_RAY_PERSIST_SECONDS")
 			SHEETS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHEETS")
 			SHADOWS_ARRAY_LOC = glGetUniformLocation(SCENE_SHADER, "SHADOW_MAPS")
 
@@ -578,7 +580,7 @@ def MAIN():
 			glUniform1i(HEADLAMP_ENABLED_LOC, HEADLAMP_ENABLED)
 			glUniform1i(NORMAL_DEBUG_LOC, PREFERENCES["DEBUG_NORMALS"])
 			glUniform1i(WIREFRAME_DEBUG_LOC, PREFERENCES["DEBUG_WIREFRAME"])
-			glUniform1i(RAY_PERSIST_FRAMES_LOC, CONSTANTS["MAX_RAY_PERSIST_FRAMES"])
+			glUniform1f(RAY_PERSIST_FRAMES_LOC, CONSTANTS["MAX_RAY_PERSIST_SECONDS"])
 			glUniform1i(SHEETS_ARRAY_LOC, 0)
 			glUniform1i(SHADOWS_ARRAY_LOC, 1)
 
@@ -657,7 +659,7 @@ def MAIN():
 
 			if not PLAYER.ALIVE:
 				ui.UPDATE_VIGNETTE(CONSTANTS["HURT_COLOUR"], FPS, FADEOUT=float("inf"))
-				ui.PROCESS_UI_STATE(
+				RUN, SCREEN, WINDOW_FOCUS = ui.PROCESS_UI_STATE(
 					SCREEN,
 					ui.REVIVE_SCREEN, KEY_STATES,
 					(VAO_QUAD, VAO_UI),
@@ -682,8 +684,8 @@ def MAIN():
 		PG.quit()
 		sys.exit()
 
-	#except Exception as E:
-		#log.ERROR("Mainloop", E)
+	except Exception as E:
+		log.ERROR("Mainloop", E)
 
 
 

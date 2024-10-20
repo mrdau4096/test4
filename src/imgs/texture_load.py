@@ -55,11 +55,11 @@ FALLBACK_TEXTURE = "fallback"
 
 
 def UV_CACHE_MANAGER(HEX_ID):
-		"""
-		Loads a set of UV coordinates based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
-		If already in the UV-cache, give that data to prevent re-loading of information
-		"""
-	#try:
+	"""
+	Loads a set of UV coordinates based off of a 2-hex-digit positional ID (FF is bottom right, X=16, Y=16)
+	If already in the UV-cache, give that data to prevent re-loading of information
+	"""
+	try:
 		if HEX_ID in UV_CACHE:
 			TEXTURE_COORDINATES = UV_CACHE[HEX_ID]
 
@@ -89,8 +89,8 @@ def UV_CACHE_MANAGER(HEX_ID):
 
 		return TEXTURE_COORDINATES
 
-	#except Exception as E:
-		#log.ERROR("texture_load.UV_CACHE_MANAGER", E)
+	except Exception as E:
+		log.ERROR("texture_load.UV_CACHE_MANAGER", E)
 
 
 
