@@ -323,18 +323,19 @@ def MAIN():
 											#Would use "PROJECTILE" as the variable name, but the class already uses that.
 											PROJ = PROJECTILE(
 												scene.CURRENT_ID,
-												CAMERA_POSITION + (DIRECTION_VECTOR * 0.25),	#0.25u offset infront of the camera.
-												DIRECTION_VECTOR * ITEM[7],						#Firing velocity is stored within the item's data.
-												ITEM[6],										#Projectile Type.
-												PROJ_TEXTURE,									#Texture used by the projectile.
-												PROJ_TEXTURE_SHEETS_USED,						#The sheet the texture was on.
-												PLAYER.ID,										#"Owner" is player.
+												CAMERA_POSITION + (DIRECTION_VECTOR * 0.25),#0.25u offset infront of the camera.
+												DIRECTION_VECTOR * ITEM[7],					#Firing velocity is stored within the item's data.
+												ITEM[6],									#Projectile Type.
+												PROJ_TEXTURE,								#Texture used by the projectile.
+												PROJ_TEXTURE_SHEETS_USED,					#The sheet the texture was on.
+												PLAYER.ID,									#"Owner" is player.
 											)
 
 											#Add to PHYS_DATA\KINETICs
 											PHYS_DATA[0][scene.CURRENT_ID] = PROJ
 
-										PLAYER.ENERGY -= ITEM[4]
+										#Remove ENERGY from PLAYER, if INF_ENERGY is not True.
+										PLAYER.ENERGY -= 0 if PREFERENCES["INF_ENERGY"] else ITEM[4]
 
 
 
@@ -443,6 +444,10 @@ def MAIN():
 									CONSTANTS["MIN_VIEW_DIST"],
 									CONSTANTS["MAX_VIEW_DIST"]
 								)
+
+
+							case PG.K_F2:
+								PREFERENCES["HIDE_HUD"] = not PREFERENCES["HIDE_HUD"]
 
 					
 					case PG.VIDEORESIZE:

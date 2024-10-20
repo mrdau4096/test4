@@ -56,13 +56,14 @@ OPTION_DISPLAY_NAMES = {
 	"FPS_LIMIT": "Max FPS.",
 	"FPS_DEFOCUS": "Lower BG. FPS",
 	"PLAYER_SPEED_TURN_MOUSE": "Mouse Speed",
-	"HARDER_HOSTILES": "Harder Enemies",
-	"INF_AMMO": "Infinite Energy",
+	"STRONGER_HOSTILES": "Harder Enemies",
+	"INF_ENERGY": "Infinite Energy",
 }
 SKIPPED_PREFIXES = (
 	"SCENE",
 	"DEBUG",
 	"DEV",
+	"HIDE",
 )
 
 def UPDATE_CONFIG(CONFIG_NAME, EFFECT, BUTTON):
@@ -220,9 +221,13 @@ def UPDATE_VIGNETTE(NEW_VIGNETTE_COLOUR, FPS, FADEOUT=None):
 def HUD(PLAYER, FPS):
 	#Draws the heads-up display (HUD) user-interface (UI) onto a PyGame surface, which is then returned as an OpenGL texture.
 	#Uses data about the player, such as Health and Energy.
-	#try:
+	try:
 		#Fill the UI surface with transparent pixels first.
 		UI_SURFACE.fill([0, 0, 0, 0])
+
+		if PREFERENCES["HIDE_HUD"] or PREFERENCES["DEV_HIDE_UI"]:
+			#If HUD is hidden, return the blank UI_SURFACE texture.
+			return render.SURFACE_TO_TEXTURE(UI_SURFACE, CONSTANTS["UI_RESOLUTION"].TO_INT())
 
 		#Draw the Vignette, if necessary.
 		if VIGNETTE_COLOUR != RGBA(0, 0, 0, 0):
@@ -279,8 +284,8 @@ def HUD(PLAYER, FPS):
 
 		return UI_SURFACE_ID
 
-	#except Exception as E:
-		#log.ERROR("ui.HUD", E)
+	except Exception as E:
+		log.ERROR("ui.HUD", E)
 
 
 def PROCESS_UI_STATE(SCREEN, UI_TYPE, KEY_STATES, VAOs, QUAD_SHADER, BACKGROUND=None, BACKGROUND_SHADE=True, UI_DATA=None):
@@ -486,7 +491,12 @@ def REVIVE_SCREEN(DEFAULT_DATA, REVIVE_DATA):
 	]
 
 	RESULTS_DICT = DISPLAY_BUTTONS(UI_SURFACE, BUTTONS, MOUSE_POSITION, KEY_STATES, MOUSEBUTTONUP)
-	if RESULTS_DICT["REVIVE"] or RESULTS_DICT["QUIT"]:
+
+	if RESULTS_DICT["REVIVE"]:
+		UPDATE_VIGNETTE(RGBA(0, 0, 0, 0), PREFERENCES["FPS_LIMIT"], FADEOUT=0.0)
+		return UI_SURFACE, RESULTS_DICT, False
+
+	elif RESULTS_DICT["QUIT"]:
 		return UI_SURFACE, RESULTS_DICT, False
 	return UI_SURFACE, RESULTS_DICT, True
 

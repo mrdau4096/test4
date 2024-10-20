@@ -30,6 +30,7 @@ try:
 	#Import other sub-files.
 	from exct import log, utils, pathfinding
 	from scenes import scene
+	from imgs import texture_load
 	from exct.utils import *
 
 except ImportError:
@@ -113,7 +114,9 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 	#Updates the physics with as many iterations as CONSTANTS["PHYSICS_ITERATIONS"] defines.
 	#try:
 		KINETICs_LIST, STATICs_LIST = PHYS_DATA
-		REMOVED_OBJECTS = []
+		#Can't edit the dictionary contents while looping through it.
+		#Delay until after.
+		REMOVED_OBJECTS, HURT_OBJECTS, NEW_EXPLOSIONS = [], {}, []
 
 		for _ in range(CONSTANTS["PHYSICS_ITERATIONS"]):
 			for PHYS_OBJECT_ID, PHYS_OBJECT in KINETICs_LIST.items():
@@ -124,10 +127,17 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 					continue
 
 				if OBJECT_TYPE == PROJECTILE:
-					PHYS_OBJECT.LIFETIME += 1
-					if PHYS_OBJECT.LIFETIME >= CONSTANTS["MAX_PROJECTILE_LIFESPAN"]:
+					PHYS_OBJECT.LIFETIME -= 1
+					if PHYS_OBJECT.LIFETIME <= 0.0:
 						REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 						continue
+
+				elif OBJECT_TYPE == EXPLOSION:
+					PHYS_OBJECT.LIFETIME -= 1
+					if PHYS_OBJECT.LIFETIME <= 0.0:
+						REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
+						continue
+
 
 				elif OBJECT_TYPE == ENEMY:
 					#Check the physics object is alive, and is aware of the player.
@@ -169,27 +179,58 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 
 							if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, BODY.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
 								COLLISION_DATA = COLLISION_CHECK(PHYS_OBJECT, BODY)
-
 								if COLLISION_DATA[2]:
 									TOUCHING = True
 
-
 								if COLLISION_DATA[0]:
-									if OBJECT_TYPE == PROJECTILE:
-										if BODY.ID != PHYS_OBJECT.OWNER and not PHYS_OBJECT.CREATE_EXPLOSION:
+									if OBJECT_TYPE == EXPLOSION:
+										DIRECTION = BODY.POSITION - PHYS_OBJECT.POSITION
+										DIRECTION.Y = 0.25
+										HURT_OBJECTS[PHYS_OBJECT_ID] = BODY_ID
+										BODY.POSITION.Y += 0.05
+										DISTANCE_REDUCTION = 1.0 - (abs(DIRECTION) / (PHYS_OBJECT.DIMENTIONS_2D.X*2.5))
+										BODY.LATERAL_VELOCITY += DIRECTION.NORMALISE() * PHYS_OBJECT.PUSH_FORCE * DISTANCE_REDUCTION
+
+									elif BODY_TYPE == EXPLOSION:
+										DIRECTION = PHYS_OBJECT.POSITION - BODY.POSITION
+										DIRECTION.Y = 0.25
+										HURT_OBJECTS[BODY_ID] = PHYS_OBJECT
+										PHYS_OBJECT.POSITION.Y += 0.05
+										DISTANCE_REDUCTION = 1.0 - (abs(DIRECTION) / (PHYS_OBJECT.DIMENTIONS_2D.X*2.5))
+										PHYS_OBJECT.LATERAL_VELOCITY += DIRECTION.NORMALISE() * BODY.PUSH_FORCE * DISTANCE_REDUCTION
+
+
+									elif OBJECT_TYPE == PROJECTILE:
+										if BODY.ID != PHYS_OBJECT.OWNER:
+											if PHYS_OBJECT.CREATE_EXPLOSION:
+												EXPLOSION_INSTANCE = EXPLOSION(
+													PHYS_OBJECT.POSITION,
+													CONSTANTS["EXPLOSION_COLLISION_CUBOID"],
+													PHYS_OBJECT.DAMAGE_STRENGTH,
+													texture_load.UV_CACHE_MANAGER(CONSTANTS["EXPLOSION_GRAPHIC_UV"]),
+												)
+												NEW_EXPLOSIONS.append(EXPLOSION_INSTANCE)
+											else:
+												HURT_OBJECTS[PHYS_OBJECT_ID] = BODY_ID
+
 											REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
-											if BODY_TYPE in (PLAYER, ENEMY,):
-												PHYS_DATA = BODY.HURT(PHYS_OBJECT.DAMAGE_STRENGH, PHYS_DATA, scene.CURRENT_ID)
 											continue
-									
 
 									elif BODY_TYPE == PROJECTILE:
-										if PHYS_OBJECT.ID != BODY.OWNER and not BODY.CREATE_EXPLOSION:
-											REMOVED_OBJECTS.append(BODY.ID)
-											if BODY_TYPE in (PLAYER, ENEMY,):
-												PHYS_DATA = PHYS_OBJECT.HURT(BODY.DAMAGE_STRENGH, PHYS_DATA, scene.CURRENT_ID)
+										if PHYS_OBJECT.ID != BODY.OWNER:
+											if BODY.CREATE_EXPLOSION:
+												EXPLOSION_INSTANCE = EXPLOSION(
+													BODY.POSITION,
+													CONSTANTS["EXPLOSION_COLLISION_CUBOID"],
+													BODY.DAMAGE_STRENGTH,
+													texture_load.UV_CACHE_MANAGER(CONSTANTS["EXPLOSION_GRAPHIC_UV"]),
+												)
+												NEW_EXPLOSIONS.append(EXPLOSION_INSTANCE)
+											else:
+												HURT_OBJECTS[BODY_ID] = PHYS_OBJECT_ID
+											
+											REMOVED_OBJECTS.append(BODY_ID)
 											continue
-
 
 									elif (OBJECT_TYPE == ITEM or BODY_TYPE == ITEM):
 										if OBJECT_TYPE == PLAYER:
@@ -206,13 +247,11 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 											if PHYS_OBJECT.EMPTY:
 												REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 
-
 										elif ((OBJECT_TYPE == BODY_TYPE)
 											or (OBJECT_TYPE == ENEMY and BODY_TYPE == ITEM)
 											or (OBJECT_TYPE == ITEM and BODY_TYPE == ENEMY)):
 											#Allow ITEMs to pass through each other, and ENEMY types.
 											continue
-
 
 										else:
 											continue #Pass with no collision
@@ -242,6 +281,15 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 
 
 
+					if OBJECT_TYPE == EXPLOSION:
+						#Just continue if it's an explosion. No need to simulate physics, or do statics checks.
+						#Simply make it harmless (so it still renders) and continue to next object.
+						PHYS_OBJECT.PUSH_FORCE = 0.0
+						PHYS_OBJECT.DAMAGE_STRENGTH = 0.0
+						continue
+
+
+
 					#Collisions between phys-body and environmental objects
 					for STATIC_ID, STATIC in STATICs_LIST[0].items(): #Check the statics (environmental objects) with collision only.
 						if BOUNDING_BOX_COLLISION(PHYS_OBJECT.BOUNDING_BOX, STATIC.BOUNDING_BOX): #Axis-aligned bounding-box collision check for computational efficiency
@@ -264,6 +312,15 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 									DISPLACEMENT_VECTOR += COLLISION_DATA[1] * 0.975
 
 									if OBJECT_TYPE == PROJECTILE:
+										if BODY.CREATE_EXPLOSION:
+											EXPLOSION_INSTANCE = EXPLOSION(
+												BODY.POSITION,
+												BODY.DIMENTIONS,
+												BODY.DAMAGE_STRENGTH,
+												texture_load.UV_CACHE_MANAGER("05"),
+											)
+											NEW_EXPLOSIONS.append(EXPLOSION_INSTANCE)
+
 										REMOVED_OBJECTS.append(PHYS_OBJECT_ID)
 					
 
@@ -327,9 +384,19 @@ def UPDATE_PHYSICS(PHYS_DATA, FPS, KEY_STATES, FLAG_STATES):
 				KINETICs_LIST[PHYS_OBJECT_ID] = PHYS_OBJECT
 
 
+
+		for PROJECTILE_ID, OBJECT_ID in HURT_OBJECTS.items():
+			if OBJECT_ID in KINETICs_LIST:
+				OBJECT, PROJ = KINETICs_LIST[OBJECT_ID], KINETICs_LIST[PROJECTILE_ID]
+				if type(OBJECT) in (PLAYER, ENEMY,):
+					PHYS_DATA = OBJECT.HURT(PROJ.DAMAGE_STRENGTH, PHYS_DATA, scene.CURRENT_ID)
+
 		for OBJECT_ID in REMOVED_OBJECTS:
-			if OBJECT_ID  in KINETICs_LIST:
+			if OBJECT_ID in KINETICs_LIST:
 				del KINETICs_LIST[OBJECT_ID]
+				
+		for EXPLOSION_INSTANCE in NEW_EXPLOSIONS:
+			KINETICs_LIST[EXPLOSION_INSTANCE.ID] = EXPLOSION_INSTANCE
 
 		PHYS_DATA = (KINETICs_LIST, STATICs_LIST)
 		return PHYS_DATA, FLAG_STATES
@@ -409,9 +476,10 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 	STATIC_TYPE = type(STATIC)
 	
 	if STATIC_TYPE in (CUBE_STATIC, CUBE_PHYSICS, CUBE_PATH, TRIGGER, PROJECTILE, ITEM,): #Cube-like objects
-		APPLIED_VECTOR = AABB_COLLISION_RESPONSE(PHYS_BODY, STATIC)	
+		APPLIED_VECTOR = AABB_COLLISION_RESPONSE(PHYS_BODY, STATIC)
 
-		if APPLIED_VECTOR is not None: return (True, APPLIED_VECTOR, False)
+		if APPLIED_VECTOR is not None:
+			return (True, APPLIED_VECTOR, False)
 	
 
 	elif STATIC_TYPE in (QUAD, INTERACTABLE,): #Quad-like Objects
@@ -450,12 +518,12 @@ def COLLISION_CHECK(PHYS_BODY, STATIC):
 def AABB_COLLISION_RESPONSE(AABB_1, AABB_2):
 	#Compares 2 axis-aligned bounding boxes to determine collisions and their response.
 	if BOUNDING_BOX_COLLISION(AABB_1.BOUNDING_BOX, AABB_2.BOUNDING_BOX, OFFSET=-1.0):
-		if type(AABB_1) in (ITEM,): #Objects with DIMENTIONS_3D/2D rather than DIMENTIONS attribute
+		if type(AABB_1) in (ITEM, EXPLOSION,): #Objects with DIMENTIONS_3D/2D rather than DIMENTIONS attribute
 			AABB_1_DIMENTIONS = AABB_1.DIMENTIONS_3D
 		else:
 			AABB_1_DIMENTIONS = AABB_1.DIMENTIONS
 
-		if type(AABB_2) in (ITEM,):
+		if type(AABB_2) in (ITEM, EXPLOSION,):
 			AABB_2_DIMENTIONS = AABB_2.DIMENTIONS_3D
 		else:
 			AABB_2_DIMENTIONS = AABB_2.DIMENTIONS

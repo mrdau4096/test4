@@ -313,8 +313,9 @@ def LOAD_FILE(FILE_NAME):
 							CENTRE = OBJECT_DATA[0]
 							CONSTANTS["PLAYER_INITIAL_POS"] = CENTRE
 							ITEMS = GET_GAME_DATA(SHEETS_USED)[3]
-							ITEMS[None] = (VECTOR_3D(0, 0, 0), '0', [('base', '00')], '0', 100, False, None, 0.0, 0.0, None)
-							FINALISED_OBJECT = PLAYER(CURRENT_ID, CENTRE, OBJECT_DATA[1], ITEMS)
+							ITEMS_ALLOWED = {NAME: DATA for NAME, DATA in ITEMS.items() if NAME in OBJECT_DATA[2]}
+							ITEMS_ALLOWED[None] = (VECTOR_3D(0, 0, 0), '0', [('base', '00')], '0', 100, False, None, 0.0, 0.0, None)
+							FINALISED_OBJECT = PLAYER(CURRENT_ID, CENTRE, OBJECT_DATA[1], ITEMS_ALLOWED)
 
 
 						elif CLASS_TYPE == ITEM:

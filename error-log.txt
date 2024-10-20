@@ -306,3 +306,12 @@
 20:07:54, 18-10-2024 / ERROR in main.py / '<' not supported between instances of 'int' and 'str'
 21:22:29, 18-10-2024 / ERROR in render.py / invalid syntax. Perhaps you forgot a comma? (ui.py, line 208)
 21:41:31, 18-10-2024 / ERROR in ui.HUD / argument 1 must be pygame.surface.Surface, not None
+21:38:51, 19-10-2024 / ERROR in ui.HUD / 'DEV_HIDE_HUD'
+09:31:55, 20-10-2024 / ERROR in render.py / No module named 'PIL'
+09:52:36, 20-10-2024 / ERROR in render.py / expected 'else' after 'if' expression (scene.py, line 317)
+09:53:45, 20-10-2024 / ERROR in ui.HUD / 'NoneType' object is not subscriptable
+09:55:32, 20-10-2024 / ERROR in render.py / invalid syntax (scene.py, line 316)
+09:55:43, 20-10-2024 / ERROR in render.py / invalid syntax (scene.py, line 316)
+11:38:06, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)
+11:38:14, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)
+11:38:20, 20-10-2024 / ERROR in render.py / inconsistent use of tabs and spaces in indentation (physics.py, line 185)

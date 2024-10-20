@@ -1,28 +1,28 @@
 //All preferences, configs and other options are in this file. (// marks a comment, and will not be read. Blank lines will also be skipped.)
 //The variable name is at the beginning, and must be followed by " = " before the data or it will not be accepted.
 
-//User Preference
+//User Preference;
 FOV = 70
 FPS_LIMIT = 60
 FPS_DEFOCUS = True
 PLAYER_SPEED_TURN_MOUSE = 0.1
 HARDER_HOSTILES = False
-INF_AMMO = False
-
+INF_ENERGY = False
+HIDE_HUD = False
+//Toggled with F2 ^
 SCENE = t0
 //^^ The ending part of the scene file name to load (m0 = scene-m0.dat)
 
 
-
-//Debug
+//Debug;
 DEBUG_MAPS = False
 DEBUG_UI = False
 DEBUG_NORMALS = False
 DEBUG_PROFILER = False
 DEBUG_RAYS = False
 DEBUG_WIREFRAME = False
-DEV_TEST = True
 
 
-
-//Other
+//Dev;
+DEV_TEST = False
+DEV_HIDE_UI = False
